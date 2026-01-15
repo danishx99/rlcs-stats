@@ -1,0 +1,1837 @@
+{
+  "reports": [
+    {
+      "fileName": "21-22 Fall Split  - 21-22 Fall Regional 1.csv",
+      "totalRows": 865,
+      "inserted": 865,
+      "skipped": 0,
+      "errored": 247,
+      "errors": [
+        {
+          "rowNumber": 40,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 41,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 42,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 43,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 44,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 45,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 46,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 47,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 48,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 49,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 50,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 51,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 52,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 53,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 54,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 55,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 56,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 57,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 58,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 59,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 60,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 61,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 62,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 63,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 64,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 65,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 66,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 67,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 68,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 69,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 70,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 71,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 72,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 73,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 74,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 75,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 76,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 77,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 78,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 79,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 80,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 81,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 82,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 83,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 84,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 85,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 86,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 87,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 88,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 89,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 90,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 91,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 92,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 93,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 94,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 95,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 96,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 148,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 149,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 150,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 151,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 152,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 153,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 154,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 155,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 156,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 157,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 158,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 159,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 160,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 161,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 162,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 163,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 164,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 165,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 166,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 167,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 168,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 304,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 305,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 306,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 307,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 308,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 309,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 310,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 311,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 312,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 313,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 314,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 315,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 316,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 317,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 318,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 319,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 320,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 321,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 322,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 323,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 324,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 373,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        }
+      ]
+    },
+    {
+      "fileName": "21-22 Fall Split  - 21-22 Fall Regional 2.csv",
+      "totalRows": 984,
+      "inserted": 984,
+      "skipped": 0,
+      "errored": 192,
+      "errors": [
+        {
+          "rowNumber": 58,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 59,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 60,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 61,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 62,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 63,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 64,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 65,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 66,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 67,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 68,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 69,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 124,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 125,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 126,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 127,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 128,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 129,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 130,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 131,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 132,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 133,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 134,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 135,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 136,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 137,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 138,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 139,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 140,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 141,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 142,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 143,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 144,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 145,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 146,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 147,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 148,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 149,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 150,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 151,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 152,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 153,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 154,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 155,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 156,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 157,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 158,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 159,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 160,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 161,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 162,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 208,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 209,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 210,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 211,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 212,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 213,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 214,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 215,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 216,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 217,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 218,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 219,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 220,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 221,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 222,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 223,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 224,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 225,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 226,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 227,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 228,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 229,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 230,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 231,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 232,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 233,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 234,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 235,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 236,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 237,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 238,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 239,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 240,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 292,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 293,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 294,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 295,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 296,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 297,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 298,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 299,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 300,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 301,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 302,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 303,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 337,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 338,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 339,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 340,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        }
+      ]
+    },
+    {
+      "fileName": "21-22 Fall Split  - 21-22 Fall Regional 3.csv",
+      "totalRows": 822,
+      "inserted": 822,
+      "skipped": 0,
+      "errored": 126,
+      "errors": [
+        {
+          "rowNumber": 697,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 698,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 699,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 700,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 701,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 702,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 703,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 704,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 705,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 706,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 707,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 708,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 709,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 710,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 711,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 712,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 713,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 714,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 715,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 716,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 717,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 718,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 719,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 720,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 721,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 722,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 723,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 724,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 725,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 726,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 727,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 728,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 729,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 730,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 731,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 732,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 733,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 734,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 735,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 736,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 737,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 738,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 739,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 740,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 741,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 742,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 743,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 744,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 745,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 746,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 747,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 748,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 749,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 750,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 751,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 752,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 753,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 754,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 755,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 756,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 757,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 758,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 759,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 760,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 761,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 762,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 763,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 764,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 765,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 766,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 767,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 768,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 769,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 770,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 771,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 772,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 773,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 774,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 775,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 776,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 777,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 778,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 779,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 780,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 781,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 782,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 783,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 784,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 785,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 786,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 787,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 788,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 789,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 790,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 791,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 792,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 793,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 794,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 795,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 796,
+          "column": "Round",
+          "value": "NA",
+          "reason": "invalid integer"
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "totalRows": 2671,
+    "inserted": 2671,
+    "skipped": 0,
+    "errored": 565
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "rlcs-stats-loader",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "load": "bun run src/run.ts"
+  },
+  "dependencies": {
+    "csv-parse": "^5.6.0",
+    "pg": "^8.11.5"
+  }
+}
