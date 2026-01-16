@@ -24,6 +24,7 @@ type CliOptions = {
   dryRun: boolean;
   strict: boolean;
   truncate: boolean;
+  allowNewColumns: boolean;
 };
 
 function parseArgs(argv: string[]): CliOptions {
@@ -32,7 +33,8 @@ function parseArgs(argv: string[]): CliOptions {
     pattern: DEFAULT_PATTERN,
     dryRun: false,
     strict: false,
-    truncate: false
+    truncate: false,
+    allowNewColumns: false
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -55,6 +57,8 @@ function parseArgs(argv: string[]): CliOptions {
       options.strict = true;
     } else if (arg === "--truncate") {
       options.truncate = true;
+    } else if (arg === "--allow-new-columns") {
+      options.allowNewColumns = true;
     }
   }
 
@@ -208,7 +212,8 @@ async function main(): Promise<void> {
       const report = await loadCsvFile(client, filePath, specs, {
         strict: options.strict,
         dryRun: options.dryRun,
-        limit: options.limit
+        limit: options.limit,
+        allowNewColumns: options.allowNewColumns
       });
       report.fileHash = fileHash;
       reports.push(report);

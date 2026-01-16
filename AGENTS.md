@@ -19,8 +19,8 @@
 - Keep SQL in template strings and avoid inline string concatenation where possible.
 
 ## Schema Evolution
-- New CSV columns are accepted and added to `stats` so loads can continue.
-- **Follow-up required:** update `src/stats-schema.ts` with the correct column types, and apply any SQL migration needed to convert existing placeholder `TEXT` columns.
+- By default, the loader fails if a CSV contains columns not defined in `src/stats-schema.ts`.
+- Use `--allow-new-columns` to temporarily add new columns as `TEXT`, then update `src/stats-schema.ts` and apply a proper SQL migration.
 
 ## Testing Guidelines
 - No test framework is configured yet. If you add tests, document the runner and add a `bun run test` script.

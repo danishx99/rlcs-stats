@@ -13,6 +13,7 @@ export type LoadOptions = {
   dryRun?: boolean;
   limit?: number;
   progressEvery?: number;
+  allowNewColumns?: boolean;
 };
 
 export function extractColumnSpecs(sql: string): ColumnSpec[] {
@@ -178,6 +179,11 @@ export async function loadCsvFile(
         headers = Object.keys(row);
         const extra = headers.filter((col) => !typeMap.has(col));
         if (extra.length > 0) {
+          if (!options.allowNewColumns) {
+            throw new Error(
+              `CSV has ${extra.length} undefined columns in ${fileName}. Add them to src/stats-schema.ts or pass --allow-new-columns.`
+            );
+          }
           if (!options.dryRun) {
             await client.query(buildAddColumnsSql(extra));
           }

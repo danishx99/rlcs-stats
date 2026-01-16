@@ -50,6 +50,7 @@ bun run src/run.ts --dir ./data
 - `--dry-run` (parse + validate only, no DB writes)
 - `--strict` (stop on first row error)
 - `--truncate` (TRUNCATE stats before loading)
+- `--allow-new-columns` (temporarily add new CSV columns as TEXT)
 
 ## Schema + Columns
 
@@ -63,7 +64,7 @@ Additional columns created at runtime:
 
 ### Schema evolution (new CSV columns)
 
-When new CSV columns appear, the loader will add them to `stats` so the import can proceed. **These columns are created as `TEXT` only as a temporary placeholder.** After the run:
+By default, the loader **fails** if a CSV contains columns not defined in `src/stats-schema.ts`. If you want to ingest and add them temporarily, run with `--allow-new-columns`. **Those columns are created as `TEXT` only as a placeholder.** After the run:
 
 1) Update `src/stats-schema.ts` with the correct type for each new column.
 2) If needed, backfill/convert data types with a manual SQL migration.
