@@ -49,6 +49,11 @@ function coerceValue(raw: string, type: ColumnType): { value: any; error?: strin
     return { value: null };
   }
 
+  const normalizedNull = trimmed.toLowerCase();
+  if (normalizedNull === "na" || normalizedNull === "n/a" || normalizedNull === "null") {
+    return { value: null };
+  }
+
   switch (type) {
     case "TEXT":
       return { value: raw };
