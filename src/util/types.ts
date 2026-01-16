@@ -19,6 +19,9 @@ export type RowError = {
 
 export type FileReport = {
   fileName: string;
+  status: "processed" | "skipped";
+  skipReason?: string;
+  fileHash?: string;
   totalRows: number;
   inserted: number;
   skipped: number;

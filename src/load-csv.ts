@@ -120,6 +120,11 @@ function buildInsertSql(columns: string[], rows: number): string {
   return `INSERT INTO stats (${allColumns.join(", ")}) VALUES ${valuesSql.join(", ")} ON CONFLICT (row_hash) DO NOTHING;`;
 }
 
+function buildAddColumnsSql(columns: string[]): string {
+  const clauses = columns.map((col) => `ADD COLUMN IF NOT EXISTS ${quoteIdent(col)} TEXT`);
+  return `ALTER TABLE stats ${clauses.join(", ")};`;
+}
+
 function maxBatchRows(columnCount: number): number {
   const colsWithExtras = columnCount + 2;
   return Math.max(1, Math.floor(MAX_PARAMS / colsWithExtras));
@@ -154,23 +159,27 @@ export async function loadCsvFile(
     if (!options.dryRun) {
       const sql = buildInsertSql(headers, batchRows);
       const result = await client.query(sql, batchValues);
-      inserted += result.rowCount;
-      skipped += batchRows - result.rowCount;
+      const rowCount = result.rowCount ?? 0;
+      inserted += rowCount;
+      skipped += batchRows - rowCount;
     }
     batchValues = [];
     batchRows = 0;
   }
 
   await streamCsvRows(filePath, {
-    onRow: async (row, rowNumber) => {
+    onRow: async (row: Record<string, string>, rowNumber: number) => {
       if (headers.length === 0) {
         headers = Object.keys(row);
         const extra = headers.filter((col) => !typeMap.has(col));
-        const missing = specs.map((spec) => spec.name).filter((col) => !headers.includes(col));
-        if (extra.length > 0 || missing.length > 0) {
-          throw new Error(
-            `CSV header mismatch for ${fileName}. Missing: ${missing.length}, Extra: ${extra.length}`
-          );
+        if (extra.length > 0) {
+          if (!options.dryRun) {
+            await client.query(buildAddColumnsSql(extra));
+          }
+          for (const col of extra) {
+            typeMap.set(col, "TEXT");
+          }
+          console.log(`${fileName}: added ${extra.length} new columns`);
         }
         columnTypes = headers.map((col) => typeMap.get(col) as ColumnType);
         batchLimit = maxBatchRows(headers.length);
@@ -239,6 +248,7 @@ export async function loadCsvFile(
 
   return {
     fileName,
+    status: "processed",
     totalRows,
     inserted,
     skipped,

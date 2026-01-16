@@ -229,7 +229,7 @@ CREATE TABLE IF NOT EXISTS stats (
   "Kills_Offense Zone" DOUBLE PRECISION,
   "Deaths_All Zones" DOUBLE PRECISION,
   "Deaths_Defense Zone" DOUBLE PRECISION,
-  "Deaths_Neutral Zone" DOUBLE PRECISION,
+  "Deaths_Neutral Zone" DOUBLE PRECISION, 
   "Deaths_Offense Zone" DOUBLE PRECISION,
   "Boost Lost When Demoed_All Zones" DOUBLE PRECISION,
   "Boost Lost When Demoed_Defense Zone" DOUBLE PRECISION,
@@ -291,4 +291,20 @@ ALTER TABLE stats
 
 export const createRowHashIndexSql = `
 CREATE UNIQUE INDEX IF NOT EXISTS stats_row_hash_uq ON stats(row_hash);
+`;
+
+export const createFileIngestTableSql = `
+CREATE TABLE IF NOT EXISTS file_ingest (
+  id BIGSERIAL PRIMARY KEY,
+  file_name TEXT NOT NULL,
+  file_hash TEXT NOT NULL,
+  file_size BIGINT NOT NULL,
+  row_count INTEGER NOT NULL,
+  inserted INTEGER NOT NULL,
+  skipped INTEGER NOT NULL,
+  errored INTEGER NOT NULL,
+  ingested_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS file_ingest_hash_uq ON file_ingest(file_hash);
 `;

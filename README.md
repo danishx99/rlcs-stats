@@ -61,6 +61,14 @@ Additional columns created at runtime:
 - `ingested_at TIMESTAMPTZ NOT NULL DEFAULT now()`
 - `row_hash TEXT NOT NULL` with a unique index
 
+### Schema evolution (new CSV columns)
+
+When new CSV columns appear, the loader will add them to `stats` so the import can proceed. **These columns are created as `TEXT` only as a temporary placeholder.** After the run:
+
+1) Update `src/stats-schema.ts` with the correct type for each new column.
+2) If needed, backfill/convert data types with a manual SQL migration.
+3) Re-run the loader if you want the new types to be reflected on fresh loads.
+
 ## Type Coercion Rules
 
 Blank strings are treated as `NULL`.

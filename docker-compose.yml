@@ -11,16 +11,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin
+  adminer:
+    image: adminer:4
+    container_name: rlcs-stats-adminer
+    restart: unless-stopped
     ports:
-      - "5050:80"
+      - "8080:8080"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      ADMINER_DEFAULT_SERVER: postgres
     depends_on:
       - postgres
-
 volumes:
   pgdata:
