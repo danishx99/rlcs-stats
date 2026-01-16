@@ -11,6 +11,7 @@
 - `bun run src/run.ts --dir ./data`: run the loader against local CSVs.
 - `bun run load`: same as above via the script.
 - `docker compose up -d`: start Postgres (and pgAdmin) containers.
+- `bun run db:reset`: wipe local Postgres volume and restart containers.
 
 ## Coding Style & Naming Conventions
 - Language: TypeScript (ESM). Use 2‑space indentation and double quotes (match existing files).
@@ -21,6 +22,7 @@
 ## Schema Evolution
 - By default, the loader fails if a CSV contains columns not defined in `src/stats-schema.ts`.
 - Use `--allow-new-columns` to temporarily add new columns as `TEXT`, then update `src/stats-schema.ts` and apply a proper SQL migration.
+
 
 ## Testing Guidelines
 - No test framework is configured yet. If you add tests, document the runner and add a `bun run test` script.

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "load": "bun run src/run.ts",
-    "db:up": "docker compose up -d",
+    "db:up": "docker compose up -d postgres adminer",
+    "db:reset": "docker compose down -v && docker compose up -d",
     "test": "bun test"
   },
   "dependencies": {

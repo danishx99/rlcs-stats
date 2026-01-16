@@ -42,6 +42,14 @@ bun install
 bun run src/run.ts --dir ./data
 ```
 
+## Reset Database
+
+To wipe the local Postgres volume and start fresh:
+
+```bash
+bun run db:reset
+```
+
 ## CLI Flags
 
 - `--dir ./data` (default `./data`)

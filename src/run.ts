@@ -190,9 +190,11 @@ async function main(): Promise<void> {
     for (const filePath of files) {
       const fileStats = await stat(filePath);
       const fileHash = await computeFileHash(filePath);
+      const fileName = basename(filePath);
+
       if (!options.limit && (await isFileIngested(client, fileHash))) {
         const skippedReport: FileReport = {
-          fileName: basename(filePath),
+          fileName,
           status: "skipped",
           skipReason: "already ingested",
           fileHash,
