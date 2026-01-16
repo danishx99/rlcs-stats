@@ -6,6 +6,7 @@ import type { Client } from "pg";
 import { connectDb } from "./db";
 import {
   createStatsTableSql,
+  addStatsTableCommentsSql,
   addIngestionColumnsSql,
   addRowHashColumnSql,
   createRowHashIndexSql,
@@ -169,6 +170,7 @@ async function main(): Promise<void> {
     console.log("connected to db");
     await client.query(createStatsTableSql);
     await client.query(addIngestionColumnsSql);
+    await client.query(addStatsTableCommentsSql);
     await client.query(addRowHashColumnSql);
     await client.query(createRowHashIndexSql);
     await client.query(createFileIngestTableSql);
