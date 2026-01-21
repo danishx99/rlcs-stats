@@ -5,8 +5,11 @@ export const createStatsTableSql = `
 CREATE TABLE IF NOT EXISTS stats (
   id BIGSERIAL PRIMARY KEY,
   "Player Name" TEXT,
+  "Unique ID" TEXT,
   "Player ID" TEXT,
+  "Role" TEXT,
   "Date" TIMESTAMPTZ,
+  "Match ID" TEXT,
   "Season" TEXT,
   "Split" TEXT,
   "Regional" TEXT,
@@ -19,6 +22,8 @@ CREATE TABLE IF NOT EXISTS stats (
   "Team" TEXT,
   "Victory" BOOLEAN,
   "OT" BOOLEAN,
+  "Extra Time" DOUBLE PRECISION,
+  "Arena" TEXT,
   "Closest to Ball_All Zones" DOUBLE PRECISION,
   "Closest to Ball_Defense Zone" DOUBLE PRECISION,
   "Closest to Ball_Neutral Zone" DOUBLE PRECISION,
@@ -281,8 +286,11 @@ CREATE TABLE IF NOT EXISTS stats (
 export const addStatsTableCommentsSql = `
 COMMENT ON COLUMN stats."id" IS 'Primary key.';
 COMMENT ON COLUMN stats."Player Name" IS 'Player display name.';
+COMMENT ON COLUMN stats."Unique ID" IS 'Player unique identifier.';
 COMMENT ON COLUMN stats."Player ID" IS 'Player platform identifier.';
+COMMENT ON COLUMN stats."Role" IS 'Player role in the match.';
 COMMENT ON COLUMN stats."Date" IS 'Match date.';
+COMMENT ON COLUMN stats."Match ID" IS 'Match identifier from source data.';
 COMMENT ON COLUMN stats."Season" IS 'Season label.';
 COMMENT ON COLUMN stats."Split" IS 'Season split label.';
 COMMENT ON COLUMN stats."Regional" IS 'Regional event name.';
@@ -295,6 +303,8 @@ COMMENT ON COLUMN stats."Game" IS 'Game identifier from source data.';
 COMMENT ON COLUMN stats."Team" IS 'Team name or abbreviation.';
 COMMENT ON COLUMN stats."Victory" IS 'Whether the player''s team won.';
 COMMENT ON COLUMN stats."OT" IS 'Whether the game went to overtime.';
+COMMENT ON COLUMN stats."Extra Time" IS 'Overtime duration in seconds.';
+COMMENT ON COLUMN stats."Arena" IS 'Arena name.';
 COMMENT ON COLUMN stats."Closest to Ball_All Zones" IS 'Percent of time player was closest team member to the ball across all zones.';
 COMMENT ON COLUMN stats."Closest to Ball_Defense Zone" IS 'Percent of time player was closest team member to the ball in the defense zone.';
 COMMENT ON COLUMN stats."Closest to Ball_Neutral Zone" IS 'Percent of time player was closest team member to the ball in the neutral zone.';
@@ -479,26 +489,26 @@ COMMENT ON COLUMN stats."Self Touches_All Zones" IS 'Number of times player touc
 COMMENT ON COLUMN stats."Self Touches_Defense Zone" IS 'Number of times player touched and followed up in the defense zone.';
 COMMENT ON COLUMN stats."Self Touches_Neutral Zone" IS 'Number of times player touched and followed up in the neutral zone.';
 COMMENT ON COLUMN stats."Self Touches_Offense Zone" IS 'Number of times player touched and followed up in the offense zone.';
-COMMENT ON COLUMN stats."Score_All Zones" IS 'Points earned by the player across all zones.';
-COMMENT ON COLUMN stats."Score_Defense Zone" IS 'Points earned by the player in the defense zone.';
-COMMENT ON COLUMN stats."Score_Neutral Zone" IS 'Points earned by the player in the neutral zone.';
-COMMENT ON COLUMN stats."Score_Offense Zone" IS 'Points earned by the player in the offense zone.';
-COMMENT ON COLUMN stats."Goals_All Zones" IS 'Goals scored by the player across all zones.';
-COMMENT ON COLUMN stats."Goals_Defense Zone" IS 'Goals scored by the player in the defense zone.';
-COMMENT ON COLUMN stats."Goals_Neutral Zone" IS 'Goals scored by the player in the neutral zone.';
-COMMENT ON COLUMN stats."Goals_Offense Zone" IS 'Goals scored by the player in the offense zone.';
-COMMENT ON COLUMN stats."Shots_All Zones" IS 'Shots taken by the player across all zones.';
-COMMENT ON COLUMN stats."Shots_Defense Zone" IS 'Shots taken by the player in the defense zone.';
-COMMENT ON COLUMN stats."Shots_Neutral Zone" IS 'Shots taken by the player in the neutral zone.';
-COMMENT ON COLUMN stats."Shots_Offense Zone" IS 'Shots taken by the player in the offense zone.';
-COMMENT ON COLUMN stats."Assists_All Zones" IS 'Assists recorded by the player across all zones.';
-COMMENT ON COLUMN stats."Assists_Defense Zone" IS 'Assists recorded by the player in the defense zone.';
-COMMENT ON COLUMN stats."Assists_Neutral Zone" IS 'Assists recorded by the player in the neutral zone.';
-COMMENT ON COLUMN stats."Assists_Offense Zone" IS 'Assists recorded by the player in the offense zone.';
-COMMENT ON COLUMN stats."Saves_All Zones" IS 'Saves recorded by the player across all zones.';
-COMMENT ON COLUMN stats."Saves_Defense Zone" IS 'Saves recorded by the player in the defense zone.';
-COMMENT ON COLUMN stats."Saves_Neutral Zone" IS 'Saves recorded by the player in the neutral zone.';
-COMMENT ON COLUMN stats."Saves_Offense Zone" IS 'Saves recorded by the player in the offense zone.';
+COMMENT ON COLUMN stats."Score_All Zones" IS 'Points earned by the player across all zones (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Score_Defense Zone" IS 'Points earned by the player in the defense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Score_Neutral Zone" IS 'Points earned by the player in the neutral zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Score_Offense Zone" IS 'Points earned by the player in the offense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Goals_All Zones" IS 'Goals scored by the player across all zones (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Goals_Defense Zone" IS 'Goals scored by the player in the defense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Goals_Neutral Zone" IS 'Goals scored by the player in the neutral zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Goals_Offense Zone" IS 'Goals scored by the player in the offense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Shots_All Zones" IS 'Shots taken by the player across all zones (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Shots_Defense Zone" IS 'Shots taken by the player in the defense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Shots_Neutral Zone" IS 'Shots taken by the player in the neutral zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Shots_Offense Zone" IS 'Shots taken by the player in the offense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Assists_All Zones" IS 'Assists recorded by the player across all zones (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Assists_Defense Zone" IS 'Assists recorded by the player in the defense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Assists_Neutral Zone" IS 'Assists recorded by the player in the neutral zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Assists_Offense Zone" IS 'Assists recorded by the player in the offense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Saves_All Zones" IS 'Saves recorded by the player across all zones (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Saves_Defense Zone" IS 'Saves recorded by the player in the defense zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Saves_Neutral Zone" IS 'Saves recorded by the player in the neutral zone (source normalizes per 300s; overtime can introduce decimals).';
+COMMENT ON COLUMN stats."Saves_Offense Zone" IS 'Saves recorded by the player in the offense zone (source normalizes per 300s; overtime can introduce decimals).';
 COMMENT ON COLUMN stats."Kills_All Zones" IS 'Demolitions performed on opponents across all zones.';
 COMMENT ON COLUMN stats."Kills_Defense Zone" IS 'Demolitions performed on opponents in the defense zone.';
 COMMENT ON COLUMN stats."Kills_Neutral Zone" IS 'Demolitions performed on opponents in the neutral zone.';

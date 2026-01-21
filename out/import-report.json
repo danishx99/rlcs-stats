@@ -1,40 +1,621 @@
 {
   "reports": [
     {
-      "fileName": "21-22 Fall Split  - 21-22 Fall Regional 1.csv",
+      "fileName": "21-22 Fall Split Stats Database - 21-22 Fall Split Regionals 1-3.csv",
       "status": "processed",
-      "totalRows": 865,
-      "inserted": 865,
+      "totalRows": 2700,
+      "inserted": 2700,
       "skipped": 0,
-      "errored": 0,
-      "errors": [],
-      "fileHash": "671bed8a3460765f0965fc9ae699d47eb652f54f7f6840e58d2139f153339529"
-    },
-    {
-      "fileName": "21-22 Fall Split  - 21-22 Fall Regional 2.csv",
-      "status": "processed",
-      "totalRows": 984,
-      "inserted": 984,
-      "skipped": 0,
-      "errored": 0,
-      "errors": [],
-      "fileHash": "4f45395aa3c262f4847bd8a2414425b889bda801524a1534023e5b535b6e18da"
-    },
-    {
-      "fileName": "21-22 Fall Split  - 21-22 Fall Regional 3.csv",
-      "status": "processed",
-      "totalRows": 822,
-      "inserted": 822,
-      "skipped": 0,
-      "errored": 0,
-      "errors": [],
-      "fileHash": "acf795cff286dc9dcf9595da08ca790f6b63ffc4e5ecaea7443415cb8694d33a"
+      "errored": 720,
+      "errors": [
+        {
+          "rowNumber": 619,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 620,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 621,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 622,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 623,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 624,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 625,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 626,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 627,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 628,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 629,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 630,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 631,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 632,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 633,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 634,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 635,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 636,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 637,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 638,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 639,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 640,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 641,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 642,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 643,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 644,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 645,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 646,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 647,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 648,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 649,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 650,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 651,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 652,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 653,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 654,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 655,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 656,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 657,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 658,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 659,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 660,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 661,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 662,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 663,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 664,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 665,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 666,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 667,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 668,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 669,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 670,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 671,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 672,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 673,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 674,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 675,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 676,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 677,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 678,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 679,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 680,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 681,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 682,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 683,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 684,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 685,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 686,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 687,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 688,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 689,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 690,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 691,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 692,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 693,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 694,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 695,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 696,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 697,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 698,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 699,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 700,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 701,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 702,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 703,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 704,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 705,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 706,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 707,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 708,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 709,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 710,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 711,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 712,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 713,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 714,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 715,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 716,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 717,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        },
+        {
+          "rowNumber": 718,
+          "column": "Round",
+          "value": "QF",
+          "reason": "invalid integer"
+        }
+      ],
+      "fileHash": "7a11679698b90c2a66d9907796bb3adb4f447cbbeac39e92e851390fa8baa03a"
     }
   ],
   "totals": {
-    "totalRows": 2671,
-    "inserted": 2671,
+    "totalRows": 2700,
+    "inserted": 2700,
     "skipped": 0,
-    "errored": 0
+    "errored": 720
   }
 }

@@ -170,8 +170,8 @@ async function main(): Promise<void> {
     console.log("connected to db");
     await client.query(createStatsTableSql);
     await client.query(addIngestionColumnsSql);
-    await client.query(addStatsTableCommentsSql);
     await client.query(addRowHashColumnSql);
+    await client.query(addStatsTableCommentsSql);
     await client.query(createRowHashIndexSql);
     await client.query(createFileIngestTableSql);
     console.log("schema ensured");
