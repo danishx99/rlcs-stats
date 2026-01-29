@@ -15,16 +15,42 @@ type ApiResponse = {
   insights: Insight[];
 };
 
-const numberFormatter = new Intl.NumberFormat("en-US", {
+const integerFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0
+});
+
+const decimalFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
 
-function formatValue(value: unknown): string {
+function formatValue(value: unknown, column?: string): string {
   if (value === null || value === undefined) {
     return "—";
   }
   if (typeof value === "number") {
-    return numberFormatter.format(value);
+    const isInteger = Number.isInteger(value);
+    const formatted = isInteger
+      ? integerFormatter.format(value)
+      : decimalFormatter.format(value);
+    if (column && column.toLowerCase().includes("on_ground")) {
+      return `${formatted}%`;
+    }
+    return formatted;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const numeric = trimmed.length > 0 ? Number(trimmed) : NaN;
+    if (Number.isFinite(numeric)) {
+      const isInteger = Number.isInteger(numeric);
+      const formatted = isInteger
+        ? integerFormatter.format(numeric)
+        : decimalFormatter.format(numeric);
+      if (column && column.toLowerCase().includes("on_ground")) {
+        return `${formatted}%`;
+      }
+      return formatted;
+    }
   }
   if (Array.isArray(value)) {
     return value.join(", ");
@@ -79,7 +105,7 @@ export default function App() {
       <header className="hero">
         <div className="hero-copy">
           <p className="eyebrow">RLCS Stats Lens</p>
-          <h1>RLCS SSA Fall Split 2021</h1>
+          <h1>RLCS SSA 21/22 + 22/23 Season Stats</h1>
           <div className="meta">
             <span>Stage coverage: Swiss + Playoff</span>
             <span>
@@ -126,6 +152,15 @@ export default function App() {
                 <div>
                   <p className="card-label">{selectedInsight.subtitle}</p>
                   <h3>{selectedInsight.title}</h3>
+                  {selectedInsight.id === "best-decider" && (
+                    <p className="note">Minimum 5 games required.</p>
+                  )}
+                  {selectedInsight.id === "best-ot-performer" && (
+                    <p className="note">Minimum 5 games required.</p>
+                  )}
+                  {selectedInsight.id === "most-successful-team" && (
+                    <p className="note">Minimum 5 games required.</p>
+                  )}
                 </div>
                 <span className="pill">{selectedInsight.id}</span>
               </header>
@@ -145,7 +180,7 @@ export default function App() {
                       {selectedInsight.rows.map((row, rowIndex) => (
                         <tr key={rowIndex}>
                           {selectedInsight.columns.map((col) => (
-                            <td key={col}>{formatValue(row[col])}</td>
+                            <td key={col}>{formatValue(row[col], col)}</td>
                           ))}
                         </tr>
                       ))}

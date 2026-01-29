@@ -16,7 +16,7 @@ const insights = [
   {
     id: "highest-scoring-series",
     title: "Highest Scoring Series",
-    subtitle: "Total goals (time-adjusted)",
+    subtitle: "Total goals",
     sql: `
       SELECT *
       FROM (
@@ -25,13 +25,10 @@ const insights = [
         MIN("Split") AS split,
         MIN("Regional") AS regional,
         MIN("Stage") AS stage,
-        MIN("Round") AS round,
-        MIN("Day") AS day,
         MIN("Best of ") AS best_of,
         MIN("Team") AS team_a,
         MAX("Team") AS team_b,
-        ROUND(SUM("Goals_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0))::INT AS total_goals,
-        ROUND(SUM("Score_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0))::INT AS total_score
+        ROUND(SUM("Goals_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0))::INT AS total_goals
       FROM stats
       GROUP BY regexp_replace("Match ID", '-G\\d+$', '')
       ) series
@@ -58,19 +55,22 @@ const insights = [
   {
     id: "best-grand-finals",
     title: "Best Player in Grand Finals",
-    subtitle: "Highest win rate in Playoff-GF",
+    subtitle: "Highest win rate in GF",
     sql: `
       SELECT
         MIN("Player Name") AS player_name,
         ARRAY_AGG(DISTINCT "Team") AS teams,
         COUNT(*) AS games,
         SUM(CASE WHEN "Victory" THEN 1 ELSE 0 END) AS wins,
-        AVG(CASE WHEN "Victory" THEN 1.0 ELSE 0.0 END) AS win_rate
+        ROUND(
+          (AVG(CASE WHEN "Victory" THEN 1.0 ELSE 0.0 END) * 100.0)::NUMERIC,
+          2
+        ) AS "win_rate (%)"
       FROM stats
-      WHERE "Stage" = 'Playoff'
-        AND "Match ID" LIKE '%Playoff-GF%'
+      WHERE "Stage" = 'Playoffs'
+        AND "Round" ILIKE '%GF%'
       GROUP BY "Unique ID"
-      ORDER BY win_rate DESC, games DESC
+      ORDER BY "win_rate (%)" DESC, games DESC
       LIMIT 10;
     `
   },
@@ -84,12 +84,16 @@ const insights = [
         ARRAY_AGG(DISTINCT "Team") AS teams,
         COUNT(*) AS games,
         SUM(CASE WHEN "Victory" THEN 1 ELSE 0 END) AS wins,
-        AVG(CASE WHEN "Victory" THEN 1.0 ELSE 0.0 END) AS win_rate
+        ROUND(
+          (AVG(CASE WHEN "Victory" THEN 1.0 ELSE 0.0 END) * 100.0)::NUMERIC,
+          2
+        ) AS "win_rate (%)"
       FROM stats
       WHERE "Best of " IN (5, 7)
         AND "Game Number" = "Best of "
       GROUP BY "Unique ID"
-      ORDER BY win_rate DESC, games DESC
+      HAVING COUNT(*) >= 5
+      ORDER BY "win_rate (%)" DESC, games DESC
       LIMIT 10;
     `
   },
@@ -190,14 +194,20 @@ const insights = [
         ARRAY_AGG(DISTINCT roster_map.team) AS team_labels,
         COUNT(series_winners.series_id) AS series_wins,
         COUNT(series_played.series_id) AS series_played,
-        COUNT(series_winners.series_id)::DOUBLE PRECISION
-          / NULLIF(COUNT(series_played.series_id), 0) AS win_rate
+        ROUND(
+          (
+            COUNT(series_winners.series_id)::DOUBLE PRECISION
+              / NULLIF(COUNT(series_played.series_id), 0) * 100.0
+          )::NUMERIC,
+          2
+        ) AS "win_rate (%)"
       FROM series_played
       JOIN roster_map USING (series_id, team)
       LEFT JOIN series_winners USING (series_id, team)
       WHERE roster_map.roster IS NOT NULL
       GROUP BY roster_map.roster
-      ORDER BY win_rate DESC, series_played DESC
+      HAVING COUNT(series_played.series_id) >= 5
+      ORDER BY "win_rate (%)" DESC, series_played DESC
       LIMIT 10;
     `
   },
@@ -211,11 +221,15 @@ const insights = [
         ARRAY_AGG(DISTINCT "Team") AS teams,
         COUNT(*) AS ot_games,
         SUM(CASE WHEN "Victory" THEN 1 ELSE 0 END) AS ot_wins,
-        AVG(CASE WHEN "Victory" THEN 1.0 ELSE 0.0 END) AS win_rate
+        ROUND(
+          (AVG(CASE WHEN "Victory" THEN 1.0 ELSE 0.0 END) * 100.0)::NUMERIC,
+          2
+        ) AS "win_rate (%)"
       FROM stats
       WHERE "OT" = true
       GROUP BY "Unique ID"
-      ORDER BY win_rate DESC, ot_games DESC
+      HAVING COUNT(*) >= 5
+      ORDER BY "win_rate (%)" DESC, ot_games DESC
       LIMIT 10;
     `
   },
@@ -427,11 +441,14 @@ const insights = [
         ARRAY_AGG(DISTINCT team) AS team_labels,
         COUNT(*) AS games,
         SUM(CASE WHEN victory THEN 1 ELSE 0 END) AS wins,
-        AVG(CASE WHEN victory THEN 1.0 ELSE 0.0 END) AS win_rate
+        ROUND(
+          (AVG(CASE WHEN victory THEN 1.0 ELSE 0.0 END) * 100.0)::NUMERIC,
+          2
+        ) AS "win_rate (%)"
       FROM team_game
       WHERE roster IS NOT NULL
       GROUP BY roster
-      ORDER BY win_rate DESC, games DESC
+      ORDER BY "win_rate (%)" DESC, games DESC
       LIMIT 10;
     `
   },

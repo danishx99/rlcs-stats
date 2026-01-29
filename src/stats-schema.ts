@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS stats (
   "Regional" TEXT,
   "Day" INTEGER,
   "Stage" TEXT,
-  "Round" INTEGER,
+  "Round" TEXT,
   "Best of " INTEGER,
   "Game Number" INTEGER,
   "Game" INTEGER,

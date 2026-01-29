@@ -1,621 +1,70 @@
 {
   "reports": [
     {
-      "fileName": "21-22 Fall Split Stats Database - 21-22 Fall Split Regionals 1-3.csv",
+      "fileName": "2021-22 Spring Split Stats Database - 21-22 Fall Split Regionals 1-3.csv",
       "status": "processed",
-      "totalRows": 2700,
-      "inserted": 2700,
+      "totalRows": 2172,
+      "inserted": 2172,
       "skipped": 0,
-      "errored": 720,
-      "errors": [
-        {
-          "rowNumber": 619,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 620,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 621,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 622,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 623,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 624,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 625,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 626,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 627,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 628,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 629,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 630,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 631,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 632,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 633,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 634,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 635,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 636,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 637,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 638,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 639,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 640,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 641,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 642,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 643,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 644,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 645,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 646,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 647,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 648,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 649,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 650,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 651,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 652,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 653,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 654,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 655,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 656,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 657,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 658,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 659,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 660,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 661,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 662,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 663,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 664,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 665,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 666,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 667,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 668,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 669,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 670,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 671,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 672,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 673,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 674,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 675,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 676,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 677,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 678,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 679,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 680,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 681,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 682,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 683,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 684,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 685,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 686,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 687,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 688,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 689,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 690,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 691,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 692,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 693,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 694,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 695,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 696,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 697,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 698,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 699,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 700,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 701,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 702,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 703,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 704,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 705,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 706,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 707,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 708,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 709,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 710,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 711,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 712,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 713,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 714,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 715,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 716,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 717,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        },
-        {
-          "rowNumber": 718,
-          "column": "Round",
-          "value": "QF",
-          "reason": "invalid integer"
-        }
-      ],
-      "fileHash": "7a11679698b90c2a66d9907796bb3adb4f447cbbeac39e92e851390fa8baa03a"
+      "errored": 0,
+      "errors": [],
+      "fileHash": "e72b09a7179eb009784d303feb32cdefc540ad36e53f16e8425e67c42861d0b5"
+    },
+    {
+      "fileName": "2021-22 Fall Split Stats Database - 21-22 Fall Split Regionals 1-3.csv",
+      "status": "processed",
+      "totalRows": 2724,
+      "inserted": 2724,
+      "skipped": 0,
+      "errored": 0,
+      "errors": [],
+      "fileHash": "50553e619bf9f74b4f91a7f7c3a1ea12046e2a541be05e4bde1deb8ad5ac3068"
+    },
+    {
+      "fileName": "2022-23 Winter Split Stats Database - 22-23 Winter Open.csv",
+      "status": "processed",
+      "totalRows": 798,
+      "inserted": 798,
+      "skipped": 0,
+      "errored": 0,
+      "errors": [],
+      "fileHash": "88a6a7803c1c2fc25658231f7950d6157fdf8bef96984671a4958e9bba62febb"
+    },
+    {
+      "fileName": "2022-23 Spring Split Stats Database - 22-23 Spring Open.csv",
+      "status": "processed",
+      "totalRows": 654,
+      "inserted": 654,
+      "skipped": 0,
+      "errored": 0,
+      "errors": [],
+      "fileHash": "af3e019ce82210f0e17a12b79bb7ff76c850143029ce37b740ba6c23e3bbcc47"
+    },
+    {
+      "fileName": "2022-23 Fall Split Stats Database - 22-23 Fall Open.csv",
+      "status": "processed",
+      "totalRows": 894,
+      "inserted": 894,
+      "skipped": 0,
+      "errored": 0,
+      "errors": [],
+      "fileHash": "d9d3a305a50d0042fdbc5fb71cb832e71b35fe76fa77116a531cb13b9e327760"
+    },
+    {
+      "fileName": "2021-22 Winter Split Stats Database - 21-22 Winter Regionals 1-3.csv",
+      "status": "processed",
+      "totalRows": 2448,
+      "inserted": 2448,
+      "skipped": 0,
+      "errored": 0,
+      "errors": [],
+      "fileHash": "981fbf24ae46a9ebd90e18555ddce2bea237c4e7b0e148fb62f94135b4d83403"
     }
   ],
   "totals": {
-    "totalRows": 2700,
-    "inserted": 2700,
+    "totalRows": 9690,
+    "inserted": 9690,
     "skipped": 0,
-    "errored": 720
+    "errored": 0
   }
 }
