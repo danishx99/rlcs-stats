@@ -28,6 +28,12 @@ const STAT_OPTIONS = [
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
 
+const STAT_OPTION_CACHE_TTL_MS = 5 * 60 * 1000;
+let statOptionsCache = {
+  expiresAt: 0,
+  options: []
+};
+
 const insights = [
   {
     id: "highest-scoring-series",
@@ -643,6 +649,114 @@ function playerKeyExpr(alias) {
   return `NULLIF(TRIM(${alias}."Unique ID"), '')`;
 }
 
+function humanizeColumn(column) {
+  return column.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function statKeyFromColumn(column) {
+  return column
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+async function getAllStatOptions() {
+  if (statOptionsCache.expiresAt > Date.now() && statOptionsCache.options.length) {
+    return statOptionsCache.options;
+  }
+
+  const overrideByColumn = new Map(
+    STAT_OPTIONS.filter((option) => option.column).map((option) => [option.column, option])
+  );
+
+  const result = await pool.query(
+    `
+    SELECT column_name, data_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'stats'
+      AND data_type IN ('double precision', 'integer', 'bigint', 'numeric', 'real')
+    ORDER BY ordinal_position;
+    `
+  );
+
+  const options = result.rows.map((row) => {
+    const column = row.column_name;
+    const override = overrideByColumn.get(column);
+    if (override) {
+      return override;
+    }
+    const key = statKeyFromColumn(column);
+    const format = ["integer", "bigint"].includes(row.data_type) ? "int" : "float";
+    return {
+      key,
+      label: humanizeColumn(column),
+      column,
+      format
+    };
+  });
+
+  const optionByKey = new Map(options.map((option) => [option.key, option]));
+  STAT_OPTIONS.filter((option) => !option.column).forEach((option) => {
+    if (!optionByKey.has(option.key)) {
+      optionByKey.set(option.key, option);
+      options.push(option);
+    }
+  });
+
+  statOptionsCache = {
+    expiresAt: Date.now() + STAT_OPTION_CACHE_TTL_MS,
+    options
+  };
+
+  return options;
+}
+
+async function resolveStatOptionAsync(key) {
+  const options = await getAllStatOptions();
+  return options.find((option) => option.key === key) ?? null;
+}
+
+function rosterCtes(where) {
+  return `
+    WITH base AS (
+      SELECT
+        s.*,
+        TRIM(s."Team") AS team,
+        ${playerKeyExpr("s")} AS player_key,
+        ${seriesIdExpr("s")} AS series_id
+      FROM stats s
+      ${where}
+    ),
+    series_roster AS (
+      SELECT
+        series_id,
+        team,
+        ARRAY_AGG(DISTINCT player_key ORDER BY player_key) AS starters,
+        md5(array_to_string(ARRAY_AGG(DISTINCT player_key ORDER BY player_key), '|')) AS roster_id
+      FROM base
+      WHERE player_key IS NOT NULL
+      GROUP BY series_id, team
+      HAVING COUNT(DISTINCT player_key) = 3
+    ),
+    roster_counts AS (
+      SELECT
+        roster_id,
+        team,
+        COUNT(*) AS series_count
+      FROM series_roster
+      GROUP BY roster_id, team
+    ),
+    roster_names AS (
+      SELECT DISTINCT ON (roster_id)
+        roster_id,
+        team AS roster_name
+      FROM roster_counts
+      ORDER BY roster_id, series_count DESC, team
+    )
+  `;
+}
+
 function resolveStatOption(key) {
   return STAT_OPTIONS.find((option) => option.key === key) ?? null;
 }
@@ -800,55 +914,30 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/search") {
-    const type = url.searchParams.get("type") ?? "players";
     const query = url.searchParams.get("q") ?? "";
     const limit = Math.min(Number.parseInt(url.searchParams.get("limit") ?? "8", 10), 25);
+    const trimmed = query.trim();
 
-    if (!query.trim() && type !== "stats") {
-      json(res, 200, { results: [] });
+    if (!trimmed) {
+      json(res, 200, { players: [], rosters: [], stats: [] });
       return;
     }
 
     try {
-      if (type === "stats") {
-        const term = query.trim().toLowerCase();
-        const results = STAT_OPTIONS.filter((option) =>
-          term
-            ? `${option.label} ${option.key}`.toLowerCase().includes(term)
-            : true
-        ).map((option) => ({
+      const like = `%${trimmed}%`;
+      const statOptions = await getAllStatOptions();
+      const statsResults = statOptions
+        .filter((option) =>
+          `${option.label} ${option.key}`.toLowerCase().includes(trimmed.toLowerCase())
+        )
+        .slice(0, limit)
+        .map((option) => ({
           id: option.key,
           label: option.label,
           type: "stat"
         }));
-        json(res, 200, { results: results.slice(0, limit) });
-        return;
-      }
 
-      if (type === "teams") {
-        const like = `%${query.trim()}%`;
-        const result = await pool.query(
-          `
-          SELECT DISTINCT "Team" AS team
-          FROM stats
-          WHERE "Team" ILIKE $1
-          ORDER BY "Team"
-          LIMIT $2;
-          `,
-          [like, limit]
-        );
-        json(res, 200, {
-          results: result.rows.map((row) => ({
-            id: row.team,
-            label: row.team,
-            type: "team"
-          }))
-        });
-        return;
-      }
-
-      const like = `%${query.trim()}%`;
-      const result = await pool.query(
+      const playersResult = await pool.query(
         `
         WITH base AS (
           SELECT
@@ -877,8 +966,49 @@ const server = createServer(async (req, res) => {
         `,
         [like, limit]
       );
+
+      const rostersResult = await pool.query(
+        `
+        ${rosterCtes("")},
+        roster_match AS (
+          SELECT
+            roster_id,
+            team,
+            COUNT(*) AS series_count
+          FROM series_roster
+          WHERE team ILIKE $1
+          GROUP BY roster_id, team
+        ),
+        roster_starters AS (
+          SELECT roster_id, starters
+          FROM series_roster
+        ),
+        starter_profiles AS (
+          SELECT
+            rs.roster_id,
+            starter_id,
+            COALESCE(MIN(p."Primary Handle"), MIN(b."Player Name")) AS handle
+          FROM roster_starters rs
+          CROSS JOIN LATERAL unnest(rs.starters) AS starter_id
+          LEFT JOIN base b ON b.player_key = starter_id
+          LEFT JOIN players p ON p."Player ID" = starter_id
+          GROUP BY rs.roster_id, starter_id
+        )
+        SELECT DISTINCT ON (roster_id)
+          roster_id AS id,
+          team AS label,
+          (SELECT json_agg(handle ORDER BY handle)
+           FROM starter_profiles sp
+           WHERE sp.roster_id = roster_match.roster_id) AS starters
+        FROM roster_match
+        ORDER BY roster_id, series_count DESC, team
+        LIMIT $2;
+        `,
+        [like, limit]
+      );
+
       json(res, 200, {
-        results: result.rows.map((row) => ({
+        players: playersResult.rows.map((row) => ({
           id: row.id,
           label: row.label,
           type: "player",
@@ -886,7 +1016,16 @@ const server = createServer(async (req, res) => {
             photoUrl: row.photo_url,
             country: row.country
           }
-        }))
+        })),
+        rosters: rostersResult.rows.map((row) => ({
+          id: row.id,
+          label: row.label,
+          type: "roster",
+          meta: {
+            starters: row.starters ?? []
+          }
+        })),
+        stats: statsResults
       });
       return;
     } catch (error) {
@@ -1041,6 +1180,15 @@ const server = createServer(async (req, res) => {
           FROM base
           WHERE player_key = $${playerIndex}
         ),
+        first_appearance AS (
+          SELECT
+            "Season" AS debut_season,
+            "Split" AS debut_split,
+            "Regional" AS debut_event
+          FROM player_scope
+          ORDER BY "Date" ASC NULLS LAST, "Season" ASC, "Split" ASC, "Regional" ASC
+          LIMIT 1
+        ),
         series_summary AS (
           SELECT
             series_id,
@@ -1122,7 +1270,9 @@ const server = createServer(async (req, res) => {
           MIN(NULLIF(TRIM(p."Twitch"), '')) AS twitch,
           MIN(NULLIF(TRIM(p."TikTok"), '')) AS tiktok,
           ARRAY_AGG(DISTINCT player_scope."Team") AS teams,
-          MIN(player_scope."Date") AS debut_date,
+          MIN(first_appearance.debut_season) AS debut_season,
+          MIN(first_appearance.debut_split) AS debut_split,
+          MIN(first_appearance.debut_event) AS debut_event,
           (SELECT placement FROM best_result) AS best_result,
           COUNT(*) AS games,
           COUNT(DISTINCT player_scope.series_id) AS series_played,
@@ -1135,7 +1285,8 @@ const server = createServer(async (req, res) => {
           SUM(player_scope."Kills_All Zones") AS demos_total,
           AVG(player_scope."Kills_All Zones") AS demos_avg
         FROM player_scope
-        LEFT JOIN players p ON p."Player ID" = player_scope.player_key;
+        LEFT JOIN players p ON p."Player ID" = player_scope.player_key
+        LEFT JOIN first_appearance ON true;
         `,
         [...values, playerId]
       );
@@ -1146,6 +1297,8 @@ const server = createServer(async (req, res) => {
       }
 
       const row = result.rows[0];
+      const debutParts = [row.debut_season, row.debut_split, row.debut_event].filter(Boolean);
+      const debut = debutParts.length ? debutParts.join(" / ") : null;
 
       json(res, 200, {
         player: {
@@ -1157,7 +1310,7 @@ const server = createServer(async (req, res) => {
           country: row.country,
           photoUrl: row.photo_url,
           dateOfBirth: row.date_of_birth,
-          debutDate: row.debut_date,
+          debut,
           bestResult: row.best_result,
           twitch: row.twitch,
           tiktok: row.tiktok,
@@ -1186,6 +1339,273 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  if (url.pathname.startsWith("/api/rosters/")) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    const rosterId = parts[2];
+    if (!rosterId) {
+      json(res, 400, { error: "Roster id is required" });
+      return;
+    }
+
+    if (parts[3] === "season") {
+      const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+      const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+      const mode = normalizeMode(url.searchParams.get("mode"));
+      const rosterIndex = values.length + 1;
+
+      const goals = metricExpression(resolveStatOption("goals"), mode, "roster_scope");
+      const assists = metricExpression(resolveStatOption("assists"), mode, "roster_scope");
+      const saves = metricExpression(resolveStatOption("saves"), mode, "roster_scope");
+      const demos = metricExpression(resolveStatOption("demos"), mode, "roster_scope");
+
+      try {
+        const result = await pool.query(
+          `
+          ${rosterCtes(where)},
+          roster_scope AS (
+            SELECT b.*
+            FROM base b
+            JOIN series_roster sr
+              ON b.series_id = sr.series_id
+             AND b.team = sr.team
+            WHERE sr.roster_id = $${rosterIndex}
+          )
+          SELECT
+            roster_scope."Season" AS season,
+            COUNT(*) AS games,
+            COUNT(DISTINCT roster_scope.series_id) AS series_played,
+            ${goals} AS goals,
+            ${assists} AS assists,
+            ${saves} AS saves,
+            ${demos} AS demos
+          FROM roster_scope
+          GROUP BY roster_scope."Season"
+          ORDER BY roster_scope."Season";
+          `,
+          [...values, rosterId]
+        );
+
+        json(res, 200, {
+          mode,
+          rows: result.rows.map((row) => ({
+            season: row.season,
+            games: Number(row.games ?? 0),
+            seriesPlayed: Number(row.series_played ?? 0),
+            goals: Number(row.goals ?? 0),
+            assists: Number(row.assists ?? 0),
+            saves: Number(row.saves ?? 0),
+            demos: Number(row.demos ?? 0)
+          }))
+        });
+        return;
+      } catch (error) {
+        console.error(error);
+        json(res, 500, { error: "Failed to load roster season performance" });
+        return;
+      }
+    }
+
+    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const rosterIndex = values.length + 1;
+
+    try {
+      const result = await pool.query(
+        `
+        ${rosterCtes(where)},
+        series_roster_all AS (
+          SELECT
+            series_id,
+            team,
+            ARRAY_AGG(DISTINCT player_key ORDER BY player_key) AS players
+          FROM base
+          WHERE player_key IS NOT NULL
+          GROUP BY series_id, team
+        ),
+        roster_starters AS (
+          SELECT roster_id, starters
+          FROM series_roster
+          WHERE roster_id = $${rosterIndex}
+          LIMIT 1
+        ),
+        alternate_candidates AS (
+          SELECT
+            alt_id,
+            COUNT(*) AS appearances
+          FROM series_roster_all sra
+          JOIN roster_starters rs
+            ON rs.starters <@ sra.players
+          CROSS JOIN LATERAL (
+            SELECT unnest(sra.players)
+            EXCEPT
+            SELECT unnest(rs.starters)
+          ) AS alt(alt_id)
+          WHERE array_length(sra.players, 1) = 4
+          GROUP BY alt_id
+        ),
+        alternate_profiles AS (
+          SELECT
+            ac.alt_id,
+            ac.appearances,
+            COALESCE(MIN(p."Primary Handle"), MIN(b."Player Name")) AS handle
+          FROM alternate_candidates ac
+          LEFT JOIN base b ON b.player_key = ac.alt_id
+          LEFT JOIN players p ON p."Player ID" = ac.alt_id
+          GROUP BY ac.alt_id, ac.appearances
+        ),
+        roster_scope AS (
+          SELECT b.*
+          FROM base b
+          JOIN series_roster sr
+            ON b.series_id = sr.series_id
+           AND b.team = sr.team
+          WHERE sr.roster_id = $${rosterIndex}
+        ),
+        starter_profiles AS (
+          SELECT
+            starter_id,
+            COALESCE(MIN(p."Primary Handle"), MIN(b."Player Name")) AS handle
+          FROM unnest((SELECT starters FROM roster_starters)) AS starter_id
+          LEFT JOIN base b ON b.player_key = starter_id
+          LEFT JOIN players p ON p."Player ID" = starter_id
+          GROUP BY starter_id
+        ),
+        series_summary AS (
+          SELECT
+            roster_scope.series_id AS series_id,
+            "Season" AS season,
+            "Split" AS split,
+            "Regional" AS regional,
+            "Stage" AS stage,
+            MIN("Round") AS round,
+            "Team" AS team,
+            MAX("Best of ") AS best_of,
+            SUM(CASE WHEN "Victory" THEN 1 ELSE 0 END) AS wins
+          FROM roster_scope
+          GROUP BY roster_scope.series_id, "Season", "Split", "Regional", "Stage", "Team"
+        ),
+        series_winners AS (
+          SELECT
+            *,
+            wins >= CEIL(best_of / 2.0) AS won_series
+          FROM series_summary
+        ),
+        event_gf AS (
+          SELECT
+            season,
+            split,
+            regional,
+            stage,
+            MAX(
+              CASE
+                WHEN round ILIKE '%GF 2%' OR round ILIKE '%GF2%' THEN 2
+                WHEN round ILIKE '%GF 1%' OR round ILIKE '%GF1%' THEN 1
+                WHEN round ILIKE '%GF%' THEN 1
+                ELSE 0
+              END
+            ) AS gf_tier
+          FROM series_summary
+          GROUP BY season, split, regional, stage
+        ),
+        gf_champs AS (
+          SELECT s.*
+          FROM series_winners s
+          JOIN event_gf e
+            ON s.season IS NOT DISTINCT FROM e.season
+           AND s.split IS NOT DISTINCT FROM e.split
+           AND s.regional IS NOT DISTINCT FROM e.regional
+           AND s.stage IS NOT DISTINCT FROM e.stage
+          WHERE s.won_series = true
+            AND (
+              (e.gf_tier = 2 AND (s.round ILIKE '%GF 2%' OR s.round ILIKE '%GF2%'))
+              OR (e.gf_tier <= 1 AND s.round ILIKE '%GF%')
+            )
+        ),
+        best_result AS (
+          SELECT
+            CASE
+              WHEN EXISTS (SELECT 1 FROM gf_champs) THEN 'Top 1'
+              WHEN EXISTS (SELECT 1 FROM series_summary WHERE round ILIKE '%GF%') THEN 'Top 2'
+              WHEN EXISTS (SELECT 1 FROM series_summary WHERE round ILIKE '%SF%') THEN 'Top 4'
+              WHEN EXISTS (SELECT 1 FROM series_summary WHERE round ILIKE '%QF%') THEN 'Top 8'
+              WHEN EXISTS (
+                SELECT 1 FROM series_summary WHERE round ILIKE '%R16%' OR round ILIKE '%16%'
+              ) THEN 'Top 16'
+              WHEN EXISTS (
+                SELECT 1 FROM series_summary WHERE round ILIKE '%R32%' OR round ILIKE '%32%'
+              ) THEN 'Top 32'
+              WHEN EXISTS (SELECT 1 FROM series_summary WHERE stage ILIKE '%Playoff%') THEN 'Top 8'
+              WHEN EXISTS (SELECT 1 FROM series_summary WHERE stage ILIKE '%Swiss%') THEN 'Top 16'
+              ELSE NULL
+            END AS placement
+        )
+        SELECT
+          roster_starters.roster_id AS roster_id,
+          roster_names.roster_name AS roster_name,
+          (SELECT json_agg(json_build_object('id', starter_id, 'handle', handle) ORDER BY starter_id)
+           FROM starter_profiles) AS starters,
+          (SELECT json_agg(json_build_object('id', alt_id, 'handle', handle, 'appearances', appearances)
+                   ORDER BY appearances DESC, alt_id)
+           FROM alternate_profiles) AS alternates,
+          MIN(roster_scope."Date") AS debut_date,
+          (SELECT placement FROM best_result) AS best_result,
+          COUNT(*) AS games,
+          COUNT(DISTINCT roster_scope.series_id) AS series_played,
+          SUM(roster_scope."Goals_All Zones") AS goals_total,
+          AVG(roster_scope."Goals_All Zones") AS goals_avg,
+          SUM(roster_scope."Assists_All Zones") AS assists_total,
+          AVG(roster_scope."Assists_All Zones") AS assists_avg,
+          SUM(roster_scope."Saves_All Zones") AS saves_total,
+          AVG(roster_scope."Saves_All Zones") AS saves_avg,
+          SUM(roster_scope."Kills_All Zones") AS demos_total,
+          AVG(roster_scope."Kills_All Zones") AS demos_avg
+        FROM roster_scope
+        JOIN roster_starters ON roster_starters.roster_id = $${rosterIndex}
+        LEFT JOIN roster_names ON roster_names.roster_id = roster_starters.roster_id
+        GROUP BY roster_starters.roster_id, roster_names.roster_name;
+        `,
+        [...values, rosterId]
+      );
+
+      if (!result.rows.length) {
+        json(res, 404, { error: "Roster not found" });
+        return;
+      }
+
+      const row = result.rows[0];
+
+      json(res, 200, {
+        roster: {
+          id: row.roster_id,
+          name: row.roster_name,
+          starters: row.starters ?? [],
+          alternates: row.alternates ?? [],
+          debut: row.debut_date,
+          bestResult: row.best_result,
+          games: Number(row.games ?? 0),
+          seriesPlayed: Number(row.series_played ?? 0),
+          totals: {
+            goals: Number(row.goals_total ?? 0),
+            assists: Number(row.assists_total ?? 0),
+            saves: Number(row.saves_total ?? 0),
+            demos: Number(row.demos_total ?? 0)
+          },
+          averages: {
+            goals: Number(row.goals_avg ?? 0),
+            assists: Number(row.assists_avg ?? 0),
+            saves: Number(row.saves_avg ?? 0),
+            demos: Number(row.demos_avg ?? 0)
+          }
+        }
+      });
+      return;
+    } catch (error) {
+      console.error(error);
+      json(res, 500, { error: "Failed to load roster profile" });
+      return;
+    }
+  }
+
   if (url.pathname === "/api/compare") {
     const type = url.searchParams.get("type") ?? "players";
     const ids = parseListParam(url.searchParams.get("ids"));
@@ -1205,6 +1625,60 @@ const server = createServer(async (req, res) => {
     if (!options.length) {
       json(res, 400, { error: "No valid metrics" });
       return;
+    }
+
+    if (type === "rosters") {
+      const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+      const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+      const idsIndex = values.length + 1;
+      const metricSelect = options
+        .map((option) => `${metricExpression(option, mode, "roster_scope")} AS "${option.key}"`)
+        .join(",\n            ");
+
+      try {
+        const result = await pool.query(
+          `
+          ${rosterCtes(where)},
+          roster_scope AS (
+            SELECT b.*, sr.roster_id
+            FROM base b
+            JOIN series_roster sr
+              ON b.series_id = sr.series_id
+             AND b.team = sr.team
+            WHERE sr.roster_id = ANY($${idsIndex})
+          )
+          SELECT
+            roster_scope.roster_id AS id,
+            roster_names.roster_name AS label,
+            COUNT(*) AS games,
+            ${metricSelect}
+          FROM roster_scope
+          LEFT JOIN roster_names ON roster_names.roster_id = roster_scope.roster_id
+          GROUP BY roster_scope.roster_id, roster_names.roster_name
+          ORDER BY roster_names.roster_name;
+          `,
+          [...values, ids]
+        );
+
+        json(res, 200, {
+          mode,
+          metrics: options.map((option) => ({ key: option.key, label: option.label })),
+          rows: result.rows.map((row) => ({
+            id: row.id,
+            label: row.label,
+            games: Number(row.games ?? 0),
+            values: options.reduce((acc, option) => {
+              acc[option.key] = Number(row[option.key] ?? 0);
+              return acc;
+            }, {})
+          }))
+        });
+        return;
+      } catch (error) {
+        console.error(error);
+        json(res, 500, { error: "Failed to compare rosters" });
+        return;
+      }
     }
 
     if (type === "teams") {
@@ -1322,7 +1796,7 @@ const server = createServer(async (req, res) => {
     const metricKey = url.searchParams.get("metric") ?? "score";
     const mode = normalizeMode(url.searchParams.get("mode"));
     const limit = Math.min(Number.parseInt(url.searchParams.get("limit") ?? "10", 10), 50);
-    const option = resolveStatOption(metricKey);
+    const option = await resolveStatOptionAsync(metricKey);
 
     if (!option) {
       json(res, 400, { error: "Invalid metric" });

@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Route, Routes, useNavigate, useParams } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8787";
@@ -24,6 +24,7 @@ type SearchResult = {
   meta?: {
     photoUrl?: string | null;
     country?: string | null;
+    starters?: string[] | null;
   };
 };
 
@@ -64,11 +65,17 @@ type RosterStarter = {
   handle: string | null;
 };
 
+type RosterAlternate = {
+  id: string;
+  handle: string | null;
+  appearances?: number | null;
+};
+
 type RosterProfile = {
   id: string;
   name: string | null;
   starters: RosterStarter[];
-  alternate: string | null;
+  alternates: RosterAlternate[];
   debut: string | null;
   bestResult: string | null;
   games: number;
@@ -295,6 +302,14 @@ function formatRosterStarters(starters: RosterStarter[] | null | undefined) {
     .join(" / ");
 }
 
+function formatRosterAlternates(alternates: RosterAlternate[] | null | undefined) {
+  if (!alternates || alternates.length === 0) return null;
+  return alternates
+    .map((alt) => alt.handle ?? alt.id)
+    .filter(Boolean)
+    .join(" / ");
+}
+
 function SearchPanel({
   searchQuery,
   setSearchQuery,
@@ -317,7 +332,7 @@ function SearchPanel({
       <div className="search-input">
         <input
           type="search"
-          placeholder="Search"
+          placeholder="Search for a player, roster or stat"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
         />
@@ -336,11 +351,14 @@ function SearchPanel({
                     {section.results.map((result) => (
                       <li key={`${result.type}-${result.id}`}>
                         <div className="result-main">
-                          <div>
-                            <strong>{result.label}</strong>
-                            {result.meta?.country && <span>{result.meta.country}</span>}
+                            <div>
+                              <strong>{result.label}</strong>
+                              {result.meta?.country && <span>{result.meta.country}</span>}
+                              {result.type === "roster" && result.meta?.starters?.length ? (
+                                <span>{result.meta.starters.join(" / ")}</span>
+                              ) : null}
+                            </div>
                           </div>
-                        </div>
                         <div className="result-actions">
                           {result.type === "player" && (
                             <button
@@ -608,7 +626,6 @@ function Dashboard({
         <SearchPanel
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          searchLoading={searchLoading}
           searchSections={searchSections}
           compareMode={compareMode}
           addCompareSelection={addCompareSelection}
@@ -903,14 +920,12 @@ function Dashboard({
 function PlayerProfilePage({
   searchQuery,
   setSearchQuery,
-  searchLoading,
   searchSections,
   compareMode,
   addCompareSelection
 }: {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
-  searchLoading: boolean;
   searchSections: SearchSection[];
   compareMode: "players" | "rosters";
   addCompareSelection: (item: SearchResult) => void;
@@ -1050,7 +1065,6 @@ function PlayerProfilePage({
         <SearchPanel
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          searchLoading={searchLoading}
           searchSections={searchSections}
           compareMode={compareMode}
           addCompareSelection={addCompareSelection}
@@ -1277,14 +1291,12 @@ function PlayerProfilePage({
 function RosterProfilePage({
   searchQuery,
   setSearchQuery,
-  searchLoading,
   searchSections,
   compareMode,
   addCompareSelection
 }: {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
-  searchLoading: boolean;
   searchSections: SearchSection[];
   compareMode: "players" | "rosters";
   addCompareSelection: (item: SearchResult) => void;
@@ -1408,6 +1420,7 @@ function RosterProfilePage({
 
   const rosterName = rosterProfile?.name ?? "Roster Profile";
   const startersLabel = formatRosterStarters(rosterProfile?.starters);
+  const alternatesLabel = formatRosterAlternates(rosterProfile?.alternates);
 
   return (
     <div className="page">
@@ -1425,7 +1438,6 @@ function RosterProfilePage({
         <SearchPanel
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          searchLoading={searchLoading}
           searchSections={searchSections}
           compareMode={compareMode}
           addCompareSelection={addCompareSelection}
@@ -1455,10 +1467,10 @@ function RosterProfilePage({
                     <strong>Starters</strong>
                     {startersLabel}
                   </p>
-                  {rosterProfile.alternate && (
+                  {alternatesLabel && (
                     <p className="profile-line">
                       <strong>Alternate</strong>
-                      {rosterProfile.alternate}
+                      {alternatesLabel}
                     </p>
                   )}
                   <div className="profile-meta">
@@ -1599,14 +1611,12 @@ function RosterProfilePage({
 function StatLeaderboardPage({
   searchQuery,
   setSearchQuery,
-  searchLoading,
   searchSections,
   compareMode,
   addCompareSelection
 }: {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
-  searchLoading: boolean;
   searchSections: SearchSection[];
   compareMode: "players" | "rosters";
   addCompareSelection: (item: SearchResult) => void;
@@ -1706,7 +1716,6 @@ function StatLeaderboardPage({
         <SearchPanel
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          searchLoading={searchLoading}
           searchSections={searchSections}
           compareMode={compareMode}
           addCompareSelection={addCompareSelection}
@@ -1825,7 +1834,6 @@ export default function App() {
     rosters: [],
     stats: []
   });
-  const [searchLoading, setSearchLoading] = useState(false);
   const [compareMode, setCompareMode] = useState<"players" | "rosters">("players");
   const [compareSelection, setCompareSelection] = useState<SearchResult[]>([]);
 
@@ -1854,11 +1862,8 @@ export default function App() {
     const trimmed = searchQuery.trim();
     if (!trimmed) {
       setSearchResults({ players: [], rosters: [], stats: [] });
-      setSearchLoading(false);
       return;
     }
-
-    setSearchLoading(true);
     const handle = window.setTimeout(async () => {
       try {
         const response = await fetchJson<SearchResponse>("/api/search", {
@@ -1875,10 +1880,6 @@ export default function App() {
       } catch (error) {
         if (!ignore) {
           setSearchResults({ players: [], rosters: [], stats: [] });
-        }
-      } finally {
-        if (!ignore) {
-          setSearchLoading(false);
         }
       }
     }, 250);
@@ -1897,7 +1898,6 @@ export default function App() {
           <Dashboard
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            searchLoading={searchLoading}
             searchSections={searchSections}
             compareMode={compareMode}
             setCompareMode={setCompareMode}
@@ -1913,7 +1913,6 @@ export default function App() {
           <PlayerProfilePage
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            searchLoading={searchLoading}
             searchSections={searchSections}
             compareMode={compareMode}
             addCompareSelection={addCompareSelection}
@@ -1926,7 +1925,6 @@ export default function App() {
           <RosterProfilePage
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            searchLoading={searchLoading}
             searchSections={searchSections}
             compareMode={compareMode}
             addCompareSelection={addCompareSelection}
@@ -1939,7 +1937,6 @@ export default function App() {
           <StatLeaderboardPage
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            searchLoading={searchLoading}
             searchSections={searchSections}
             compareMode={compareMode}
             addCompareSelection={addCompareSelection}
@@ -1952,7 +1949,6 @@ export default function App() {
           <Dashboard
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            searchLoading={searchLoading}
             searchSections={searchSections}
             compareMode={compareMode}
             setCompareMode={setCompareMode}
