@@ -4,14 +4,13 @@ import { basename, join } from "node:path";
 import { createHash } from "node:crypto";
 import type { Client } from "pg";
 import { connectDb } from "./db";
+import { DATASETS, resolveDatasets } from "./datasets";
 import {
-  createStatsTableSql,
-  addStatsTableCommentsSql,
   addIngestionColumnsSql,
   addRowHashColumnSql,
   createRowHashIndexSql,
   createFileIngestTableSql
-} from "./stats-schema";
+} from "./schema-utils";
 import { loadCsvFile } from "./load-csv";
 import type { ColumnSpec, ColumnType, FileReport } from "./util/types";
 
@@ -26,6 +25,7 @@ type CliOptions = {
   strict: boolean;
   truncate: boolean;
   allowNewColumns: boolean;
+  dataset?: string;
 };
 
 function parseArgs(argv: string[]): CliOptions {
@@ -60,10 +60,17 @@ function parseArgs(argv: string[]): CliOptions {
       options.truncate = true;
     } else if (arg === "--allow-new-columns") {
       options.allowNewColumns = true;
+    } else if (arg === "--dataset") {
+      options.dataset = argv[i + 1] ?? options.dataset;
+      i += 1;
     }
   }
 
   return options;
+}
+
+function quoteIdent(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
 }
 
 function escapeRegex(input: string): string {
@@ -97,15 +104,16 @@ function mapDbType(dataType: string): ColumnType {
   return "TEXT";
 }
 
-async function getColumnSpecsFromDb(client: Client): Promise<ColumnSpec[]> {
+async function getColumnSpecsFromDb(client: Client, tableName: string): Promise<ColumnSpec[]> {
   const result = await client.query(
     `
     SELECT column_name, data_type
     FROM information_schema.columns
     WHERE table_schema = 'public'
-      AND table_name = 'stats'
+      AND table_name = $1
     ORDER BY ordinal_position;
-    `
+    `,
+    [tableName]
   );
   return result.rows
     .map((row) => ({
@@ -125,26 +133,32 @@ async function computeFileHash(filePath: string): Promise<string> {
   });
 }
 
-async function isFileIngested(client: Client, fileHash: string): Promise<boolean> {
+async function isFileIngested(
+  client: Client,
+  tableName: string,
+  fileHash: string
+): Promise<boolean> {
   const result = await client.query(
-    "SELECT 1 FROM file_ingest WHERE file_hash = $1 LIMIT 1;",
-    [fileHash]
+    "SELECT 1 FROM file_ingest WHERE table_name = $1 AND file_hash = $2 LIMIT 1;",
+    [tableName, fileHash]
   );
   return (result.rowCount ?? 0) > 0;
 }
 
 async function recordFileIngest(
   client: Client,
+  tableName: string,
   report: FileReport,
   fileHash: string,
   fileSize: number
 ): Promise<void> {
   await client.query(
     `
-    INSERT INTO file_ingest (file_name, file_hash, file_size, row_count, inserted, skipped, errored)
-    VALUES ($1, $2, $3, $4, $5, $6, $7);
+    INSERT INTO file_ingest (table_name, file_name, file_hash, file_size, row_count, inserted, skipped, errored)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
     `,
     [
+      tableName,
       report.fileName,
       fileHash,
       fileSize,
@@ -157,76 +171,113 @@ async function recordFileIngest(
 }
 
 async function listFiles(dir: string, pattern: string): Promise<string[]> {
-  const entries = await readdir(dir);
+  let entries: string[] = [];
+  try {
+    entries = await readdir(dir);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException)?.code;
+    if (code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
   const regex = patternToRegex(pattern);
   return entries.filter((name) => regex.test(name)).map((name) => join(dir, name));
 }
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  const datasets = resolveDatasets(options.dataset);
   const client = await connectDb();
 
   try {
     console.log("connected to db");
-    await client.query(createStatsTableSql);
-    await client.query(addIngestionColumnsSql);
-    await client.query(addRowHashColumnSql);
-    await client.query(addStatsTableCommentsSql);
-    await client.query(createRowHashIndexSql);
     await client.query(createFileIngestTableSql);
+    for (const dataset of datasets) {
+      await client.query(dataset.createTableSql);
+      if (dataset.addColumnsSql) {
+        await client.query(dataset.addColumnsSql);
+      }
+      await client.query(addIngestionColumnsSql(dataset.tableName));
+      await client.query(addRowHashColumnSql(dataset.tableName));
+      if (dataset.addCommentsSql) {
+        await client.query(dataset.addCommentsSql);
+      }
+      await client.query(createRowHashIndexSql(dataset.tableName));
+    }
     console.log("schema ensured");
 
     if (options.truncate && !options.dryRun) {
-      await client.query("TRUNCATE stats RESTART IDENTITY;");
-      await client.query("TRUNCATE file_ingest RESTART IDENTITY;");
-      console.log("stats truncated");
-    }
-
-    const files = await listFiles(options.dir, options.pattern);
-    if (files.length === 0) {
-      console.log("no files matched");
-      return;
+      for (const dataset of datasets) {
+        await client.query(`TRUNCATE ${quoteIdent(dataset.tableName)} RESTART IDENTITY;`);
+      }
+      if (datasets.length === DATASETS.length) {
+        await client.query("TRUNCATE file_ingest RESTART IDENTITY;");
+      } else {
+        for (const dataset of datasets) {
+          await client.query("DELETE FROM file_ingest WHERE table_name = $1;", [
+            dataset.tableName
+          ]);
+        }
+      }
+      console.log("data truncated");
     }
 
     const reports: FileReport[] = [];
-    for (const filePath of files) {
-      const fileStats = await stat(filePath);
-      const fileHash = await computeFileHash(filePath);
-      const fileName = basename(filePath);
-
-      if (!options.limit && (await isFileIngested(client, fileHash))) {
-        const skippedReport: FileReport = {
-          fileName,
-          status: "skipped",
-          skipReason: "already ingested",
-          fileHash,
-          totalRows: 0,
-          inserted: 0,
-          skipped: 0,
-          errored: 0,
-          errors: []
-        };
-        reports.push(skippedReport);
-        console.log(`skipping file ${filePath} (already ingested)`);
+    for (const dataset of datasets) {
+      const datasetDir = join(options.dir, dataset.dataSubdir);
+      const files = await listFiles(datasetDir, options.pattern);
+      if (files.length === 0) {
+        console.log(`${dataset.label}: no files matched`);
         continue;
       }
 
-      const specs = await getColumnSpecsFromDb(client);
-      console.log(`processing file ${filePath}`);
-      const report = await loadCsvFile(client, filePath, specs, {
-        strict: options.strict,
-        dryRun: options.dryRun,
-        limit: options.limit,
-        allowNewColumns: options.allowNewColumns
-      });
-      report.fileHash = fileHash;
-      reports.push(report);
-      console.log(
-        `${report.fileName}: rows ${report.totalRows}, inserted ${report.inserted}, skipped ${report.skipped}, errored ${report.errored}`
-      );
+      for (const filePath of files) {
+        const fileStats = await stat(filePath);
+        const fileHash = await computeFileHash(filePath);
+        const fileName = basename(filePath);
 
-      if (!options.dryRun && !options.limit) {
-        await recordFileIngest(client, report, fileHash, fileStats.size);
+        if (!options.limit && (await isFileIngested(client, dataset.tableName, fileHash))) {
+          const skippedReport: FileReport = {
+            fileName,
+            status: "skipped",
+            skipReason: "already ingested",
+            fileHash,
+            totalRows: 0,
+            inserted: 0,
+            skipped: 0,
+            errored: 0,
+            errors: [],
+            dataset: dataset.key
+          };
+          reports.push(skippedReport);
+          console.log(`[${dataset.label}] skipping file ${filePath} (already ingested)`);
+          continue;
+        }
+
+        const specs = await getColumnSpecsFromDb(client, dataset.tableName);
+        console.log(`[${dataset.label}] processing file ${filePath}`);
+        const report = await loadCsvFile(client, filePath, specs, {
+          strict: options.strict,
+          dryRun: options.dryRun,
+          limit: options.limit,
+          allowNewColumns: options.allowNewColumns,
+          tableName: dataset.tableName,
+          schemaFile: dataset.schemaFile,
+          headerNormalizer: dataset.headerNormalizer,
+          ignoreCoercionErrors: dataset.ignoreCoercionErrors,
+          stopAfterHeader: dataset.stopAfterHeader
+        });
+        report.fileHash = fileHash;
+        report.dataset = dataset.key;
+        reports.push(report);
+        console.log(
+          `[${dataset.label}] ${report.fileName}: rows ${report.totalRows}, inserted ${report.inserted}, skipped ${report.skipped}, errored ${report.errored}`
+        );
+
+        if (!options.dryRun && !options.limit) {
+          await recordFileIngest(client, dataset.tableName, report, fileHash, fileStats.size);
+        }
       }
     }
 

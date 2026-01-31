@@ -286,8 +286,8 @@ CREATE TABLE IF NOT EXISTS stats (
 export const addStatsTableCommentsSql = `
 COMMENT ON COLUMN stats."id" IS 'Primary key.';
 COMMENT ON COLUMN stats."Player Name" IS 'Player display name.';
-COMMENT ON COLUMN stats."Unique ID" IS 'Player unique identifier.';
-COMMENT ON COLUMN stats."Player ID" IS 'Player platform identifier.';
+COMMENT ON COLUMN stats."Unique ID" IS 'Player identifier (unique player ID).';
+COMMENT ON COLUMN stats."Player ID" IS 'Platform player ID; not necessarily unique.';
 COMMENT ON COLUMN stats."Role" IS 'Player role in the match.';
 COMMENT ON COLUMN stats."Date" IS 'Match date.';
 COMMENT ON COLUMN stats."Match ID" IS 'Match identifier from source data.';
@@ -564,35 +564,4 @@ COMMENT ON COLUMN stats."Boost Gained from Big Boosts_Offense Zone" IS 'Boost ga
 COMMENT ON COLUMN stats."source_file" IS 'Source filename for the ingested row.';
 COMMENT ON COLUMN stats."ingested_at" IS 'Timestamp when the row was ingested.';
 COMMENT ON COLUMN stats."row_hash" IS 'Deterministic hash for the row contents.';
-`;
-
-export const addIngestionColumnsSql = `
-ALTER TABLE stats
-  ADD COLUMN IF NOT EXISTS source_file TEXT NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMPTZ NOT NULL DEFAULT now();
-`;
-
-export const addRowHashColumnSql = `
-ALTER TABLE stats
-  ADD COLUMN IF NOT EXISTS row_hash TEXT NOT NULL;
-`;
-
-export const createRowHashIndexSql = `
-CREATE UNIQUE INDEX IF NOT EXISTS stats_row_hash_uq ON stats(row_hash);
-`;
-
-export const createFileIngestTableSql = `
-CREATE TABLE IF NOT EXISTS file_ingest (
-  id BIGSERIAL PRIMARY KEY,
-  file_name TEXT NOT NULL,
-  file_hash TEXT NOT NULL,
-  file_size BIGINT NOT NULL,
-  row_count INTEGER NOT NULL,
-  inserted INTEGER NOT NULL,
-  skipped INTEGER NOT NULL,
-  errored INTEGER NOT NULL,
-  ingested_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS file_ingest_hash_uq ON file_ingest(file_hash);
 `;

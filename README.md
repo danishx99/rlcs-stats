@@ -1,10 +1,10 @@
 # RLCS Stats Loader
 
-Load multiple CSVs into a single Postgres table using Bun + TypeScript. The loader is streaming, idempotent, and resilient to blank lines and bad cells.
+Load multiple CSVs into Postgres tables using Bun + TypeScript. The loader is streaming, idempotent, and resilient to blank lines and bad cells.
 
 ## What it does
 
-- Creates/updates the `stats` table using `createStatsTableSql`.
+- Creates/updates the `stats` (matches) and `players` tables.
 - Adds ingestion metadata: `source_file`, `ingested_at`.
 - Adds `row_hash` and a unique index for idempotency.
 - Streams CSV rows and coerces types safely.
@@ -42,6 +42,11 @@ bun install
 bun run src/run.ts --dir ./data
 ```
 
+By default this loads:
+
+- `./data/matches` → `stats` table
+- `./data/players` → `players` table
+
 ## Reset Database
 
 To wipe the local Postgres volume and start fresh:
@@ -52,17 +57,23 @@ bun run db:reset
 
 ## CLI Flags
 
-- `--dir ./data` (default `./data`)
+- `--dir ./data` (default `./data`, base directory that contains `matches/` and `players/`)
 - `--pattern "*.csv"` (default `*.csv`)
 - `--limit N` (optional, stop after N rows per file)
 - `--dry-run` (parse + validate only, no DB writes)
 - `--strict` (stop on first row error)
-- `--truncate` (TRUNCATE stats before loading)
+- `--truncate` (TRUNCATE selected tables before loading)
 - `--allow-new-columns` (temporarily add new CSV columns as TEXT)
+- `--dataset matches|players` (load only one dataset)
 
 ## Schema + Columns
 
-The loader uses the schema in `src/stats-schema.ts`. Column names in SQL are quoted to match CSV headers exactly (including spaces and punctuation).
+The loader uses schemas in:
+
+- `src/stats-schema.ts` (matches)
+- `src/players-schema.ts` (players)
+
+Column names in SQL are quoted to match CSV headers exactly (including spaces and punctuation).
 
 Additional columns created at runtime:
 
@@ -72,9 +83,9 @@ Additional columns created at runtime:
 
 ### Schema evolution (new CSV columns)
 
-By default, the loader **fails** if a CSV contains columns not defined in `src/stats-schema.ts`. If you want to ingest and add them temporarily, run with `--allow-new-columns`. **Those columns are created as `TEXT` only as a placeholder.** After the run:
+By default, the loader **fails** if a CSV contains columns not defined in the relevant schema file. If you want to ingest and add them temporarily, run with `--allow-new-columns`. **Those columns are created as `TEXT` only as a placeholder.** After the run:
 
-1) Update `src/stats-schema.ts` with the correct type for each new column.
+1) Update the appropriate schema file with the correct type for each new column.
 2) If needed, backfill/convert data types with a manual SQL migration.
 3) Re-run the loader if you want the new types to be reflected on fresh loads.
 
@@ -114,6 +125,12 @@ It includes per-file counts and up to the first 100 row errors.
 
 ```bash
 bun run src/run.ts --dir ./data --pattern "*.csv" --dry-run
+```
+
+Load only matches:
+
+```bash
+bun run src/run.ts --dir ./data --dataset matches
 ```
 
 ## 🧠 More Powerful: pgAdmin 4 (feature-rich)

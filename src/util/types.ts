@@ -22,6 +22,7 @@ export type FileReport = {
   status: "processed" | "skipped";
   skipReason?: string;
   fileHash?: string;
+  dataset?: string;
   totalRows: number;
   inserted: number;
   skipped: number;

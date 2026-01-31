@@ -14,6 +14,11 @@ export type LoadOptions = {
   limit?: number;
   progressEvery?: number;
   allowNewColumns?: boolean;
+  tableName: string;
+  schemaFile?: string;
+  headerNormalizer?: (header: string) => string;
+  ignoreCoercionErrors?: boolean;
+  stopAfterHeader?: string;
 };
 
 export function extractColumnSpecs(sql: string): ColumnSpec[] {
@@ -42,6 +47,39 @@ function quoteIdent(value: string): string {
 
 function hasTimezone(value: string): boolean {
   return /[zZ]|[+-]\d\d:?\d\d$/.test(value);
+}
+
+function parseDateString(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/\d{4}-\d{2}-\d{2}/.test(trimmed) || trimmed.includes("T")) {
+    const adjusted = hasTimezone(trimmed) ? trimmed : `${trimmed}Z`;
+    const date = new Date(adjusted);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const match = trimmed.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if (match) {
+    const first = Number.parseInt(match[1], 10);
+    const second = Number.parseInt(match[2], 10);
+    const year = Number.parseInt(match[3], 10);
+    if (Number.isNaN(first) || Number.isNaN(second) || Number.isNaN(year)) {
+      return null;
+    }
+    let day = first;
+    let month = second;
+    if (first <= 12 && second > 12) {
+      day = second;
+      month = first;
+    }
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const adjusted = hasTimezone(trimmed) ? trimmed : `${trimmed}Z`;
+  const date = new Date(adjusted);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function coerceValue(raw: string, type: ColumnType): { value: any; error?: string } {
@@ -83,9 +121,8 @@ function coerceValue(raw: string, type: ColumnType): { value: any; error?: strin
       return { value: null, error: "invalid boolean" };
     }
     case "TIMESTAMPTZ": {
-      const adjusted = hasTimezone(trimmed) ? trimmed : `${trimmed}Z`;
-      const date = new Date(adjusted);
-      if (Number.isNaN(date.getTime())) {
+      const date = parseDateString(trimmed);
+      if (!date || Number.isNaN(date.getTime())) {
         return { value: null, error: "invalid timestamp" };
       }
       return { value: date };
@@ -111,7 +148,7 @@ function normalizeForHash(value: any): string {
   return String(value);
 }
 
-function buildInsertSql(columns: string[], rows: number): string {
+function buildInsertSql(tableName: string, columns: string[], rows: number): string {
   const allColumns = [...columns.map(quoteIdent), '"row_hash"', '"source_file"'];
   const colCount = allColumns.length;
   const valuesSql: string[] = [];
@@ -123,12 +160,12 @@ function buildInsertSql(columns: string[], rows: number): string {
     valuesSql.push(`(${placeholders.join(", ")})`);
   }
 
-  return `INSERT INTO stats (${allColumns.join(", ")}) VALUES ${valuesSql.join(", ")} ON CONFLICT (row_hash) DO NOTHING;`;
+  return `INSERT INTO ${quoteIdent(tableName)} (${allColumns.join(", ")}) VALUES ${valuesSql.join(", ")} ON CONFLICT (row_hash) DO NOTHING;`;
 }
 
-function buildAddColumnsSql(columns: string[]): string {
+function buildAddColumnsSql(tableName: string, columns: string[]): string {
   const clauses = columns.map((col) => `ADD COLUMN IF NOT EXISTS ${quoteIdent(col)} TEXT`);
-  return `ALTER TABLE stats ${clauses.join(", ")};`;
+  return `ALTER TABLE ${quoteIdent(tableName)} ${clauses.join(", ")};`;
 }
 
 function maxBatchRows(columnCount: number): number {
@@ -152,6 +189,8 @@ export async function loadCsvFile(
   let skipped = 0;
   let errored = 0;
 
+  let sourceHeaders: string[] = [];
+  let includedIndices: number[] = [];
   let headers: string[] = [];
   let columnTypes: ColumnType[] = [];
   let batchValues: any[] = [];
@@ -163,7 +202,7 @@ export async function loadCsvFile(
       return;
     }
     if (!options.dryRun) {
-      const sql = buildInsertSql(headers, batchRows);
+      const sql = buildInsertSql(options.tableName, headers, batchRows);
       const result = await client.query(sql, batchValues);
       const rowCount = result.rowCount ?? 0;
       inserted += rowCount;
@@ -176,27 +215,59 @@ export async function loadCsvFile(
   await streamCsvRows(filePath, {
     onRow: async (row: Record<string, string>, rowNumber: number) => {
       if (headers.length === 0) {
-        headers = Object.keys(row);
+        sourceHeaders = Object.keys(row);
+        let normalizedHeaders = options.headerNormalizer
+          ? sourceHeaders.map((header) => options.headerNormalizer?.(header) ?? header)
+          : sourceHeaders;
+        if (options.stopAfterHeader) {
+          const stopIndex = normalizedHeaders.findIndex(
+            (header) => header === options.stopAfterHeader
+          );
+          if (stopIndex >= 0) {
+            normalizedHeaders = normalizedHeaders.slice(0, stopIndex + 1);
+          }
+        }
+        const filteredHeaders: string[] = [];
+        includedIndices = [];
+        normalizedHeaders.forEach((header, index) => {
+          if (header.trim().length === 0) {
+            return;
+          }
+          filteredHeaders.push(header);
+          includedIndices.push(index);
+        });
+        headers = filteredHeaders;
+        const headerCounts = new Map<string, number>();
+        for (const header of headers) {
+          headerCounts.set(header, (headerCounts.get(header) ?? 0) + 1);
+        }
+        const duplicates = [...headerCounts.entries()]
+          .filter(([, count]) => count > 1)
+          .map(([header]) => header);
+        if (duplicates.length > 0) {
+          throw new Error(`CSV header mapping produced duplicates: ${duplicates.join(", ")}`);
+        }
         const extra = headers.filter((col) => !typeMap.has(col));
         if (extra.length > 0) {
           if (!options.allowNewColumns) {
+            const schemaHint = options.schemaFile ?? `the schema for ${options.tableName}`;
             throw new Error(
-              `CSV has ${extra.length} undefined columns in ${fileName}. Add them to src/stats-schema.ts or pass --allow-new-columns.`
+              `CSV has ${extra.length} undefined columns in ${fileName}. Add them to ${schemaHint} or pass --allow-new-columns.`
             );
           }
           if (!options.dryRun) {
-            await client.query(buildAddColumnsSql(extra));
+            await client.query(buildAddColumnsSql(options.tableName, extra));
           }
           for (const col of extra) {
             typeMap.set(col, "TEXT");
           }
-          console.log(`${fileName}: added ${extra.length} new columns`);
+          console.log(`${fileName}: added ${extra.length} new columns to ${options.tableName}`);
         }
         columnTypes = headers.map((col) => typeMap.get(col) as ColumnType);
         batchLimit = maxBatchRows(headers.length);
       }
 
-      const rawValues = headers.map((col) => row[col] ?? "");
+      const rawValues = includedIndices.map((index) => row[sourceHeaders[index]] ?? "");
       const isBlank = rawValues.every((value) => value.trim().length === 0);
       if (isBlank) {
         return true;
@@ -215,7 +286,7 @@ export async function loadCsvFile(
         const raw = rawValues[i];
         const type = columnTypes[i];
         const { value, error } = coerceValue(raw, type);
-        if (error) {
+        if (error && !options.ignoreCoercionErrors) {
           rowHasError = true;
           if (errors.length < 100) {
             errors.push({

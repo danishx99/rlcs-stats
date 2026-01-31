@@ -5,14 +5,14 @@ import {
   addIngestionColumnsSql,
   addRowHashColumnSql,
   createFileIngestTableSql,
-  createRowHashIndexSql,
-  createStatsTableSql
-} from "../src/stats-schema";
+  createRowHashIndexSql
+} from "../src/schema-utils";
+import { createStatsTableSql } from "../src/stats-schema";
 import { loadCsvFile } from "../src/load-csv";
 import { streamCsvRows } from "../src/util/csv";
 import type { ColumnSpec, ColumnType } from "../src/util/types";
 
-const DATA_DIR = "./data";
+const DATA_DIR = "./data/matches";
 const IGNORED_COLUMNS = new Set(["id", "source_file", "ingested_at", "row_hash"]);
 
 type DbClient = { query: (sql: string, params?: any[]) => Promise<any>; end: () => Promise<void> };
@@ -40,15 +40,16 @@ function mapDbType(dataType: string): ColumnType {
   return "TEXT";
 }
 
-async function getColumnSpecsFromDb(db: Client): Promise<ColumnSpec[]> {
+async function getColumnSpecsFromDb(db: DbClient): Promise<ColumnSpec[]> {
   const result = await db.query(
     `
     SELECT column_name, data_type
     FROM information_schema.columns
     WHERE table_schema = 'public'
-      AND table_name = 'stats'
+      AND table_name = $1
     ORDER BY ordinal_position;
-    `
+    `,
+    ["stats"]
   );
   return result.rows
     .map((row) => ({
@@ -85,9 +86,9 @@ describe("CSV ingestion", () => {
       const { connectDb } = await import("../src/db");
       client = await connectDb();
       await client.query(createStatsTableSql);
-      await client.query(addIngestionColumnsSql);
-      await client.query(addRowHashColumnSql);
-      await client.query(createRowHashIndexSql);
+      await client.query(addIngestionColumnsSql("stats"));
+      await client.query(addRowHashColumnSql("stats"));
+      await client.query(createRowHashIndexSql("stats"));
       await client.query(createFileIngestTableSql);
       await client.query("TRUNCATE stats RESTART IDENTITY;");
       await client.query("TRUNCATE file_ingest RESTART IDENTITY;");
@@ -128,7 +129,9 @@ describe("CSV ingestion", () => {
       const specs = await getColumnSpecsFromDb(client);
       const report = await loadCsvFile(client, filePath, specs, {
         strict: false,
-        dryRun: false
+        dryRun: false,
+        tableName: "stats",
+        schemaFile: "src/stats-schema.ts"
       });
 
       expect(report.totalRows).toBe(rows);
