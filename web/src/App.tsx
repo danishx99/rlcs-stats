@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Route, Routes, useNavigate, useParams } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8787";
@@ -15,6 +15,7 @@ type MetaResponse = {
   splits: string[];
   events: string[];
   statOptions: StatOption[];
+  featuredOptions?: StatOption[];
 };
 
 type SearchResult = {
@@ -101,6 +102,33 @@ type CompareResponse = {
   mode: "avg" | "total";
   metrics: CompareMetric[];
   rows: CompareRow[];
+};
+
+type CompareHistoryEntity = {
+  id: string;
+  label: string | null;
+};
+
+type CompareHistoryTeam = {
+  team: string | null;
+  wins: number;
+  bestOf: number | null;
+  entities: CompareHistoryEntity[] | null;
+};
+
+type CompareHistoryRow = {
+  series_id: string;
+  date: string | null;
+  season: string | null;
+  split: string | null;
+  regional: string | null;
+  stage: string | null;
+  round: string | null;
+  teams: CompareHistoryTeam[] | null;
+};
+
+type CompareHistoryResponse = {
+  rows: CompareHistoryRow[];
 };
 
 type LeaderboardRow = {
@@ -265,6 +293,11 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString();
 }
 
+function formatSeriesLabel(row: CompareHistoryRow) {
+  const parts = [row.season, row.split, row.regional, row.stage, row.round].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Series";
+}
+
 function computeAge(value?: string | null) {
   if (!value) return "—";
   const birth = new Date(value);
@@ -324,6 +357,7 @@ function SearchPanel({
   addCompareSelection: (item: SearchResult) => void;
 }) {
   const navigate = useNavigate();
+  const clearSearch = () => setSearchQuery("");
   const visibleSearchSections = searchSections.filter((section) => section.results.length > 0);
   const hasSearchResults = visibleSearchSections.length > 0;
 
@@ -364,9 +398,10 @@ function SearchPanel({
                             <button
                               type="button"
                               className="ghost"
-                              onClick={() =>
-                                navigate(`/uniqueid/${encodeURIComponent(result.id)}`)
-                              }
+                              onClick={() => {
+                                clearSearch();
+                                navigate(`/uniqueid/${encodeURIComponent(result.id)}`);
+                              }}
                             >
                               View
                             </button>
@@ -375,28 +410,34 @@ function SearchPanel({
                             <button
                               type="button"
                               className="ghost"
-                              onClick={() =>
-                                navigate(`/rosters/${encodeURIComponent(result.id)}`)
-                              }
+                              onClick={() => {
+                                clearSearch();
+                                navigate(`/rosters/${encodeURIComponent(result.id)}`);
+                              }}
                             >
                               View
                             </button>
                           )}
-                          {(result.type === "player" || result.type === "roster") &&
-                            compareMode === (result.type === "player" ? "players" : "rosters") && (
-                              <button
-                                type="button"
-                                className="ghost"
-                                onClick={() => addCompareSelection(result)}
-                              >
-                                Compare
-                              </button>
-                            )}
+                          {(result.type === "player" || result.type === "roster") && (
+                            <button
+                              type="button"
+                              className="ghost"
+                              onClick={() => {
+                                clearSearch();
+                                addCompareSelection(result);
+                              }}
+                            >
+                              Compare
+                            </button>
+                          )}
                           {result.type === "stat" && (
                             <button
                               type="button"
                               className="ghost"
-                              onClick={() => navigate(`/stats/${encodeURIComponent(result.id)}`)}
+                              onClick={() => {
+                                clearSearch();
+                                navigate(`/stats/${encodeURIComponent(result.id)}`);
+                              }}
                             >
                               Top 10
                             </button>
@@ -412,74 +453,139 @@ function SearchPanel({
   );
 }
 
-function Dashboard({
+function TopNav({
   searchQuery,
   setSearchQuery,
   searchSections,
   compareMode,
-  setCompareMode,
-  compareSelection,
   addCompareSelection,
-  removeCompareSelection
+  filters,
+  setFilters,
+  meta
 }: {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
   searchSections: SearchSection[];
   compareMode: "players" | "rosters";
+  addCompareSelection: (item: SearchResult) => void;
+  filters: { season: string; split: string; event: string };
+  setFilters: (value: { season: string; split: string; event: string }) => void;
+  meta: MetaResponse | null;
+}) {
+  return (
+    <div className="top-nav">
+      <div className="top-nav-content">
+        <SearchPanel
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchSections={searchSections}
+          compareMode={compareMode}
+          addCompareSelection={addCompareSelection}
+        />
+        <div className="top-nav-filters">
+          <label>
+            Season
+            <select
+              value={filters.season}
+              onChange={(event) =>
+                setFilters({
+                  season: event.target.value,
+                  split: "",
+                  event: ""
+                })
+              }
+            >
+              <option value="">All</option>
+              {(meta?.seasons ?? []).map((season) => (
+                <option key={season} value={season}>
+                  {season}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Split
+            <select
+              value={filters.split}
+              onChange={(event) =>
+                setFilters({
+                  season: filters.season,
+                  split: event.target.value,
+                  event: ""
+                })
+              }
+              disabled={!filters.season}
+            >
+              <option value="">All</option>
+              {(meta?.splits ?? []).map((split) => (
+                <option key={split} value={split}>
+                  {split}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Event
+            <select
+              value={filters.event}
+              onChange={(event) =>
+                setFilters({
+                  season: filters.season,
+                  split: filters.split,
+                  event: event.target.value
+                })
+              }
+              disabled={!filters.season || !filters.split}
+            >
+              <option value="">All</option>
+              {(meta?.events ?? []).map((event) => (
+                <option key={event} value={event}>
+                  {event}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({
+  compareMode,
+  setCompareMode,
+  compareSelection,
+  addCompareSelection,
+  removeCompareSelection,
+  clearCompareSelection,
+  meta,
+  filterParams
+}: {
+  compareMode: "players" | "rosters";
   setCompareMode: (value: "players" | "rosters") => void;
   compareSelection: SearchResult[];
   addCompareSelection: (item: SearchResult) => void;
   removeCompareSelection: (id: string) => void;
+  clearCompareSelection: () => void;
+  meta: MetaResponse | null;
+  filterParams: { season?: string; split?: string; event?: string };
 }) {
-  const [meta, setMeta] = useState<MetaResponse | null>(null);
-  const [metaError, setMetaError] = useState<string | null>(null);
-  const [filters, setFilters] = useState({ season: "", split: "", event: "" });
   const [compareMetrics, setCompareMetrics] = useState<string[]>(DEFAULT_COMPARE_STATS);
   const [compareResults, setCompareResults] = useState<CompareResponse | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [compareHistory, setCompareHistory] = useState<CompareHistoryRow[]>([]);
+  const [compareHistoryLoading, setCompareHistoryLoading] = useState(false);
+  const [compareHistoryPage, setCompareHistoryPage] = useState(1);
   const [leaderStat, setLeaderStat] = useState<string>("score");
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [leaderLoading, setLeaderLoading] = useState(false);
-  const [featuredStat, setFeaturedStat] = useState<string>("score");
+  const [featuredStat, setFeaturedStat] = useState<string>("least_grounded");
   const [featured, setFeatured] = useState<FeaturedResponse | null>(null);
   const [featuredLoading, setFeaturedLoading] = useState(false);
 
   const statMap = useMemo(() => {
     return new Map(meta?.statOptions.map((option) => [option.key, option]) ?? []);
   }, [meta]);
-
-  const filterParams = useMemo(() => {
-    return {
-      season: filters.season || undefined,
-      split: filters.split || undefined,
-      event: filters.event || undefined
-    };
-  }, [filters]);
-
-  useEffect(() => {
-    let ignore = false;
-    async function loadMeta() {
-      try {
-        const response = await fetchJson<MetaResponse>("/api/meta", {
-          season: filters.season || undefined,
-          split: filters.split || undefined
-        });
-        if (!ignore) {
-          setMeta(response);
-          setMetaError(null);
-        }
-      } catch (error) {
-        if (!ignore) {
-          setMetaError(error instanceof Error ? error.message : "Failed to load metadata");
-        }
-      }
-    }
-
-    loadMeta();
-    return () => {
-      ignore = true;
-    };
-  }, [filters.season, filters.split]);
 
   useEffect(() => {
     if (!meta) return;
@@ -493,10 +599,11 @@ function Dashboard({
       return fallback;
     });
     setFeaturedStat((prev) => {
-      if (prev && meta.statOptions.some((option) => option.key === prev)) {
+      const options = meta.featuredOptions ?? [];
+      if (prev && options.some((option) => option.key === prev)) {
         return prev;
       }
-      return fallback;
+      return options[0]?.key ?? prev;
     });
   }, [meta]);
 
@@ -536,6 +643,42 @@ function Dashboard({
     };
   }, [compareSelection, compareMetrics, compareMode, filterParams]);
 
+  useEffect(() => {
+    let ignore = false;
+    async function loadHistory() {
+      if (compareSelection.length < 2) {
+        setCompareHistory([]);
+        setCompareHistoryPage(1);
+        return;
+      }
+      try {
+        setCompareHistoryLoading(true);
+        const response = await fetchJson<CompareHistoryResponse>("/api/compare/history", {
+          type: compareMode,
+          ids: compareSelection.map((item) => item.id).join(","),
+          ...filterParams
+        });
+        if (!ignore) {
+          setCompareHistory(response.rows ?? []);
+          setCompareHistoryPage(1);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setCompareHistory([]);
+          setCompareHistoryPage(1);
+        }
+      } finally {
+        if (!ignore) {
+          setCompareHistoryLoading(false);
+        }
+      }
+    }
+
+    loadHistory();
+    return () => {
+      ignore = true;
+    };
+  }, [compareSelection, compareMode, filterParams]);
   useEffect(() => {
     let ignore = false;
     async function loadLeaderboard() {
@@ -610,10 +753,21 @@ function Dashboard({
   };
 
   const statOptions = meta?.statOptions ?? [];
+  const featuredOptions = meta?.featuredOptions ?? [];
   const compareStatsList = statOptions.filter((option) => option.key !== "series_played");
+  const compareHistoryPageSize = 5;
+  const compareHistoryTotalPages = Math.max(
+    1,
+    Math.ceil(compareHistory.length / compareHistoryPageSize)
+  );
+  const compareHistoryStart = (compareHistoryPage - 1) * compareHistoryPageSize;
+  const compareHistorySlice = compareHistory.slice(
+    compareHistoryStart,
+    compareHistoryStart + compareHistoryPageSize
+  );
 
   return (
-    <div className="page">
+    <>
       <header className="topbar">
         <div className="brand">
           <p className="eyebrow">RLCS Intel Grid</p>
@@ -623,109 +777,14 @@ function Dashboard({
             compare rosters, and surface stat leaders with precision filtering.
           </p>
         </div>
-        <SearchPanel
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchSections={searchSections}
-          compareMode={compareMode}
-          addCompareSelection={addCompareSelection}
-        />
       </header>
 
-      {metaError && <div className="error-banner">{metaError}</div>}
-
       <section className="control-row">
-        <div className="panel filter-panel" style={{ animationDelay: "140ms" }}>
-          <div className="panel-header">
-            <div>
-              <p className="panel-label">Scope Filters</p>
-              <h2>Season / Split / Event</h2>
-            </div>
-          </div>
-          <div className="filters">
-            <label>
-              Season
-              <select
-                value={filters.season}
-                onChange={(event) =>
-                  setFilters({
-                    season: event.target.value,
-                    split: "",
-                    event: ""
-                  })
-                }
-              >
-                <option value="">All</option>
-                {(meta?.seasons ?? []).map((season) => (
-                  <option key={season} value={season}>
-                    {season}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Split
-              <select
-                value={filters.split}
-                onChange={(event) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    split: event.target.value,
-                    event: ""
-                  }))
-                }
-                disabled={!filters.season}
-              >
-                <option value="">All</option>
-                {(meta?.splits ?? []).map((split) => (
-                  <option key={split} value={split}>
-                    {split}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Event
-              <select
-                value={filters.event}
-                onChange={(event) => setFilters((prev) => ({ ...prev, event: event.target.value }))}
-                disabled={!filters.season || !filters.split}
-              >
-                <option value="">All</option>
-                {(meta?.events ?? []).map((event) => (
-                  <option key={event} value={event}>
-                    {event}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-
         <div className="panel mode-panel" style={{ animationDelay: "200ms" }}>
           <div className="panel-header">
             <div>
-              <p className="panel-label">Compare Mode</p>
-              <h2>Players vs Rosters</h2>
-            </div>
-          </div>
-          <div className="toggle-row">
-            <span>Focus</span>
-            <div className="toggle">
-              <button
-                type="button"
-                className={compareMode === "players" ? "active" : ""}
-                onClick={() => setCompareMode("players")}
-              >
-                Players
-              </button>
-              <button
-                type="button"
-                className={compareMode === "rosters" ? "active" : ""}
-                onClick={() => setCompareMode("rosters")}
-              >
-                Rosters
-              </button>
+              <p className="panel-label">Compare</p>
+              <h2>Head-to-Head</h2>
             </div>
           </div>
           <div className="compare-chips">
@@ -767,9 +826,6 @@ function Dashboard({
               <p className="panel-label">Split View</p>
               <h2>Head-to-Head Comparison</h2>
             </div>
-            <span className="panel-tag">
-              {compareMode === "players" ? "Players" : "Rosters"}
-            </span>
           </div>
           {compareLoading && <p className="empty">Computing matchup...</p>}
           {!compareLoading && (!compareResults || compareResults.rows.length === 0) && (
@@ -812,6 +868,113 @@ function Dashboard({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          <div className="panel-header inline">
+            <div>
+              <p className="panel-label">Series History</p>
+              <h4>Head-to-Head Series</h4>
+            </div>
+          </div>
+          {compareSelection.length < 2 ? (
+            <p className="empty">Add at least two entries to see series history.</p>
+          ) : compareHistoryLoading ? (
+            <p className="empty">Loading series history...</p>
+          ) : compareHistory.length ? (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Series</th>
+                    <th>Team A</th>
+                    <th>Team B</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {compareHistorySlice.map((row) => {
+                    const teams = row.teams ?? [];
+                    const teamA = teams[0];
+                    const teamB = teams[1];
+                    const teamLabel = (team?: CompareHistoryTeam) =>
+                      team?.team ?? "—";
+                    const entityLabel = (team?: CompareHistoryTeam) =>
+                      team?.entities?.map((entity) => entity.label ?? entity.id).join(" / ") ?? "—";
+                    const scoreParts = (team?: CompareHistoryTeam, other?: CompareHistoryTeam) => {
+                      if (team?.wins === undefined || other?.wins === undefined) {
+                        return { text: "—" };
+                      }
+                      return { text: `${team.wins}-${other.wins}` };
+                    };
+                    const scoreClass = (team?: CompareHistoryTeam, other?: CompareHistoryTeam) => {
+                      if (team?.wins === undefined || other?.wins === undefined) return "";
+                      if (team.wins > other.wins) return "score-win";
+                      if (team.wins < other.wins) return "score-loss";
+                      return "";
+                    };
+
+                    return (
+                      <tr key={row.series_id}>
+                        <td>{formatDate(row.date)}</td>
+                        <td>{formatSeriesLabel(row)}</td>
+                        <td>
+                          <div className="cell-title">
+                            <strong>{teamLabel(teamA)}</strong>
+                            <span>
+                              {entityLabel(teamA)} ·{" "}
+                              <span className={scoreClass(teamA, teamB)}>
+                                {scoreParts(teamA, teamB).text}
+                              </span>
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="cell-title">
+                            <strong>{teamLabel(teamB)}</strong>
+                            <span>
+                              {entityLabel(teamB)} ·{" "}
+                              <span className={scoreClass(teamB, teamA)}>
+                                {scoreParts(teamB, teamA).text}
+                              </span>
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="empty">No series found for this matchup.</p>
+          )}
+          {compareHistory.length > compareHistoryPageSize && (
+            <div className="compare-history-pagination">
+              <button
+                type="button"
+                className="ghost"
+                onClick={() =>
+                  setCompareHistoryPage((prev) => Math.max(1, prev - 1))
+                }
+                disabled={compareHistoryPage === 1}
+              >
+                Prev
+              </button>
+              <span className="pagination-status">
+                Page {compareHistoryPage} of {compareHistoryTotalPages}
+              </span>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() =>
+                  setCompareHistoryPage((prev) =>
+                    Math.min(compareHistoryTotalPages, prev + 1)
+                  )
+                }
+                disabled={compareHistoryPage === compareHistoryTotalPages}
+              >
+                Next
+              </button>
             </div>
           )}
         </section>
@@ -862,7 +1025,7 @@ function Dashboard({
               value={featuredStat}
               onChange={(event) => setFeaturedStat(event.target.value)}
             >
-              {statOptions.map((option) => (
+              {featuredOptions.map((option) => (
                 <option key={option.key} value={option.key}>
                   {option.label}
                 </option>
@@ -913,41 +1076,23 @@ function Dashboard({
         </section>
 
       </main>
-    </div>
+    </>
   );
 }
 
 function PlayerProfilePage({
-  searchQuery,
-  setSearchQuery,
-  searchSections,
-  compareMode,
-  addCompareSelection
+  filters,
+  filterParams
 }: {
-  searchQuery: string;
-  setSearchQuery: (value: string) => void;
-  searchSections: SearchSection[];
-  compareMode: "players" | "rosters";
-  addCompareSelection: (item: SearchResult) => void;
+  filters: { season: string; split: string; event: string };
+  filterParams: { season?: string; split?: string; event?: string };
 }) {
   const { uniqueId } = useParams();
   const navigate = useNavigate();
-  const [meta, setMeta] = useState<MetaResponse | null>(null);
-  const [metaError, setMetaError] = useState<string | null>(null);
-  const [filters, setFilters] = useState({ season: "", split: "", event: "" });
-  const [showFilters, setShowFilters] = useState(false);
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   const [playerProfileLoading, setPlayerProfileLoading] = useState(false);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
-
-  const filterParams = useMemo(() => {
-    return {
-      season: filters.season || undefined,
-      split: filters.split || undefined,
-      event: filters.event || undefined
-    };
-  }, [filters]);
 
   const seasonTableRows = useMemo(() => {
     if (filters.season) {
@@ -958,31 +1103,6 @@ function PlayerProfilePage({
     }
     return [buildSeasonSummaryRow(playerProfile)];
   }, [filters.season, playerProfile, seasonRows]);
-
-  useEffect(() => {
-    let ignore = false;
-    async function loadMeta() {
-      try {
-        const response = await fetchJson<MetaResponse>("/api/meta", {
-          season: filters.season || undefined,
-          split: filters.split || undefined
-        });
-        if (!ignore) {
-          setMeta(response);
-          setMetaError(null);
-        }
-      } catch (error) {
-        if (!ignore) {
-          setMetaError(error instanceof Error ? error.message : "Failed to load metadata");
-        }
-      }
-    }
-
-    loadMeta();
-    return () => {
-      ignore = true;
-    };
-  }, [filters.season, filters.split]);
 
   useEffect(() => {
     if (!uniqueId) return;
@@ -1048,7 +1168,7 @@ function PlayerProfilePage({
   }, [uniqueId, filterParams]);
 
   return (
-    <div className="page">
+    <>
       <header className="topbar profile-topbar">
         <div className="brand">
           <p className="eyebrow">Player Profile</p>
@@ -1062,16 +1182,7 @@ function PlayerProfilePage({
             </button>
           </div>
         </div>
-        <SearchPanel
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchSections={searchSections}
-          compareMode={compareMode}
-          addCompareSelection={addCompareSelection}
-        />
       </header>
-
-      {metaError && <div className="error-banner">{metaError}</div>}
 
       <section className="panel players-panel">
         <div className="panel-header">
@@ -1175,79 +1286,7 @@ function PlayerProfilePage({
                   <p className="panel-label">Performance by Season</p>
                   <h4>Per-game</h4>
                 </div>
-                <div className="profile-header-controls">
-                  <button
-                    type="button"
-                    className="ghost"
-                    aria-pressed={showFilters}
-                    onClick={() => setShowFilters((prev) => !prev)}
-                  >
-                    Filter
-                  </button>
-                </div>
               </div>
-              {showFilters && (
-                <div className="filters profile-filters profile-filter-row">
-                  <label>
-                    Season
-                    <select
-                      value={filters.season}
-                      onChange={(event) =>
-                        setFilters({
-                          season: event.target.value,
-                          split: "",
-                          event: ""
-                        })
-                      }
-                    >
-                      <option value="">All</option>
-                      {(meta?.seasons ?? []).map((season) => (
-                        <option key={season} value={season}>
-                          {season}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Split
-                    <select
-                      value={filters.split}
-                      onChange={(event) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          split: event.target.value,
-                          event: ""
-                        }))
-                      }
-                      disabled={!filters.season}
-                    >
-                      <option value="">All</option>
-                      {(meta?.splits ?? []).map((split) => (
-                        <option key={split} value={split}>
-                          {split}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Event
-                    <select
-                      value={filters.event}
-                      onChange={(event) =>
-                        setFilters((prev) => ({ ...prev, event: event.target.value }))
-                      }
-                      disabled={!filters.season || !filters.split}
-                    >
-                      <option value="">All</option>
-                      {(meta?.events ?? []).map((event) => (
-                        <option key={event} value={event}>
-                          {event}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              )}
               {seasonLoading ? (
                 <p className="empty">Loading season breakdown...</p>
               ) : seasonTableRows.length ? (
@@ -1284,41 +1323,23 @@ function PlayerProfilePage({
           )}
         </div>
       </section>
-    </div>
+    </>
   );
 }
 
 function RosterProfilePage({
-  searchQuery,
-  setSearchQuery,
-  searchSections,
-  compareMode,
-  addCompareSelection
+  filters,
+  filterParams
 }: {
-  searchQuery: string;
-  setSearchQuery: (value: string) => void;
-  searchSections: SearchSection[];
-  compareMode: "players" | "rosters";
-  addCompareSelection: (item: SearchResult) => void;
+  filters: { season: string; split: string; event: string };
+  filterParams: { season?: string; split?: string; event?: string };
 }) {
   const { rosterId } = useParams();
   const navigate = useNavigate();
-  const [meta, setMeta] = useState<MetaResponse | null>(null);
-  const [metaError, setMetaError] = useState<string | null>(null);
-  const [filters, setFilters] = useState({ season: "", split: "", event: "" });
-  const [showFilters, setShowFilters] = useState(false);
   const [rosterProfile, setRosterProfile] = useState<RosterProfile | null>(null);
   const [rosterProfileLoading, setRosterProfileLoading] = useState(false);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
-
-  const filterParams = useMemo(() => {
-    return {
-      season: filters.season || undefined,
-      split: filters.split || undefined,
-      event: filters.event || undefined
-    };
-  }, [filters]);
 
   const seasonTableRows = useMemo(() => {
     if (filters.season) {
@@ -1329,31 +1350,6 @@ function RosterProfilePage({
     }
     return [buildSeasonSummaryRow(rosterProfile)];
   }, [filters.season, rosterProfile, seasonRows]);
-
-  useEffect(() => {
-    let ignore = false;
-    async function loadMeta() {
-      try {
-        const response = await fetchJson<MetaResponse>("/api/meta", {
-          season: filters.season || undefined,
-          split: filters.split || undefined
-        });
-        if (!ignore) {
-          setMeta(response);
-          setMetaError(null);
-        }
-      } catch (error) {
-        if (!ignore) {
-          setMetaError(error instanceof Error ? error.message : "Failed to load metadata");
-        }
-      }
-    }
-
-    loadMeta();
-    return () => {
-      ignore = true;
-    };
-  }, [filters.season, filters.split]);
 
   useEffect(() => {
     if (!rosterId) return;
@@ -1423,7 +1419,7 @@ function RosterProfilePage({
   const alternatesLabel = formatRosterAlternates(rosterProfile?.alternates);
 
   return (
-    <div className="page">
+    <>
       <header className="topbar profile-topbar">
         <div className="brand">
           <p className="eyebrow">Roster Profile</p>
@@ -1435,16 +1431,7 @@ function RosterProfilePage({
             </button>
           </div>
         </div>
-        <SearchPanel
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchSections={searchSections}
-          compareMode={compareMode}
-          addCompareSelection={addCompareSelection}
-        />
       </header>
-
-      {metaError && <div className="error-banner">{metaError}</div>}
 
       <section className="panel players-panel">
         <div className="panel-header">
@@ -1495,79 +1482,7 @@ function RosterProfilePage({
                   <p className="panel-label">Performance by Season</p>
                   <h4>Per-game</h4>
                 </div>
-                <div className="profile-header-controls">
-                  <button
-                    type="button"
-                    className="ghost"
-                    aria-pressed={showFilters}
-                    onClick={() => setShowFilters((prev) => !prev)}
-                  >
-                    Filter
-                  </button>
-                </div>
               </div>
-              {showFilters && (
-                <div className="filters profile-filters profile-filter-row">
-                  <label>
-                    Season
-                    <select
-                      value={filters.season}
-                      onChange={(event) =>
-                        setFilters({
-                          season: event.target.value,
-                          split: "",
-                          event: ""
-                        })
-                      }
-                    >
-                      <option value="">All</option>
-                      {(meta?.seasons ?? []).map((season) => (
-                        <option key={season} value={season}>
-                          {season}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Split
-                    <select
-                      value={filters.split}
-                      onChange={(event) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          split: event.target.value,
-                          event: ""
-                        }))
-                      }
-                      disabled={!filters.season}
-                    >
-                      <option value="">All</option>
-                      {(meta?.splits ?? []).map((split) => (
-                        <option key={split} value={split}>
-                          {split}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Event
-                    <select
-                      value={filters.event}
-                      onChange={(event) =>
-                        setFilters((prev) => ({ ...prev, event: event.target.value }))
-                      }
-                      disabled={!filters.season || !filters.split}
-                    >
-                      <option value="">All</option>
-                      {(meta?.events ?? []).map((event) => (
-                        <option key={event} value={event}>
-                          {event}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              )}
               {seasonLoading ? (
                 <p className="empty">Loading season breakdown...</p>
               ) : seasonTableRows.length ? (
@@ -1604,65 +1519,20 @@ function RosterProfilePage({
           )}
         </div>
       </section>
-    </div>
+    </>
   );
 }
 
 function StatLeaderboardPage({
-  searchQuery,
-  setSearchQuery,
-  searchSections,
-  compareMode,
-  addCompareSelection
+  filterParams
 }: {
-  searchQuery: string;
-  setSearchQuery: (value: string) => void;
-  searchSections: SearchSection[];
-  compareMode: "players" | "rosters";
-  addCompareSelection: (item: SearchResult) => void;
+  filterParams: { season?: string; split?: string; event?: string };
 }) {
   const { statKey } = useParams();
   const navigate = useNavigate();
-  const [meta, setMeta] = useState<MetaResponse | null>(null);
-  const [metaError, setMetaError] = useState<string | null>(null);
-  const [filters, setFilters] = useState({ season: "", split: "", event: "" });
-  const [showFilters, setShowFilters] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [leaderLoading, setLeaderLoading] = useState(false);
   const [leaderError, setLeaderError] = useState<string | null>(null);
-
-  const filterParams = useMemo(() => {
-    return {
-      season: filters.season || undefined,
-      split: filters.split || undefined,
-      event: filters.event || undefined
-    };
-  }, [filters]);
-
-  useEffect(() => {
-    let ignore = false;
-    async function loadMeta() {
-      try {
-        const response = await fetchJson<MetaResponse>("/api/meta", {
-          season: filters.season || undefined,
-          split: filters.split || undefined
-        });
-        if (!ignore) {
-          setMeta(response);
-          setMetaError(null);
-        }
-      } catch (error) {
-        if (!ignore) {
-          setMetaError(error instanceof Error ? error.message : "Failed to load metadata");
-        }
-      }
-    }
-
-    loadMeta();
-    return () => {
-      ignore = true;
-    };
-  }, [filters.season, filters.split]);
 
   useEffect(() => {
     if (!statKey) return;
@@ -1701,7 +1571,7 @@ function StatLeaderboardPage({
     leaderboard?.metric.label ?? (statKey ? statKey.replace(/_/g, " ") : "Stat Leaderboard");
 
   return (
-    <div className="page">
+    <>
       <header className="topbar profile-topbar">
         <div className="brand">
           <p className="eyebrow">Top 10</p>
@@ -1713,98 +1583,20 @@ function StatLeaderboardPage({
             </button>
           </div>
         </div>
-        <SearchPanel
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchSections={searchSections}
-          compareMode={compareMode}
-          addCompareSelection={addCompareSelection}
-        />
       </header>
 
-      {metaError && <div className="error-banner">{metaError}</div>}
       {leaderError && <div className="error-banner">{leaderError}</div>}
 
       <section className="panel leaderboard-panel">
-        <div className="panel-header">
-          <div>
-            <p className="panel-label">Top 10</p>
-            <h2>{pageTitle}</h2>
-          </div>
+          <div className="panel-header">
+            <div>
+              <p className="panel-label">Top 10</p>
+              <h2>{pageTitle}</h2>
+            </div>
           <div className="profile-header-controls">
-            <button
-              type="button"
-              className="ghost"
-              aria-pressed={showFilters}
-              onClick={() => setShowFilters((prev) => !prev)}
-            >
-              Filter
-            </button>
             <span className="panel-tag">Per-game</span>
           </div>
         </div>
-        {showFilters && (
-          <div className="filters profile-filters profile-filter-row">
-            <label>
-              Season
-              <select
-                value={filters.season}
-                onChange={(event) =>
-                  setFilters({
-                    season: event.target.value,
-                    split: "",
-                    event: ""
-                  })
-                }
-              >
-                <option value="">All</option>
-                {(meta?.seasons ?? []).map((season) => (
-                  <option key={season} value={season}>
-                    {season}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Split
-              <select
-                value={filters.split}
-                onChange={(event) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    split: event.target.value,
-                    event: ""
-                  }))
-                }
-                disabled={!filters.season}
-              >
-                <option value="">All</option>
-                {(meta?.splits ?? []).map((split) => (
-                  <option key={split} value={split}>
-                    {split}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Event
-              <select
-                value={filters.event}
-                onChange={(event) =>
-                  setFilters((prev) => ({ ...prev, event: event.target.value }))
-                }
-                disabled={!filters.season || !filters.split}
-              >
-                <option value="">All</option>
-                {(meta?.events ?? []).map((event) => (
-                  <option key={event} value={event}>
-                    {event}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        )}
         {leaderLoading && <p className="empty">Loading leaderboard...</p>}
         {!leaderLoading && leaderboard?.rows?.length ? (
           <ol className="rank-list">
@@ -1823,7 +1615,7 @@ function StatLeaderboardPage({
           !leaderLoading && <p className="empty">No leaderboard data.</p>
         )}
       </section>
-    </div>
+    </>
   );
 }
 
@@ -1834,6 +1626,9 @@ export default function App() {
     rosters: [],
     stats: []
   });
+  const [meta, setMeta] = useState<MetaResponse | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [filters, setFilters] = useState({ season: "", split: "", event: "" });
   const [compareMode, setCompareMode] = useState<"players" | "rosters">("players");
   const [compareSelection, setCompareSelection] = useState<SearchResult[]>([]);
 
@@ -1844,6 +1639,16 @@ export default function App() {
   ];
 
   const addCompareSelection = (item: SearchResult) => {
+    if (item.type === "player" && compareMode !== "players") {
+      setCompareMode("players");
+      setCompareSelection([item]);
+      return;
+    }
+    if (item.type === "roster" && compareMode !== "rosters") {
+      setCompareMode("rosters");
+      setCompareSelection([item]);
+      return;
+    }
     if (compareSelection.find((entry) => entry.id === item.id)) return;
     if (compareSelection.length >= 6) return;
     setCompareSelection((prev) => [...prev, item]);
@@ -1853,9 +1658,42 @@ export default function App() {
     setCompareSelection((prev) => prev.filter((entry) => entry.id !== id));
   };
 
+  const filterParams = useMemo(() => {
+    return {
+      season: filters.season || undefined,
+      split: filters.split || undefined,
+      event: filters.event || undefined
+    };
+  }, [filters]);
+
   useEffect(() => {
+    let ignore = false;
+    async function loadMeta() {
+      try {
+        const response = await fetchJson<MetaResponse>("/api/meta", {
+          season: filters.season || undefined,
+          split: filters.split || undefined
+        });
+        if (!ignore) {
+          setMeta(response);
+          setMetaError(null);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setMetaError(error instanceof Error ? error.message : "Failed to load metadata");
+        }
+      }
+    }
+
+    loadMeta();
+    return () => {
+      ignore = true;
+    };
+  }, [filters.season, filters.split]);
+
+  const clearCompareSelection = () => {
     setCompareSelection([]);
-  }, [compareMode]);
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -1890,72 +1728,89 @@ export default function App() {
     };
   }, [searchQuery]);
 
+  const shell = (content: ReactNode) => (
+    <div className="page">
+      <TopNav
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        searchSections={searchSections}
+        compareMode={compareMode}
+        addCompareSelection={addCompareSelection}
+        filters={filters}
+        setFilters={setFilters}
+        meta={meta}
+      />
+      {metaError && <div className="error-banner">{metaError}</div>}
+      {content}
+    </div>
+  );
+
   return (
     <Routes>
       <Route
         path="/"
         element={
-          <Dashboard
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchSections={searchSections}
-            compareMode={compareMode}
-            setCompareMode={setCompareMode}
-            compareSelection={compareSelection}
-            addCompareSelection={addCompareSelection}
-            removeCompareSelection={removeCompareSelection}
-          />
+          shell(
+            <Dashboard
+              compareMode={compareMode}
+              setCompareMode={setCompareMode}
+              compareSelection={compareSelection}
+              addCompareSelection={addCompareSelection}
+              removeCompareSelection={removeCompareSelection}
+              clearCompareSelection={clearCompareSelection}
+              meta={meta}
+              filterParams={filterParams}
+            />
+          )
         }
       />
       <Route
         path="/uniqueid/:uniqueId"
         element={
-          <PlayerProfilePage
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchSections={searchSections}
-            compareMode={compareMode}
-            addCompareSelection={addCompareSelection}
-          />
+          shell(
+            <PlayerProfilePage
+              filters={filters}
+              filterParams={filterParams}
+            />
+          )
         }
       />
       <Route
         path="/rosters/:rosterId"
         element={
-          <RosterProfilePage
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchSections={searchSections}
-            compareMode={compareMode}
-            addCompareSelection={addCompareSelection}
-          />
+          shell(
+            <RosterProfilePage
+              filters={filters}
+              filterParams={filterParams}
+            />
+          )
         }
       />
       <Route
         path="/stats/:statKey"
         element={
-          <StatLeaderboardPage
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchSections={searchSections}
-            compareMode={compareMode}
-            addCompareSelection={addCompareSelection}
-          />
+          shell(
+            <StatLeaderboardPage
+              filterParams={filterParams}
+            />
+          )
         }
       />
       <Route
         path="*"
         element={
-          <Dashboard
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchSections={searchSections}
-            compareMode={compareMode}
-            setCompareMode={setCompareMode}
-            compareSelection={compareSelection}
-            addCompareSelection={addCompareSelection}
-            removeCompareSelection={removeCompareSelection}
-          />
+          shell(
+            <Dashboard
+              compareMode={compareMode}
+              setCompareMode={setCompareMode}
+              compareSelection={compareSelection}
+              addCompareSelection={addCompareSelection}
+              removeCompareSelection={removeCompareSelection}
+              clearCompareSelection={clearCompareSelection}
+              meta={meta}
+              filterParams={filterParams}
+            />
+          )
         }
       />
     </Routes>

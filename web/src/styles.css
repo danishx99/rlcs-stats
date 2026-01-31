@@ -27,10 +27,13 @@ body {
 }
 
 .page {
+  --page-pad: clamp(20px, 5vw, 80px);
+  --nav-height: 92px;
   min-height: 100vh;
-  padding: 36px clamp(20px, 5vw, 80px) 80px;
+  padding: calc(var(--nav-height) + 24px) var(--page-pad) 80px;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .page::before {
@@ -68,6 +71,63 @@ body {
   gap: 24px;
   align-items: start;
   margin-bottom: 24px;
+}
+
+.top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  padding: 14px var(--page-pad);
+  background: rgba(7, 10, 14, 0.96);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.top-nav-content {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.4fr) minmax(300px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.top-nav-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+.top-nav-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-muted);
+}
+
+.top-nav-filters select {
+  background: var(--panel-strong);
+  border: 1px solid var(--panel-border);
+  padding: 8px 10px;
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.top-nav .search-panel {
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.top-nav .search-input {
+  margin-bottom: 8px;
+}
+
+.top-nav .search-results li {
+  padding: 8px 10px;
 }
 
 .brand h1 {
@@ -781,6 +841,31 @@ body {
   background: rgba(255, 255, 255, 0.02);
 }
 
+.compare-history-pagination {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pagination-status {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-muted);
+}
+
+.score-win {
+  color: #37d67a;
+  font-weight: 600;
+}
+
+.score-loss {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -835,6 +920,10 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .top-nav-content {
+    grid-template-columns: 1fr;
+  }
+
   .main-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
@@ -868,7 +957,12 @@ th {
 
 @media (max-width: 640px) {
   .page {
-    padding: 24px 16px 60px;
+    --nav-height: 120px;
+    padding: calc(var(--nav-height) + 16px) 16px 60px;
+  }
+
+  .top-nav {
+    padding: 12px 16px;
   }
 
   .brand h1 {

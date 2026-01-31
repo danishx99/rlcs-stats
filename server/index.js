@@ -28,6 +28,167 @@ const STAT_OPTIONS = [
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
 
+const FEATURED_INSIGHTS = [
+  {
+    key: "least_grounded",
+    label: "Least Grounded",
+    format: "pct",
+    order: "asc",
+    sql: (where, limitIndex) => `
+      WITH base AS (
+        SELECT s.*, ${playerKeyExpr("s")} AS player_key
+        FROM stats s
+        ${where}
+      )
+      SELECT
+        base.player_key AS id,
+        COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label,
+        ARRAY_AGG(DISTINCT base."Team") AS teams,
+        MIN(p."Photo URL") AS photo_url,
+        MIN(p."Country") AS country,
+        AVG(base."On Ground_All Zones") AS value
+      FROM base
+      LEFT JOIN players p ON p."Player ID" = base.player_key
+      WHERE base.player_key IS NOT NULL
+      GROUP BY base.player_key
+      ORDER BY value ASC, COUNT(*) DESC
+      LIMIT $${limitIndex};
+    `
+  },
+  {
+    key: "best_grand_finals",
+    label: "Best in Grand Finals",
+    format: "pct",
+    sql: (where, limitIndex) => `
+      WITH base AS (
+        SELECT s.*, ${playerKeyExpr("s")} AS player_key
+        FROM stats s
+        ${where}
+      )
+      SELECT
+        base.player_key AS id,
+        COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label,
+        ARRAY_AGG(DISTINCT base."Team") AS teams,
+        MIN(p."Photo URL") AS photo_url,
+        MIN(p."Country") AS country,
+        ROUND((AVG(CASE WHEN base."Victory" THEN 1.0 ELSE 0.0 END) * 100.0)::NUMERIC, 2) AS value
+      FROM base
+      LEFT JOIN players p ON p."Player ID" = base.player_key
+      WHERE base.player_key IS NOT NULL
+        AND base."Stage" = 'Playoffs'
+        AND base."Round" ILIKE '%GF%'
+      GROUP BY base.player_key
+      ORDER BY value DESC, COUNT(*) DESC
+      LIMIT $${limitIndex};
+    `
+  },
+  {
+    key: "best_decider",
+    label: "Best in Deciders",
+    format: "pct",
+    sql: (where, limitIndex) => `
+      WITH base AS (
+        SELECT s.*, ${playerKeyExpr("s")} AS player_key
+        FROM stats s
+        ${where}
+      )
+      SELECT
+        base.player_key AS id,
+        COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label,
+        ARRAY_AGG(DISTINCT base."Team") AS teams,
+        MIN(p."Photo URL") AS photo_url,
+        MIN(p."Country") AS country,
+        ROUND((AVG(CASE WHEN base."Victory" THEN 1.0 ELSE 0.0 END) * 100.0)::NUMERIC, 2) AS value
+      FROM base
+      LEFT JOIN players p ON p."Player ID" = base.player_key
+      WHERE base.player_key IS NOT NULL
+        AND base."Best of " IN (5, 7)
+        AND base."Game Number" = base."Best of "
+      GROUP BY base.player_key
+      HAVING COUNT(*) >= 5
+      ORDER BY value DESC, COUNT(*) DESC
+      LIMIT $${limitIndex};
+    `
+  },
+  {
+    key: "fastest_player",
+    label: "Fastest Player",
+    format: "float",
+    sql: (where, limitIndex) => `
+      WITH base AS (
+        SELECT s.*, ${playerKeyExpr("s")} AS player_key
+        FROM stats s
+        ${where}
+      )
+      SELECT
+        base.player_key AS id,
+        COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label,
+        ARRAY_AGG(DISTINCT base."Team") AS teams,
+        MIN(p."Photo URL") AS photo_url,
+        MIN(p."Country") AS country,
+        AVG(base."Average Speed_All Zones") AS value
+      FROM base
+      LEFT JOIN players p ON p."Player ID" = base.player_key
+      WHERE base.player_key IS NOT NULL
+      GROUP BY base.player_key
+      ORDER BY value DESC, COUNT(*) DESC
+      LIMIT $${limitIndex};
+    `
+  },
+  {
+    key: "best_ot",
+    label: "Best in Overtime",
+    format: "pct",
+    sql: (where, limitIndex) => `
+      WITH base AS (
+        SELECT s.*, ${playerKeyExpr("s")} AS player_key
+        FROM stats s
+        ${where}
+      )
+      SELECT
+        base.player_key AS id,
+        COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label,
+        ARRAY_AGG(DISTINCT base."Team") AS teams,
+        MIN(p."Photo URL") AS photo_url,
+        MIN(p."Country") AS country,
+        ROUND((AVG(CASE WHEN base."Victory" THEN 1.0 ELSE 0.0 END) * 100.0)::NUMERIC, 2) AS value
+      FROM base
+      LEFT JOIN players p ON p."Player ID" = base.player_key
+      WHERE base.player_key IS NOT NULL
+        AND base."OT" = true
+      GROUP BY base.player_key
+      HAVING COUNT(*) >= 5
+      ORDER BY value DESC, COUNT(*) DESC
+      LIMIT $${limitIndex};
+    `
+  },
+  {
+    key: "most_demos",
+    label: "Most Demos per Game",
+    format: "float",
+    sql: (where, limitIndex) => `
+      WITH base AS (
+        SELECT s.*, ${playerKeyExpr("s")} AS player_key
+        FROM stats s
+        ${where}
+      )
+      SELECT
+        base.player_key AS id,
+        COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label,
+        ARRAY_AGG(DISTINCT base."Team") AS teams,
+        MIN(p."Photo URL") AS photo_url,
+        MIN(p."Country") AS country,
+        AVG(base."Kills_All Zones") AS value
+      FROM base
+      LEFT JOIN players p ON p."Player ID" = base.player_key
+      WHERE base.player_key IS NOT NULL
+      GROUP BY base.player_key
+      ORDER BY value DESC, COUNT(*) DESC
+      LIMIT $${limitIndex};
+    `
+  }
+];
+
 const STAT_OPTION_CACHE_TTL_MS = 5 * 60 * 1000;
 let statOptionsCache = {
   expiresAt: 0,
@@ -774,6 +935,7 @@ function metricExpression(option, mode, alias) {
   return `AVG(${column})`;
 }
 
+
 const server = createServer(async (req, res) => {
   if (!req.url || !req.headers.host) {
     json(res, 400, { error: "Bad request" });
@@ -900,6 +1062,11 @@ const server = createServer(async (req, res) => {
         splits: splits.rows.map((row) => row.value).filter(Boolean),
         events: events.rows.map((row) => row.value).filter(Boolean),
         statOptions: STAT_OPTIONS.map(({ key, label, format }) => ({
+          key,
+          label,
+          format
+        })),
+        featuredOptions: FEATURED_INSIGHTS.map(({ key, label, format }) => ({
           key,
           label,
           format
@@ -1606,6 +1773,239 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  if (url.pathname === "/api/compare/history") {
+    const type = url.searchParams.get("type") ?? "players";
+    const ids = parseListParam(url.searchParams.get("ids"));
+
+    if (ids.length < 2) {
+      json(res, 200, { rows: [] });
+      return;
+    }
+
+    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const idsIndex = values.length + 1;
+
+    try {
+      if (type === "rosters") {
+        const result = await pool.query(
+          `
+          ${rosterCtes(where)},
+          game_results AS (
+            SELECT
+              base.series_id AS series_id,
+              base.team AS team,
+              base."Game Number" AS game_number,
+              MAX(CASE WHEN base."Victory" THEN 1 ELSE 0 END) AS won_game,
+              MAX(base."Best of ") AS best_of
+            FROM base
+            GROUP BY base.series_id, base.team, base."Game Number"
+          ),
+          series_wins AS (
+            SELECT
+              series_id,
+              team,
+              SUM(won_game) AS wins,
+              MAX(best_of) AS best_of
+            FROM game_results
+            GROUP BY series_id, team
+          ),
+          series_meta AS (
+            SELECT
+              series_id,
+              MIN("Date") AS date,
+              MIN("Season") AS season,
+              MIN("Split") AS split,
+              MIN("Regional") AS regional,
+              MIN("Stage") AS stage,
+              MIN("Round") AS round
+            FROM base
+            GROUP BY series_id
+          ),
+          series_entities AS (
+            SELECT
+              series_id,
+              team,
+              ARRAY_AGG(DISTINCT roster_id ORDER BY roster_id) AS entity_ids
+            FROM series_roster
+            WHERE roster_id = ANY($${idsIndex})
+            GROUP BY series_id, team
+          ),
+          series_with_two AS (
+            SELECT series_id
+            FROM series_entities
+            GROUP BY series_id
+            HAVING COUNT(*) >= 2
+          )
+          SELECT
+            meta.series_id AS series_id,
+            meta.date AS date,
+            meta.season AS season,
+            meta.split AS split,
+            meta.regional AS regional,
+            meta.stage AS stage,
+            meta.round AS round,
+            JSON_AGG(
+              JSON_BUILD_OBJECT(
+                'team',
+                wins.team,
+                'wins',
+                wins.wins,
+                'bestOf',
+                wins.best_of,
+                'entities',
+                (
+                  SELECT JSON_AGG(
+                    JSON_BUILD_OBJECT(
+                      'id',
+                      e.entity_id,
+                      'label',
+                      rn.roster_name
+                    )
+                    ORDER BY rn.roster_name
+                  )
+                  FROM UNNEST(entities.entity_ids) AS e(entity_id)
+                  LEFT JOIN roster_names rn ON rn.roster_id = e.entity_id
+                )
+              )
+              ORDER BY wins.team
+            ) AS teams
+          FROM series_with_two sw
+          JOIN series_meta meta ON meta.series_id = sw.series_id
+          JOIN series_entities entities ON entities.series_id = sw.series_id
+          JOIN series_wins wins
+            ON wins.series_id = entities.series_id
+           AND wins.team = entities.team
+          GROUP BY meta.series_id, meta.date, meta.season, meta.split, meta.regional, meta.stage, meta.round
+          ORDER BY meta.date DESC NULLS LAST;
+          `,
+          [...values, ids]
+        );
+
+        json(res, 200, { rows: result.rows });
+        return;
+      }
+
+      const result = await pool.query(
+        `
+        WITH base AS (
+          SELECT
+            s.*,
+            TRIM(s."Team") AS team,
+            ${playerKeyExpr("s")} AS player_key,
+            ${seriesIdExpr("s")} AS series_id
+          FROM stats s
+          ${where}
+        ),
+        game_results AS (
+          SELECT
+            base.series_id AS series_id,
+            base.team AS team,
+            base."Game Number" AS game_number,
+            MAX(CASE WHEN base."Victory" THEN 1 ELSE 0 END) AS won_game,
+            MAX(base."Best of ") AS best_of
+          FROM base
+          GROUP BY base.series_id, base.team, base."Game Number"
+        ),
+        series_wins AS (
+          SELECT
+            series_id,
+            team,
+            SUM(won_game) AS wins,
+            MAX(best_of) AS best_of
+          FROM game_results
+          GROUP BY series_id, team
+        ),
+        series_meta AS (
+          SELECT
+            series_id,
+            MIN("Date") AS date,
+            MIN("Season") AS season,
+            MIN("Split") AS split,
+            MIN("Regional") AS regional,
+            MIN("Stage") AS stage,
+            MIN("Round") AS round
+          FROM base
+          GROUP BY series_id
+        ),
+        series_entities AS (
+          SELECT
+            series_id,
+            team,
+            ARRAY_AGG(DISTINCT player_key ORDER BY player_key) AS entity_ids
+          FROM base
+          WHERE player_key = ANY($${idsIndex})
+          GROUP BY series_id, team
+        ),
+        series_with_two AS (
+          SELECT series_id
+          FROM series_entities
+          GROUP BY series_id
+          HAVING COUNT(*) >= 2
+        ),
+        entity_labels AS (
+          SELECT
+            base.player_key AS id,
+            COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label
+          FROM base
+          LEFT JOIN players p ON p."Player ID" = base.player_key
+          WHERE base.player_key = ANY($${idsIndex})
+          GROUP BY base.player_key
+        )
+        SELECT
+          meta.series_id AS series_id,
+          meta.date AS date,
+          meta.season AS season,
+          meta.split AS split,
+          meta.regional AS regional,
+          meta.stage AS stage,
+          meta.round AS round,
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'team',
+              wins.team,
+              'wins',
+              wins.wins,
+              'bestOf',
+              wins.best_of,
+              'entities',
+              (
+                SELECT JSON_AGG(
+                  JSON_BUILD_OBJECT(
+                    'id',
+                    e.entity_id,
+                    'label',
+                    l.label
+                  )
+                  ORDER BY l.label
+                )
+                FROM UNNEST(entities.entity_ids) AS e(entity_id)
+                JOIN entity_labels l ON l.id = e.entity_id
+              )
+            )
+            ORDER BY wins.team
+          ) AS teams
+        FROM series_with_two sw
+        JOIN series_meta meta ON meta.series_id = sw.series_id
+        JOIN series_entities entities ON entities.series_id = sw.series_id
+        JOIN series_wins wins
+          ON wins.series_id = entities.series_id
+         AND wins.team = entities.team
+        GROUP BY meta.series_id, meta.date, meta.season, meta.split, meta.regional, meta.stage, meta.round
+        ORDER BY meta.date DESC NULLS LAST;
+        `,
+        [...values, ids]
+      );
+
+      json(res, 200, { rows: result.rows });
+      return;
+    } catch (error) {
+      console.error(error);
+      json(res, 500, { error: "Failed to load compare history" });
+      return;
+    }
+  }
+
   if (url.pathname === "/api/compare") {
     const type = url.searchParams.get("type") ?? "players";
     const ids = parseListParam(url.searchParams.get("ids"));
@@ -1860,12 +2260,12 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/featured") {
-    const metricKey = url.searchParams.get("metric") ?? "score";
-    const mode = normalizeMode(url.searchParams.get("mode"));
+    const insightKey = url.searchParams.get("metric") ?? "least_grounded";
     const limit = Math.min(Number.parseInt(url.searchParams.get("limit") ?? "6", 10), 20);
-    const option = resolveStatOption(metricKey);
+    const insight =
+      FEATURED_INSIGHTS.find((item) => item.key === insightKey) ?? FEATURED_INSIGHTS[0];
 
-    if (!option) {
+    if (!insight) {
       json(res, 400, { error: "Invalid metric" });
       return;
     }
@@ -1873,42 +2273,14 @@ const server = createServer(async (req, res) => {
     const { clauses, values } = buildFilterClauses(url.searchParams, "s");
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     const limitIndex = values.length + 1;
-    const valueExpr = metricExpression(option, mode, "player_scope");
 
     try {
-      const result = await pool.query(
-        `
-        WITH base AS (
-          SELECT
-            s.*,
-            ${playerKeyExpr("s")} AS player_key
-          FROM stats s
-          ${where}
-        ),
-        player_scope AS (
-          SELECT *
-          FROM base
-        )
-        SELECT
-          player_scope.player_key AS id,
-          COALESCE(MIN(p."Primary Handle"), MIN(player_scope."Player Name")) AS label,
-          ARRAY_AGG(DISTINCT player_scope."Team") AS teams,
-          MIN(p."Photo URL") AS photo_url,
-          MIN(p."Country") AS country,
-          ${valueExpr} AS value
-        FROM player_scope
-        LEFT JOIN players p ON p."Player ID" = player_scope.player_key
-        GROUP BY player_scope.player_key
-        ORDER BY value DESC NULLS LAST
-        LIMIT $${limitIndex};
-        `,
-        [...values, limit]
-      );
+      const result = await pool.query(insight.sql(where, limitIndex), [...values, limit]);
 
       json(res, 200, {
         generatedAt: new Date().toISOString(),
-        mode,
-        metric: { key: option.key, label: option.label, format: option.format },
+        mode: "avg",
+        metric: { key: insight.key, label: insight.label, format: insight.format },
         rows: result.rows.map((row) => ({
           id: row.id,
           label: row.label,
