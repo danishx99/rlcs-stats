@@ -21,6 +21,7 @@ export type SearchResult = {
     photoUrl?: string | null;
     country?: string | null;
     starters?: string[] | null;
+    realName?: string | null;
   };
 };
 

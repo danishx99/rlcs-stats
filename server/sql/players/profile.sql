@@ -1,4 +1,23 @@
-WITH base AS (
+-- Profile query that works even when player has no stats
+-- First get player info from players table, then optionally join stats
+WITH player_base AS (
+  SELECT
+    {{playerIdParam}} AS player_key,
+    p."Primary Handle" AS handle,
+    p."All Aliases" AS aliases,
+    p."Real Name" AS real_name,
+    p."Country" AS country,
+    p."Photo URL" AS photo_url,
+    p."Twitch" AS twitch,
+    p."TikTok" AS tiktok,
+    p."Date of Birth" AS date_of_birth
+  FROM players p
+  WHERE p."Player ID" = {{playerIdParam}}
+),
+player_exists AS (
+  SELECT 1 WHERE EXISTS (SELECT 1 FROM player_base)
+),
+stats_base AS (
   SELECT
     s.*,
     {{playerKeyExpr}} AS player_key,
@@ -6,9 +25,9 @@ WITH base AS (
   FROM stats s
   {{where}}
 ),
-player_scope AS (
+player_stats AS (
   SELECT *
-  FROM base
+  FROM stats_base
   WHERE player_key = {{playerIdParam}}
 ),
 first_appearance AS (
@@ -16,7 +35,7 @@ first_appearance AS (
     "Season" AS debut_season,
     "Split" AS debut_split,
     "Regional" AS debut_event
-  FROM player_scope
+  FROM player_stats
   ORDER BY "Date" ASC NULLS LAST, "Season" ASC, "Split" ASC, "Regional" ASC
   LIMIT 1
 ),
@@ -31,7 +50,7 @@ series_summary AS (
     "Team" AS team,
     MAX("Best of ") AS best_of,
     SUM(CASE WHEN "Victory" THEN 1 ELSE 0 END) AS wins
-  FROM player_scope
+  FROM player_stats
   GROUP BY series_id, "Season", "Split", "Regional", "Stage", "Team"
 ),
 series_winners AS (
@@ -84,33 +103,60 @@ best_result AS (
       WHEN EXISTS (SELECT 1 FROM series_summary WHERE stage ILIKE '%Swiss%') THEN 'Top 16'
       ELSE NULL
     END AS placement
+),
+stats_summary AS (
+  SELECT
+    (SELECT debut_season FROM first_appearance) AS debut_season,
+    (SELECT debut_split FROM first_appearance) AS debut_split,
+    (SELECT debut_event FROM first_appearance) AS debut_event,
+    (SELECT placement FROM best_result) AS best_result,
+    ARRAY_AGG(DISTINCT "Team") AS teams,
+    COUNT(*) AS games,
+    COUNT(DISTINCT series_id) AS series_played,
+    SUM("Goals_All Zones") AS goals_total,
+    AVG("Goals_All Zones") AS goals_avg,
+    SUM("Assists_All Zones") AS assists_total,
+    AVG("Assists_All Zones") AS assists_avg,
+    SUM("Saves_All Zones") AS saves_total,
+    AVG("Saves_All Zones") AS saves_avg,
+    SUM("Kills_All Zones") AS demos_total,
+    AVG("Kills_All Zones") AS demos_avg
+  FROM player_stats
 )
 SELECT
   {{playerIdParam}} AS player_id,
-  COALESCE(MIN(p."Primary Handle"), MIN(player_scope."Player Name")) AS handle,
-  MIN(player_scope."Player Name") AS player_name,
-  MIN(NULLIF(TRIM(p."All Aliases"), '')) AS aliases,
-  MIN(NULLIF(TRIM(p."Real Name"), '')) AS real_name,
-  MIN(NULLIF(TRIM(p."Country"), '')) AS country,
-  MIN(NULLIF(TRIM(p."Photo URL"), '')) AS photo_url,
-  MIN(NULLIF(TRIM(p."Twitch"), '')) AS twitch,
-  MIN(NULLIF(TRIM(p."TikTok"), '')) AS tiktok,
-  MIN(NULLIF(TRIM(p."Birthdate"), '')) AS date_of_birth,
-  (SELECT debut_season FROM first_appearance) AS debut_season,
-  (SELECT debut_split FROM first_appearance) AS debut_split,
-  (SELECT debut_event FROM first_appearance) AS debut_event,
-  (SELECT placement FROM best_result) AS best_result,
-  ARRAY_AGG(DISTINCT player_scope."Team") AS teams,
-  COUNT(*) AS games,
-  COUNT(DISTINCT player_scope.series_id) AS series_played,
-  SUM(player_scope."Goals_All Zones") AS goals_total,
-  AVG(player_scope."Goals_All Zones") AS goals_avg,
-  SUM(player_scope."Assists_All Zones") AS assists_total,
-  AVG(player_scope."Assists_All Zones") AS assists_avg,
-  SUM(player_scope."Saves_All Zones") AS saves_total,
-  AVG(player_scope."Saves_All Zones") AS saves_avg,
-  SUM(player_scope."Kills_All Zones") AS demos_total,
-  AVG(player_scope."Kills_All Zones") AS demos_avg
-FROM player_scope
-LEFT JOIN players p ON p."Player ID" = player_scope.player_key
-GROUP BY player_scope.player_key;
+  COALESCE(pb.handle, MIN(ps."Player Name")) AS handle,
+  MIN(ps."Player Name") AS player_name,
+  NULLIF(TRIM(pb.aliases), '') AS aliases,
+  NULLIF(TRIM(pb.real_name), '') AS real_name,
+  NULLIF(TRIM(pb.country), '') AS country,
+  NULLIF(TRIM(pb.photo_url), '') AS photo_url,
+  NULLIF(TRIM(pb.twitch), '') AS twitch,
+  NULLIF(TRIM(pb.tiktok), '') AS tiktok,
+  pb.date_of_birth AS date_of_birth,
+  ss.debut_season,
+  ss.debut_split,
+  ss.debut_event,
+  ss.best_result,
+  ss.teams,
+  COALESCE(ss.games, 0) AS games,
+  COALESCE(ss.series_played, 0) AS series_played,
+  COALESCE(ss.goals_total, 0) AS goals_total,
+  COALESCE(ss.goals_avg, 0) AS goals_avg,
+  COALESCE(ss.assists_total, 0) AS assists_total,
+  COALESCE(ss.assists_avg, 0) AS assists_avg,
+  COALESCE(ss.saves_total, 0) AS saves_total,
+  COALESCE(ss.saves_avg, 0) AS saves_avg,
+  COALESCE(ss.demos_total, 0) AS demos_total,
+  COALESCE(ss.demos_avg, 0) AS demos_avg,
+  CASE WHEN EXISTS (SELECT 1 FROM player_exists) THEN 1 ELSE 0 END AS player_found
+FROM player_base pb
+FULL OUTER JOIN player_stats ps ON pb.player_key = ps.player_key
+LEFT JOIN stats_summary ss ON true
+GROUP BY 
+  pb.handle, pb.aliases, pb.real_name, pb.country, pb.photo_url, 
+  pb.twitch, pb.tiktok, pb.date_of_birth,
+  ss.debut_season, ss.debut_split, ss.debut_event, ss.best_result, ss.teams,
+  ss.games, ss.series_played, ss.goals_total, ss.goals_avg, 
+  ss.assists_total, ss.assists_avg, ss.saves_total, ss.saves_avg, 
+  ss.demos_total, ss.demos_avg;

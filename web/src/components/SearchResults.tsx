@@ -38,11 +38,11 @@ export default function SearchResults({
             <div className="result-main">
               <div>
                 <strong>{item.label}</strong>
-                {item.type === "player" && item.meta?.country ? (
-                  <span>{item.meta.country}</span>
+                {item.type === "player" && item.meta?.realName ? (
+                  <span className="result-meta">{item.meta.realName}</span>
                 ) : null}
                 {item.type === "roster" && item.meta?.starters?.length ? (
-                  <span>{item.meta.starters.join(" / ")}</span>
+                  <span className="result-meta">{item.meta.starters.join(" / ")}</span>
                 ) : null}
               </div>
             </div>

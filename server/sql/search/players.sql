@@ -13,6 +13,7 @@ WITH base AS (
 SELECT DISTINCT ON (player_key)
   player_key AS id,
   label,
+  real_name,
   photo_url,
   country
 FROM base

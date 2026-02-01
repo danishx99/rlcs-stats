@@ -66,7 +66,7 @@ export async function handlePlayerProfile(
       [...values, playerId]
     );
 
-    if (!result.rows.length) {
+    if (!result.rows.length || !result.rows[0].player_found) {
       json(res, 404, { error: "Player not found" });
       return;
     }

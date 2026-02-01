@@ -28,18 +28,25 @@ export default function SearchPanel({
 
   return (
     <div className="panel search-panel topbar-search">
-      <SearchBar value={searchQuery} onChange={onSearchChange} placeholder={SEARCH_PLACEHOLDER} />
-      <div className="search-results">
-        {!trimmedQuery ? null : !hasSearchResults ? (
-          <p className="empty">No matches yet. Try a new query.</p>
-        ) : (
-          <SearchResults
-            sections={visibleSearchSections}
-            onView={onView}
-            onCompare={onCompare}
-            onTopStat={onTopStat}
-            renderWrapper={false}
-          />
+      <div className="search-input-wrapper">
+        <label>
+          Search for a player, roster or stat
+          <SearchBar value={searchQuery} onChange={onSearchChange} placeholder="" />
+        </label>
+        {trimmedQuery && (
+          <div className="search-results-dropdown">
+            {!hasSearchResults ? (
+              <p className="empty">No matches yet. Try a new query.</p>
+            ) : (
+              <SearchResults
+                sections={visibleSearchSections}
+                onView={onView}
+                onCompare={onCompare}
+                onTopStat={onTopStat}
+                renderWrapper={false}
+              />
+            )}
+          </div>
         )}
       </div>
     </div>

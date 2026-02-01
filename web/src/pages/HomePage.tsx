@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FeaturedResponse, LeaderboardResponse, SearchResult, StatOption } from "../types/api";
+import type { FeaturedResponse, SearchResult, StatOption } from "../types/api";
 import { api } from "../api";
-import Leaderboard from "../components/Leaderboard";
 import FeaturedPanel from "../components/FeaturedPanel";
 import ComparePanel from "../components/ComparePanel";
 
@@ -30,9 +29,6 @@ export default function HomePage({
   statOptions,
   featuredOptions
 }: HomePageProps) {
-  const [leaderStat, setLeaderStat] = useState<string>("score");
-  const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
-  const [leaderLoading, setLeaderLoading] = useState(false);
   const [featuredStat, setFeaturedStat] = useState<string>("least_grounded");
   const [featured, setFeatured] = useState<FeaturedResponse | null>(null);
   const [featuredLoading, setFeaturedLoading] = useState(false);
@@ -59,12 +55,7 @@ export default function HomePage({
     });
   };
 
-  useEffect(() => {
-    if (statOptions.length === 0) return;
-    if (!statMap.map.has(leaderStat)) {
-      setLeaderStat(statMap.fallback);
-    }
-  }, [leaderStat, statMap, statOptions.length]);
+
 
   useEffect(() => {
     if (!featuredOptions.length) return;
@@ -74,29 +65,7 @@ export default function HomePage({
     }
   }, [featuredOptions, featuredStat]);
 
-  useEffect(() => {
-    async function loadLeaderboard() {
-      if (!leaderStat) return;
-      setLeaderLoading(true);
-      try {
-        const response = await api.statsTop({
-          metric: leaderStat,
-          mode: "avg",
-          season: filters.season || undefined,
-          split: filters.split || undefined,
-          event: filters.event || undefined,
-          limit: 10
-        });
-        setLeaderboard(response);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLeaderLoading(false);
-      }
-    }
 
-    loadLeaderboard();
-  }, [filters.event, filters.season, filters.split, leaderStat]);
 
   useEffect(() => {
     async function loadFeatured() {
@@ -133,12 +102,6 @@ export default function HomePage({
           </p>
         </div>
       </header>
-
-      {searchQuery && searchLoading ? (
-        <p className="empty">Searching...</p>
-      ) : searchQuery && searchError ? (
-        <p className="empty">{searchError}</p>
-      ) : null}
 
       <section className="control-row">
         <div className="panel mode-panel" style={{ animationDelay: "200ms" }}>
@@ -192,26 +155,24 @@ export default function HomePage({
           />
         </section>
 
-        <section className="panel leaderboard-panel" style={{ animationDelay: "280ms" }}>
+        <section className="panel teams-panel" style={{ animationDelay: "280ms" }}>
           <div className="panel-header">
             <div>
-              <p className="panel-label">Top 10</p>
-              <h2>Leaderboard</h2>
+              <p className="panel-label">RLCS Standings</p>
+              <h2>Teams</h2>
             </div>
-            <select value={leaderStat} onChange={(event) => setLeaderStat(event.target.value)}>
-              {statOptions.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
           </div>
-          {leaderLoading && <p className="empty">Loading leaderboard...</p>}
-          {!leaderLoading && leaderboard?.rows?.length ? (
-            <Leaderboard data={leaderboard} />
-          ) : (
-            !leaderLoading && <p className="empty">No leaderboard data.</p>
-          )}
+          <ol className="teams-list">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <li key={`team-${index}`}>
+                <span className="rank">{index + 1}</span>
+                <div>
+                  <strong>Team Slot</strong>
+                  <span>Points data coming soon</span>
+                </div>
+              </li>
+            ))}
+          </ol>
         </section>
 
         <section className="panel featured-panel" style={{ animationDelay: "320ms" }}>
@@ -234,24 +195,6 @@ export default function HomePage({
           ) : (
             !featuredLoading && <p className="empty">No featured data.</p>
           )}
-        </section>
-
-        <section className="panel teams-panel" style={{ animationDelay: "360ms" }}>
-          <div className="panel-header">
-            <div>
-              <p className="panel-label">Teams Panel</p>
-              <h2>Top 8 (Placeholder)</h2>
-            </div>
-          </div>
-          <div className="teams-grid">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={`team-${index}`} className="team-card">
-                <span>Rank {index + 1}</span>
-                <strong>Team Slot</strong>
-                <p>Points data coming soon</p>
-              </div>
-            ))}
-          </div>
         </section>
       </main>
     </div>

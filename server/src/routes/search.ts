@@ -50,7 +50,8 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
         type: "player",
         meta: {
           photoUrl: row.photo_url,
-          country: row.country
+          country: row.country,
+          realName: row.real_name
         }
       })),
       rosters: rostersResult.rows.map((row) => ({

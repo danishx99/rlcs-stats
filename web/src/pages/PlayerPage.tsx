@@ -18,22 +18,33 @@ export default function PlayerPage({
   const [playerProfileLoading, setPlayerProfileLoading] = useState(false);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
+  const [showAllSeasons, setShowAllSeasons] = useState(false);
 
   const seasonTableRows = useMemo(() => {
     if (!playerProfile) return [];
-    return [
-      {
-        season: "All seasons",
-        games: playerProfile.games,
-        seriesPlayed: playerProfile.seriesPlayed,
-        goals: playerProfile.averages.goals,
-        assists: playerProfile.averages.assists,
-        saves: playerProfile.averages.saves,
-        demos: playerProfile.averages.demos
-      },
-      ...seasonRows
-    ];
-  }, [playerProfile, seasonRows]);
+    
+    // When filtering by season, show filtered results
+    const hasSeasonFilter = Boolean(filters.season);
+    if (hasSeasonFilter) {
+      return seasonRows;
+    }
+    
+    // No season filter: show career totals, optionally with breakdown
+    const allSeasonsRow = {
+      season: "All seasons",
+      games: playerProfile.games,
+      seriesPlayed: playerProfile.seriesPlayed,
+      goals: playerProfile.averages.goals,
+      assists: playerProfile.averages.assists,
+      saves: playerProfile.averages.saves,
+      demos: playerProfile.averages.demos
+    };
+    
+    if (!showAllSeasons) {
+      return [allSeasonsRow];
+    }
+    return [allSeasonsRow, ...seasonRows];
+  }, [playerProfile, seasonRows, showAllSeasons, filters.season]);
 
   useEffect(() => {
     if (!uniqueId) return;
@@ -100,46 +111,60 @@ export default function PlayerPage({
 
   return (
     <div className="page">
-      <div className="profile-header">
-        <div className="profile-media">
-          {playerProfile.photoUrl ? (
-            <img
-              src={proxyImageUrl(playerProfile.photoUrl) ?? undefined}
-              alt={playerProfile.handle ?? playerProfile.playerName ?? "Player"}
-              loading="lazy"
-            />
-          ) : (
-            <div className="profile-avatar">{playerProfile.handle?.[0] ?? "?"}</div>
-          )}
-        </div>
-        <div className="profile-info">
-          <h1>{playerProfile.handle ?? playerProfile.playerName ?? "Player"}</h1>
-          <div className="profile-subtitle">{playerProfile.playerName}</div>
-          <div className="profile-meta">
-            <div>Aliases: {aliases}</div>
-            <div>Country: {playerProfile.country ?? "—"}</div>
-            <div>Age: {age ?? "—"}</div>
-            <div>RLCS Debut: {playerProfile.debut ?? "—"}</div>
-            <div>Best Result: {playerProfile.bestResult ?? "—"}</div>
+      <button className="ghost back-button" onClick={() => navigate("/")}>
+        ← Back to Dashboard
+      </button>
+
+      <div className="panel player-profile-card">
+        <div className="profile-header">
+          <div className="profile-media">
+            {playerProfile.photoUrl ? (
+              <img
+                src={proxyImageUrl(playerProfile.photoUrl) ?? undefined}
+                alt={playerProfile.handle ?? playerProfile.playerName ?? "Player"}
+                loading="lazy"
+              />
+            ) : (
+              <div className="profile-avatar">{playerProfile.handle?.[0] ?? "?"}</div>
+            )}
           </div>
-          <div className="profile-links">
-            {twitchLink ? (
-              <a href={twitchLink} target="_blank" rel="noreferrer">
-                Twitch
-              </a>
-            ) : null}
-            {tiktokLink ? (
-              <a href={tiktokLink} target="_blank" rel="noreferrer">
-                TikTok
-              </a>
-            ) : null}
+          <div className="profile-info">
+            <h1>{playerProfile.handle ?? playerProfile.playerName ?? "Player"}</h1>
+            <div className="profile-subtitle">{playerProfile.playerName}</div>
+            <div className="profile-meta">
+              <div>Real Name: {playerProfile.realName ?? "—"}</div>
+              <div>Aliases: {aliases}</div>
+              <div>Country: {playerProfile.country ?? "—"}</div>
+              <div>Age: {age ?? "—"}</div>
+              <div>RLCS Debut: {playerProfile.debut ?? "—"}</div>
+              <div>Best Result: {playerProfile.bestResult ?? "—"}</div>
+            </div>
+            <div className="profile-links">
+              {twitchLink ? (
+                <a href={twitchLink} target="_blank" rel="noreferrer">
+                  Twitch
+                </a>
+              ) : null}
+              {tiktokLink ? (
+                <a href={tiktokLink} target="_blank" rel="noreferrer">
+                  TikTok
+                </a>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
 
       <div className="section-header">
         <h2>Performance by season</h2>
-        <div className="section-note">Series played | Goals | Assists | Saves | Demos</div>
+        {!filters.season && seasonRows.length > 0 && (
+          <button 
+            className="ghost" 
+            onClick={() => setShowAllSeasons(!showAllSeasons)}
+          >
+            {showAllSeasons ? "Show less" : "Show all seasons"}
+          </button>
+        )}
       </div>
 
       {seasonLoading ? <div className="loading">Loading seasons...</div> : null}
@@ -153,20 +178,6 @@ export default function PlayerPage({
               {team}
             </span>
           ))}
-        </div>
-      </div>
-
-      <div className="profile-dates">
-        <div className="section-title">Dates</div>
-        <div className="dates-grid">
-          <div>
-            <div className="label">Date of birth</div>
-            <div>{formatDate(playerProfile.dateOfBirth)}</div>
-          </div>
-          <div>
-            <div className="label">RLCS debut</div>
-            <div>{playerProfile.debut ?? "—"}</div>
-          </div>
         </div>
       </div>
     </div>
