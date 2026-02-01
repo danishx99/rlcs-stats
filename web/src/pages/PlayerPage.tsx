@@ -16,6 +16,7 @@ export default function PlayerPage({
   const navigate = useNavigate();
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   const [playerProfileLoading, setPlayerProfileLoading] = useState(false);
+  const [playerProfileError, setPlayerProfileError] = useState<string | null>(null);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
   const [showAllSeasons, setShowAllSeasons] = useState(false);
@@ -51,6 +52,7 @@ export default function PlayerPage({
     const playerId = uniqueId;
     async function loadProfile() {
       setPlayerProfileLoading(true);
+      setPlayerProfileError(null);
       try {
         const response = await api.playerProfile(playerId, {
           season: filters.season || undefined,
@@ -60,6 +62,8 @@ export default function PlayerPage({
         setPlayerProfile(response.player);
       } catch (error) {
         console.error(error);
+        setPlayerProfile(null);
+        setPlayerProfileError("Failed to load player profile");
       } finally {
         setPlayerProfileLoading(false);
       }
@@ -95,11 +99,13 @@ export default function PlayerPage({
     return <div className="page">Loading player profile...</div>;
   }
 
-  if (!playerProfile) {
+  if (playerProfileError || !playerProfile) {
     return (
       <div className="page">
-        <div className="empty-state">Player not found.</div>
-        <button className="ghost" onClick={() => navigate("/")}>Back to home</button>
+        <button className="ghost back-button" onClick={() => navigate("/")}>
+          ← Back to Dashboard
+        </button>
+        <div className="empty-state">{playerProfileError || "Player not found."}</div>
       </div>
     );
   }

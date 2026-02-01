@@ -94,11 +94,10 @@ export default function HomePage({
     <div className="page">
       <header className="topbar">
         <div className="brand">
-          <p className="eyebrow">RLCS Intel Grid</p>
-          <h1>RLCS Stats Command</h1>
+          <p className="eyebrow">RLCS SSA Database</p>
+          <h1>RLCS Stats</h1>
           <p className="lede">
-            Industrial-grade scouting dashboards for SSA 21/22 + 22/23. Search players, compare
-            rosters, and surface stat leaders with precision filtering.
+            Player and team statistics for RLCS Sub-Saharan Africa.
           </p>
         </div>
       </header>
