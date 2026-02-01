@@ -8,7 +8,7 @@
     "load:players": "bun run src/run.ts --dir ./data --dataset players",
     "db:up": "docker compose up -d postgres adminer",
     "db:reset": "docker compose down -v && docker compose up -d",
-    "dev:api": "nodemon --watch server --watch .env server/index.js",
+    "dev:api": "bun --watch server/index.ts",
     "dev:web": "vite --config web/vite.config.ts",
     "dev": "concurrently -n api,web -c red,blue \"bun run dev:api\" \"bun run dev:web\"",
     "build:web": "vite build --config web/vite.config.ts",
