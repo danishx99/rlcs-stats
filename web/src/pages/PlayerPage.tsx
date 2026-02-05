@@ -143,11 +143,26 @@ export default function PlayerPage({
             <h1>{playerProfile.handle ?? playerProfile.playerName ?? "Player"}</h1>
             <div className="profile-subtitle">{playerProfile.playerName}</div>
             <div className="profile-meta">
-              <div>Real Name: {playerProfile.realName ?? "—"}</div>
-              <div>Country: {playerProfile.country ?? "—"}</div>
-              <div>DOB: {playerProfile.dateOfBirth ? formatDate(playerProfile.dateOfBirth) : "—"}{age ? ` (Age ${age})` : ""}</div>
-              <div>RLCS Debut: {playerProfile.debut ?? "—"}</div>
-              <div>Best Result: {playerProfile.bestResult ?? "—"}</div>
+              <div>
+                <span>Real Name</span>
+                <strong>{playerProfile.realName ?? "—"}</strong>
+              </div>
+              <div>
+                <span>Country</span>
+                <strong>{playerProfile.country ?? "—"}</strong>
+              </div>
+              <div>
+                <span>Date of Birth</span>
+                <strong>{playerProfile.dateOfBirth ? formatDate(playerProfile.dateOfBirth) : "—"}{age ? ` (Age ${age})` : ""}</strong>
+              </div>
+              <div className="meta-accent">
+                <span>RLCS Debut</span>
+                <strong>{playerProfile.debut ?? "—"}</strong>
+              </div>
+              <div className="meta-accent">
+                <span>Best Result</span>
+                <strong>{playerProfile.bestResult ?? "—"}</strong>
+              </div>
             </div>
             <div className="profile-links">
               {twitchLink ? (
@@ -216,6 +231,8 @@ export default function PlayerPage({
 
       {seasonLoading ? <div className="loading">Loading seasons...</div> : null}
       <SeasonTable rows={seasonTableRows} />
+
+      <div className="section-divider" />
 
       <div className="profile-teams">
         <div className="section-title">Teams</div>
