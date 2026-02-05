@@ -2,7 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { normalizeFilter } from "../utils/filters";
-import { FEATURED_INSIGHTS, STAT_OPTIONS } from "../utils/stats";
+import { categorizeStatOptions, FEATURED_INSIGHTS, getAllStatOptions, STAT_OPTIONS } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
 
 const seasonsSql = loadSql("../../sql/meta/seasons.sql", import.meta.url);
@@ -52,5 +52,21 @@ export async function handleMeta(_req: IncomingMessage, res: ServerResponse, url
   } catch (error) {
     console.error(error);
     json(res, 500, { error: "Failed to load metadata" });
+  }
+}
+
+export async function handleMetaColumns(_req: IncomingMessage, res: ServerResponse) {
+  try {
+    const options = await getAllStatOptions();
+    const categories = categorizeStatOptions(options);
+    json(res, 200, {
+      categories: categories.map((cat) => ({
+        name: cat.name,
+        stats: cat.stats.map(({ key, label, format }) => ({ key, label, format }))
+      }))
+    });
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: "Failed to load column metadata" });
   }
 }

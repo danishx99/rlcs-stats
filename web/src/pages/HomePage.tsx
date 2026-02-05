@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FeaturedResponse, SearchResult, StatOption } from "../types/api";
+import type { FeaturedResponse, SearchResult, StatCategory, StatOption } from "../types/api";
 import { api } from "../api";
 import FeaturedPanel from "../components/FeaturedPanel";
 import ComparePanel from "../components/ComparePanel";
+import StatPicker from "../components/StatPicker";
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
 
@@ -33,6 +34,7 @@ export default function HomePage({
   const [featured, setFeatured] = useState<FeaturedResponse | null>(null);
   const [featuredLoading, setFeaturedLoading] = useState(false);
   const [compareMetrics, setCompareMetrics] = useState<string[]>(DEFAULT_COMPARE_STATS);
+  const [statCategories, setStatCategories] = useState<StatCategory[]>([]);
 
   const statMap = useMemo(() => {
     const map = new Map(statOptions.map((option) => [option.key, option]));
@@ -55,7 +57,37 @@ export default function HomePage({
     });
   };
 
+  const coreKeys = useMemo(
+    () => new Set(compareStatsList.map((option) => option.key)),
+    [compareStatsList]
+  );
 
+  const allCategoryStats = useMemo(
+    () => statCategories.flatMap((cat) => cat.stats),
+    [statCategories]
+  );
+
+  const extraMetrics = useMemo(() => {
+    const catMap = new Map(allCategoryStats.map((stat) => [stat.key, stat]));
+    return compareMetrics
+      .filter((key) => !coreKeys.has(key))
+      .map((key) => catMap.get(key))
+      .filter((stat): stat is StatOption => Boolean(stat));
+  }, [compareMetrics, coreKeys, allCategoryStats]);
+
+  const allStatOptions = useMemo(() => {
+    const merged = new Map(statOptions.map((opt) => [opt.key, opt]));
+    for (const stat of allCategoryStats) {
+      if (!merged.has(stat.key)) merged.set(stat.key, stat);
+    }
+    return Array.from(merged.values());
+  }, [statOptions, allCategoryStats]);
+
+  useEffect(() => {
+    api.metaColumns()
+      .then((data) => setStatCategories(data.categories))
+      .catch((error) => console.error("Failed to load stat categories:", error));
+  }, []);
 
   useEffect(() => {
     if (!featuredOptions.length) return;
@@ -74,7 +106,7 @@ export default function HomePage({
       try {
         const response = await api.featured({
           metric: featuredStat,
-          limit: 6,
+          limit: 10,
           season: filters.season || undefined,
           split: filters.split || undefined,
           event: filters.event || undefined
@@ -138,7 +170,27 @@ export default function HomePage({
                 {option.label}
               </label>
             ))}
+            <StatPicker
+              categories={statCategories}
+              selected={compareMetrics}
+              onToggle={toggleCompareMetric}
+            />
           </div>
+          {extraMetrics.length > 0 && (
+            <div className="stat-extra-chips">
+              {extraMetrics.map((stat) => (
+                <button
+                  key={stat.key}
+                  type="button"
+                  className="chip"
+                  onClick={() => toggleCompareMetric(stat.key)}
+                >
+                  {stat.label}
+                  <span>&times;</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -149,7 +201,7 @@ export default function HomePage({
             compareSelection={compareSelection}
             onRemove={onRemoveCompare}
             filters={filters}
-            statOptions={statOptions}
+            statOptions={allStatOptions}
             compareMetrics={compareMetrics}
           />
         </section>

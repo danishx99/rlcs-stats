@@ -2,7 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode, parseListParam } from "../utils/filters";
-import { DEFAULT_COMPARE_STATS, metricExpression, resolveStatOption } from "../utils/stats";
+import { DEFAULT_COMPARE_STATS, metricExpression, resolveStatOptionAsync } from "../utils/stats";
 import type { StatOption } from "../types";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr, rosterCtes, seriesIdExpr } from "../utils/roster";
@@ -24,9 +24,8 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
   }
 
   const metrics = metricsRaw.length ? metricsRaw : DEFAULT_COMPARE_STATS;
-  const options = metrics
-    .map((key) => resolveStatOption(key))
-    .filter((option): option is StatOption => Boolean(option));
+  const resolved = await Promise.all(metrics.map((key) => resolveStatOptionAsync(key)));
+  const options = resolved.filter((option): option is StatOption => Boolean(option));
 
   if (!options.length) {
     json(res, 400, { error: "No valid metrics" });

@@ -9,7 +9,9 @@ SELECT
   ARRAY_AGG(DISTINCT base."Team") AS teams,
   MIN(p."Photo URL") AS photo_url,
   MIN(p."Country") AS country,
-  AVG(base."Kills_All Zones") AS value
+  AVG(base."Kills_All Zones") AS value,
+  COUNT(*) AS games,
+  AVG(base."Score_All Zones") AS avg_score
 FROM base
 LEFT JOIN players p ON p."Player ID" = base.player_key
 WHERE base.player_key IS NOT NULL

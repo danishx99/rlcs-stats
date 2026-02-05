@@ -1,36 +1,43 @@
 import type { FeaturedResponse } from "../types/api";
 import { formatStat, formatValue } from "../utils/format";
-import { proxyImageUrl } from "../utils/normalize";
-
-const FEATURED_LIMIT = 6;
 
 type FeaturedPanelProps = {
   data: FeaturedResponse;
 };
 
 export default function FeaturedPanel({ data }: FeaturedPanelProps) {
+  const columns = data.columns ?? [];
+
   return (
-    <div className="featured-grid">
-      {data.rows.slice(0, FEATURED_LIMIT).map((row, index) => (
-        <article key={row.id} className="featured-card">
-          <div className="avatar">
-            {row.photoUrl ? (
-              <img
-                src={proxyImageUrl(row.photoUrl) ?? undefined}
-                alt={row.label}
-                loading="lazy"
-              />
-            ) : (
-              <span>{row.country ? row.country : formatValue(index + 1, "int")}</span>
-            )}
-          </div>
-          <div>
-            <h3>{row.label}</h3>
-            <p>{row.teams.join(" / ")}</p>
-            <strong>{formatStat(row.value, data.metric.format, data.mode)}</strong>
-          </div>
-        </article>
-      ))}
-    </div>
+    <table className="featured-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th>Team</th>
+          {columns.map((col) => (
+            <th key={col.key} className="featured-extra-col">{col.label}</th>
+          ))}
+          <th className="featured-value-col">{data.metric.label}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.rows.map((row, index) => (
+          <tr key={row.id}>
+            <td className="featured-rank">{index + 1}</td>
+            <td className="featured-player">{row.label}</td>
+            <td className="featured-team">{row.teams.join(" / ")}</td>
+            {columns.map((col) => (
+              <td key={col.key} className="featured-extra">
+                {formatValue(row.extras?.[col.key], col.format)}
+              </td>
+            ))}
+            <td className="featured-value">
+              {formatStat(row.value, data.metric.format, data.mode)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

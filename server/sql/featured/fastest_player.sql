@@ -9,7 +9,9 @@ SELECT
   ARRAY_AGG(DISTINCT base."Team") AS teams,
   MIN(p."Photo URL") AS photo_url,
   MIN(p."Country") AS country,
-  AVG(base."Average Speed_All Zones") AS value
+  AVG(base."Average Speed_All Zones") AS value,
+  COUNT(*) AS games,
+  AVG(base."Supersonic Speed_All Zones") AS supersonic
 FROM base
 LEFT JOIN players p ON p."Player ID" = base.player_key
 WHERE base.player_key IS NOT NULL

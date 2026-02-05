@@ -3,6 +3,7 @@ import type {
   CompareResponse,
   FeaturedResponse,
   LeaderboardResponse,
+  MetaColumnsResponse,
   MetaResponse,
   PlayerProfile,
   RosterProfile,
@@ -63,5 +64,8 @@ export const api = {
   },
   featured(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<FeaturedResponse>("/api/featured", params);
+  },
+  metaColumns() {
+    return fetchJson<MetaColumnsResponse>("/api/meta/columns");
   }
 };

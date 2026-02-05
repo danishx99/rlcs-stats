@@ -136,10 +136,34 @@ export type LeaderboardResponse = {
   rows: LeaderboardRow[];
 };
 
+export type FeaturedColumn = {
+  key: string;
+  label: string;
+  format?: "int" | "float" | "pct";
+};
+
+export type FeaturedRow = {
+  id: string;
+  label: string;
+  teams: string[];
+  value: number;
+  extras: Record<string, number>;
+};
+
 export type FeaturedResponse = {
   mode: "avg" | "total";
   metric: StatOption;
-  rows: LeaderboardRow[];
+  columns: FeaturedColumn[];
+  rows: FeaturedRow[];
+};
+
+export type StatCategory = {
+  name: string;
+  stats: StatOption[];
+};
+
+export type MetaColumnsResponse = {
+  categories: StatCategory[];
 };
 
 export type SeasonRow = {

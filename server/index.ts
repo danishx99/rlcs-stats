@@ -12,7 +12,7 @@ import { handleCompare, handleCompareHistory } from "./src/routes/compare";
 import { handleFeatured } from "./src/routes/featured";
 import { handleImage } from "./src/routes/image";
 import { handleInsights } from "./src/routes/insights";
-import { handleMeta } from "./src/routes/meta";
+import { handleMeta, handleMetaColumns } from "./src/routes/meta";
 import { handlePlayers, handlePlayerProfile, handlePlayerSeason } from "./src/routes/players";
 import { handleRosterProfile, handleRosterSeason } from "./src/routes/rosters";
 import { handleSearch } from "./src/routes/search";
@@ -42,6 +42,11 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === "/api/image") {
     await handleImage(req, res, url);
+    return;
+  }
+
+  if (url.pathname === "/api/meta/columns") {
+    await handleMetaColumns(req, res);
     return;
   }
 

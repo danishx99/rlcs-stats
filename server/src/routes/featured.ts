@@ -21,18 +21,27 @@ export async function handleFeatured(_req: IncomingMessage, res: ServerResponse,
   try {
     const result = await pool.query(insight.sql(where, limitIndex), [...values, limit]);
 
+    const extraColumns = insight.columns ?? [];
+    const extraKeys = extraColumns.map((col) => col.key);
+
     json(res, 200, {
       generatedAt: new Date().toISOString(),
       mode: "avg",
       metric: { key: insight.key, label: insight.label, format: insight.format },
-      rows: result.rows.map((row) => ({
-        id: row.id,
-        label: row.label,
-        teams: row.teams ?? [],
-        photoUrl: row.photo_url,
-        country: row.country,
-        value: Number(row.value ?? 0)
-      }))
+      columns: extraColumns,
+      rows: result.rows.map((row) => {
+        const extras: Record<string, number> = {};
+        for (const key of extraKeys) {
+          if (row[key] != null) extras[key] = Number(row[key]);
+        }
+        return {
+          id: row.id,
+          label: row.label,
+          teams: row.teams ?? [],
+          value: Number(row.value ?? 0),
+          extras
+        };
+      })
     });
   } catch (error) {
     console.error(error);
