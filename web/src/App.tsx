@@ -82,7 +82,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {!isHome && (
+      {!isHome && !location.pathname.startsWith("/players/") && (
         <TopNav
           meta={meta}
           metaError={metaError}
@@ -120,7 +120,7 @@ export default function App() {
               />
             }
           />
-          <Route path="/players/:uniqueId" element={<PlayerPage filters={filters} />} />
+          <Route path="/players/:uniqueId" element={<PlayerPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
           <Route path="/rosters/:rosterId" element={<RosterPage filters={filters} />} />
           <Route path="/stats/:statKey" element={<StatPage filters={filters} />} />
         </Routes>

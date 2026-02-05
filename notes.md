@@ -79,3 +79,29 @@ All from `stats` table, `_All Zones` suffix:
 - `Ball Touches_All Zones` (involvement)
 - `Average Speed_All Zones`, `Average Boost_All Zones` (mechanical)
 - `Victory` (boolean — can derive win rate)
+
+---
+
+## TODO: Search Result Behaviors by Type
+
+### Player Search
+e.g. "2die4" → Player profile page showing:
+- All-time stats: Series Played, Goals, Assists, Demos, Saves
+- Scope toggle (dropdown): All Time / Season / Regional-specific
+- Profile should adapt stats to the selected scope
+
+### Team Search
+e.g. "Benchwarmers" → Team profile page showing:
+- Seasons / Regionals competed in
+- Roster
+- Best result
+
+### Stat Search
+e.g. "Time in the air" → Top 10 leaderboard for that stat
+
+### Regional / Split Search
+e.g. "Fall Open" (regional) → Shows:
+- Teams & Rosters who competed in that regional
+
+e.g. "Fall Split" (split) → Shows:
+- List of regionals within the split (Regional 1, Regional 2, Regional 3) with links to each

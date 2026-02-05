@@ -110,7 +110,11 @@ stats_summary AS (
     (SELECT debut_split FROM first_appearance) AS debut_split,
     (SELECT debut_event FROM first_appearance) AS debut_event,
     (SELECT placement FROM best_result) AS best_result,
-    ARRAY_AGG(DISTINCT "Team") AS teams,
+    (SELECT ARRAY_AGG(sub.team ORDER BY sub.latest_date DESC NULLS LAST) FROM (
+      SELECT "Team" AS team, MAX("Date") AS latest_date
+      FROM player_stats
+      GROUP BY "Team"
+    ) sub) AS teams,
     COUNT(*) AS games,
     COUNT(DISTINCT series_id) AS series_played,
     SUM("Goals_All Zones") AS goals_total,

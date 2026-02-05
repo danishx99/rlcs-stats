@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import type { PlayerProfile, SeasonResponse, SeasonRow } from "../types/api";
+import type { MetaResponse, PlayerProfile, SeasonResponse, SeasonRow } from "../types/api";
 import SeasonTable from "../components/SeasonTable";
-import { formatAliases } from "../utils/aliases";
 import { computeAge, formatDate } from "../utils/date";
 import { normalizeSocialLink, proxyImageUrl } from "../utils/normalize";
 
 export default function PlayerPage({
-  filters
+  filters,
+  meta,
+  onFiltersChange
 }: {
   filters: { season: string; split: string; event: string };
+  meta: MetaResponse | null;
+  onFiltersChange: (f: { season: string; split: string; event: string }) => void;
 }) {
   const { uniqueId } = useParams();
   const navigate = useNavigate();
@@ -96,12 +99,12 @@ export default function PlayerPage({
   }, [filters.event, filters.season, filters.split, uniqueId]);
 
   if (playerProfileLoading) {
-    return <div className="page">Loading player profile...</div>;
+    return <div className="page page-no-nav">Loading player profile...</div>;
   }
 
   if (playerProfileError || !playerProfile) {
     return (
-      <div className="page">
+      <div className="page page-no-nav">
         <button className="ghost back-button" onClick={() => navigate("/")}>
           ← Back to Dashboard
         </button>
@@ -110,13 +113,15 @@ export default function PlayerPage({
     );
   }
 
-  const aliases = formatAliases(playerProfile.aliases);
   const age = computeAge(playerProfile.dateOfBirth);
+  const seasons = meta?.seasons ?? [];
+  const splits = meta?.splits ?? [];
+  const events = meta?.events ?? [];
   const twitchLink = normalizeSocialLink(playerProfile.twitch, "twitch");
   const tiktokLink = normalizeSocialLink(playerProfile.tiktok, "tiktok");
 
   return (
-    <div className="page">
+    <div className="page page-no-nav">
       <button className="ghost back-button" onClick={() => navigate("/")}>
         ← Back to Dashboard
       </button>
@@ -139,9 +144,8 @@ export default function PlayerPage({
             <div className="profile-subtitle">{playerProfile.playerName}</div>
             <div className="profile-meta">
               <div>Real Name: {playerProfile.realName ?? "—"}</div>
-              <div>Aliases: {aliases}</div>
               <div>Country: {playerProfile.country ?? "—"}</div>
-              <div>Age: {age ?? "—"}</div>
+              <div>DOB: {playerProfile.dateOfBirth ? formatDate(playerProfile.dateOfBirth) : "—"}{age ? ` (Age ${age})` : ""}</div>
               <div>RLCS Debut: {playerProfile.debut ?? "—"}</div>
               <div>Best Result: {playerProfile.bestResult ?? "—"}</div>
             </div>
@@ -163,14 +167,51 @@ export default function PlayerPage({
 
       <div className="section-header">
         <h2>Performance by season</h2>
-        {!filters.season && seasonRows.length > 0 && (
-          <button 
-            className="ghost" 
-            onClick={() => setShowAllSeasons(!showAllSeasons)}
+        <div className="profile-filter-row">
+          <select
+            value={filters.season}
+            onChange={(e) =>
+              onFiltersChange({ season: e.target.value, split: "", event: "" })
+            }
           >
-            {showAllSeasons ? "Show less" : "Show all seasons"}
-          </button>
-        )}
+            <option value="">All Seasons</option>
+            {seasons.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <select
+            value={filters.split}
+            onChange={(e) =>
+              onFiltersChange({ season: filters.season, split: e.target.value, event: "" })
+            }
+            disabled={!filters.season}
+          >
+            <option value="">All Splits</option>
+            {splits.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <select
+            value={filters.event}
+            onChange={(e) =>
+              onFiltersChange({ season: filters.season, split: filters.split, event: e.target.value })
+            }
+            disabled={!filters.season || !filters.split}
+          >
+            <option value="">All Events</option>
+            {events.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          {!filters.season && seasonRows.length > 0 && (
+            <button
+              className="ghost"
+              onClick={() => setShowAllSeasons(!showAllSeasons)}
+            >
+              {showAllSeasons ? "Show less" : "Show all seasons"}
+            </button>
+          )}
+        </div>
       </div>
 
       {seasonLoading ? <div className="loading">Loading seasons...</div> : null}
@@ -179,8 +220,8 @@ export default function PlayerPage({
       <div className="profile-teams">
         <div className="section-title">Teams</div>
         <div className="tag-list">
-          {playerProfile.teams.map((team) => (
-            <span key={team} className="tag">
+          {playerProfile.teams.map((team, i) => (
+            <span key={team} className={`tag${i === 0 ? " tag-current" : ""}`}>
               {team}
             </span>
           ))}

@@ -639,9 +639,24 @@ body {
   margin-bottom: 16px;
 }
 
+.profile-filter-row select {
+  background: var(--panel-strong);
+  border: 1px solid var(--panel-border);
+  padding: 6px 10px;
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+}
+
+.profile-filter-row select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .profile-filter-row {
-  margin-top: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .filters select,
@@ -1188,6 +1203,10 @@ body {
   gap: 8px;
 }
 
+.page.page-no-nav {
+  padding-top: 32px;
+}
+
 .player-profile-card {
   margin-bottom: 32px;
   padding: 24px;
@@ -1269,6 +1288,11 @@ body {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+.tag-current {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .profile-dates {
