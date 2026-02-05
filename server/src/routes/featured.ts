@@ -39,6 +39,7 @@ export async function handleFeatured(_req: IncomingMessage, res: ServerResponse,
           label: row.label,
           teams: row.teams ?? [],
           value: Number(row.value ?? 0),
+          photoUrl: row.photo_url ?? null,
           extras
         };
       })

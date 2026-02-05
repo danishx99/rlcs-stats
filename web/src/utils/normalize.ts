@@ -21,5 +21,6 @@ export function normalizeSocialLink(value: string | null | undefined, type: "twi
 export function proxyImageUrl(value?: string | null) {
   const url = normalizeHandle(value);
   if (!url) return null;
-  return `http://localhost:8787/api/image?url=${encodeURIComponent(url)}`;
+  const base = import.meta.env.VITE_API_URL || "http://localhost:8787";
+  return `${base}/api/image?url=${encodeURIComponent(url)}`;
 }

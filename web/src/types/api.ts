@@ -147,6 +147,7 @@ export type FeaturedRow = {
   label: string;
   teams: string[];
   value: number;
+  photoUrl?: string | null;
   extras: Record<string, number>;
 };
 

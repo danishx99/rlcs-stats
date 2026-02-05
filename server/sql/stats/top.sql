@@ -19,5 +19,6 @@ SELECT
 FROM player_scope
 LEFT JOIN players p ON p."Player ID" = player_scope.player_key
 GROUP BY player_scope.player_key
+{{havingClause}}
 ORDER BY value DESC NULLS LAST
 LIMIT {{limitParam}};

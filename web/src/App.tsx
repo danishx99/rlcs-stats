@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useMeta } from "./hooks/useMeta";
 import { useSearch } from "./hooks/useSearch";
 import type { SearchResponse, SearchResult } from "./types/api";
 import type { Filters, SearchSection } from "./types/ui";
 import TopNav from "./components/TopNav";
 import HomePage from "./pages/HomePage";
+import ComparePage from "./pages/ComparePage";
 import PlayerPage from "./pages/PlayerPage";
 import RosterPage from "./pages/RosterPage";
 import StatPage from "./pages/StatPage";
@@ -23,6 +24,9 @@ export default function App() {
   const [compareMode, setCompareMode] = useState<"players" | "rosters">("players");
   const [compareSelection, setCompareSelection] = useState<SearchResult[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isHome = location.pathname === "/";
 
   const { meta, metaError } = useMeta(filters);
 
@@ -67,6 +71,7 @@ export default function App() {
   const handleCompare = (item: SearchResult) => {
     addCompareSelection(item);
     clearSearch();
+    navigate("/compare");
   };
 
   const handleTopStat = (item: SearchResult) => {
@@ -77,33 +82,41 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <TopNav
-        meta={meta}
-        metaError={metaError}
-        filters={filters}
-        onFiltersChange={setFilters}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchSections={searchSections}
-        onView={handleView}
-        onCompare={handleCompare}
-        onTopStat={handleTopStat}
-      />
+      {!isHome && (
+        <TopNav
+          meta={meta}
+          metaError={metaError}
+          filters={filters}
+          onFiltersChange={setFilters}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchSections={searchSections}
+          onView={handleView}
+          onCompare={handleCompare}
+          onTopStat={handleTopStat}
+        />
+      )}
       <div className="app-content">
         <Routes>
           <Route
             path="/"
             element={
               <HomePage
-                searchQuery={searchQuery}
-                searchLoading={searchLoading}
-                searchError={searchError}
+                filters={filters}
+                latestSeason={meta?.seasons?.length ? meta.seasons[meta.seasons.length - 1] : null}
+                featuredOptions={meta?.featuredOptions ?? []}
+              />
+            }
+          />
+          <Route
+            path="/compare"
+            element={
+              <ComparePage
                 filters={filters}
                 compareMode={compareMode}
                 compareSelection={compareSelection}
                 onRemoveCompare={removeCompareSelection}
                 statOptions={meta?.statOptions ?? []}
-                featuredOptions={meta?.featuredOptions ?? []}
               />
             }
           />

@@ -4,7 +4,7 @@ import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOptionAsync } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
-import { playerKeyExpr } from "../utils/roster";
+import { playerKeyExpr, seriesIdExpr } from "../utils/roster";
 const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
 
 export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse, url: URL) {
@@ -20,8 +20,16 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
 
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  const limitIndex = values.length + 1;
   const valueExpr = metricExpression(option, mode, "player_scope");
+
+  const minSeries = Number.parseInt(url.searchParams.get("minSeries") ?? "0", 10);
+  let havingClause = "";
+  if (minSeries > 0) {
+    values.push(String(minSeries));
+    havingClause = `HAVING COUNT(DISTINCT ${seriesIdExpr("player_scope")}) >= $${values.length}`;
+  }
+
+  const limitIndex = values.length + 1;
 
   try {
     const result = await pool.query(
@@ -29,6 +37,7 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
         playerKeyExpr: playerKeyExpr("s"),
         where,
         valueExpr,
+        havingClause,
         limitParam: `$${limitIndex}`
       }),
       [...values, limit]

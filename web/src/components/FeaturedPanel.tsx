@@ -1,43 +1,44 @@
+import { useNavigate } from "react-router-dom";
 import type { FeaturedResponse } from "../types/api";
-import { formatStat, formatValue } from "../utils/format";
+import { formatStat } from "../utils/format";
+import { proxyImageUrl } from "../utils/normalize";
 
 type FeaturedPanelProps = {
   data: FeaturedResponse;
 };
 
 export default function FeaturedPanel({ data }: FeaturedPanelProps) {
-  const columns = data.columns ?? [];
+  const navigate = useNavigate();
+  const cards = data.rows.slice(0, 6);
 
   return (
-    <table className="featured-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Player</th>
-          <th>Team</th>
-          {columns.map((col) => (
-            <th key={col.key} className="featured-extra-col">{col.label}</th>
-          ))}
-          <th className="featured-value-col">{data.metric.label}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.rows.map((row, index) => (
-          <tr key={row.id}>
-            <td className="featured-rank">{index + 1}</td>
-            <td className="featured-player">{row.label}</td>
-            <td className="featured-team">{row.teams.join(" / ")}</td>
-            {columns.map((col) => (
-              <td key={col.key} className="featured-extra">
-                {formatValue(row.extras?.[col.key], col.format)}
-              </td>
-            ))}
-            <td className="featured-value">
-              {formatStat(row.value, data.metric.format, data.mode)}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="featured-cards">
+      {cards.map((row, index) => {
+        const imgSrc = proxyImageUrl(row.photoUrl);
+        return (
+          <div
+            key={row.id}
+            className="featured-card"
+            style={{ animationDelay: `${index * 60}ms` }}
+            onClick={() => navigate(`/players/${row.id}`)}
+          >
+            <div className="featured-card-photo">
+              {imgSrc ? (
+                <img src={imgSrc} alt={row.label} loading="lazy" />
+              ) : (
+                <span className="card-avatar">{row.label.charAt(0)}</span>
+              )}
+            </div>
+            <div className="featured-card-info">
+              <strong>{row.label}</strong>
+              <span className="card-team">{row.teams.join(" / ") || "—"}</span>
+              <span className="card-value">
+                {formatStat(row.value, data.metric.format, data.mode)}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
