@@ -2207,6 +2207,7 @@ th {
   padding-top: 18px;
   border-top: 1px solid var(--panel-border);
   text-align: left;
+  position: relative;
 }
 
 .dash-player-search h3 {
@@ -2222,10 +2223,48 @@ th {
 }
 
 .dash-player-results {
-  margin-top: 10px;
+  position: absolute;
+  bottom: 100%;
+  left: -12px;
+  right: -12px;
+  margin-bottom: 12px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   text-align: left;
+  background: linear-gradient(160deg, var(--panel) 0%, var(--panel-strong) 100%);
+  border: 1px solid rgba(255, 130, 67, 0.18);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow:
+    0 -16px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 130, 67, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  max-height: 380px;
+  overflow-y: auto;
+  animation: dash-player-modal-in 0.2s ease-out;
+  z-index: 20;
+}
+
+.dash-player-results::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+  border-radius: 10px 10px 0 0;
+  opacity: 0.7;
+}
+
+.dash-player-results .dash-empty {
+  padding: 16px 8px;
+  text-align: center;
+}
+
+@keyframes dash-player-modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .dash-player-card {
@@ -2233,8 +2272,9 @@ th {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
 }

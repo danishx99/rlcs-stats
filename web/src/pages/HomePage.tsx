@@ -323,35 +323,32 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
               onChange={(e) => setPlayerQuery(e.target.value)}
             />
           </div>
-          {playerSearchLoading && <p className="dash-empty">Searching...</p>}
-          {!playerSearchLoading && playerResults.length > 0 && (
+          {playerQuery.trim() && (
             <div className="dash-player-results">
-              {playerResults.slice(0, 6).map((player) => {
-                const imgSrc = proxyImageUrl(player.meta?.photoUrl);
-                return (
-                  <div
-                    key={player.id}
-                    className="dash-player-card"
-                    onClick={() => { setPlayerQuery(""); navigate(`/players/${player.id}`); }}
-                  >
-                    <div className="dash-search-avatar">
-                      {imgSrc ? <img src={imgSrc} alt="" /> : player.label.charAt(0).toUpperCase()}
+              {playerSearchLoading && <p className="dash-empty">Searching...</p>}
+              {!playerSearchLoading && playerResults.length > 0 &&
+                playerResults.slice(0, 6).map((player) => {
+                  const imgSrc = proxyImageUrl(player.meta?.photoUrl);
+                  return (
+                    <div
+                      key={player.id}
+                      className="dash-player-card"
+                      onClick={() => { setPlayerQuery(""); navigate(`/players/${player.id}`); }}
+                    >
+                      <div className="dash-search-avatar">
+                        {imgSrc ? <img src={imgSrc} alt="" /> : player.label.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="dash-player-card-info">
+                        <strong>{player.label}</strong>
+                        <span>{player.meta?.realName ?? ""}</span>
+                      </div>
                     </div>
-                    <div className="dash-player-card-info">
-                      <strong>{player.label}</strong>
-                      <span>
-                        {player.meta?.realName ?? ""}
-                        {player.meta?.realName && player.meta?.country ? " · " : ""}
-                        {player.meta?.country ?? ""}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              {!playerSearchLoading && playerResults.length === 0 && (
+                <p className="dash-empty">No players found.</p>
+              )}
             </div>
-          )}
-          {!playerSearchLoading && playerQuery.trim() && playerResults.length === 0 && (
-            <p className="dash-empty">No players found.</p>
           )}
         </div>
       </section>
