@@ -82,7 +82,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {!isHome && !location.pathname.startsWith("/players/") && (
+      {!isHome && !location.pathname.startsWith("/players/") && !location.pathname.startsWith("/compare") && (
         <TopNav
           meta={meta}
           metaError={metaError}
@@ -113,8 +113,11 @@ export default function App() {
             element={
               <ComparePage
                 filters={filters}
+                onFiltersChange={setFilters}
+                meta={meta}
                 compareMode={compareMode}
                 compareSelection={compareSelection}
+                onAddCompare={addCompareSelection}
                 onRemoveCompare={removeCompareSelection}
                 statOptions={meta?.statOptions ?? []}
               />

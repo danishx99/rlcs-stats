@@ -736,7 +736,7 @@ body {
 
 .compare-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 6px;
 }
 
@@ -2296,6 +2296,192 @@ th {
   font-size: 0.75rem;
   color: var(--ink-muted);
   margin-top: 1px;
+}
+
+/* ============================================
+   COMPARE PAGE
+   ============================================ */
+
+.compare-setup-card {
+  background: linear-gradient(135deg, var(--panel) 0%, var(--panel-strong) 60%, rgba(122, 180, 245, 0.06) 100%);
+  border: 1px solid rgba(122, 180, 245, 0.12);
+  padding: 24px;
+  position: relative;
+  overflow: visible;
+  animation: card-in 0.5s ease both;
+  z-index: 5;
+}
+
+.compare-setup-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle at top right, rgba(122, 180, 245, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.compare-setup-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.compare-setup-header h1 {
+  margin: 4px 0 0;
+  font-size: 2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.compare-search-area {
+  margin-top: 18px;
+  position: relative;
+  z-index: 10;
+}
+
+.compare-search-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-muted);
+  margin-bottom: 8px;
+}
+
+.compare-search-bar {
+  max-width: 440px;
+}
+
+.compare-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-width: 440px;
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+  background: linear-gradient(160deg, var(--panel) 0%, var(--panel-strong) 100%);
+  border: 1px solid rgba(122, 180, 245, 0.18);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(122, 180, 245, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  max-height: 380px;
+  overflow-y: auto;
+  animation: compare-search-drop 0.2s ease-out;
+  z-index: 20;
+}
+
+@keyframes compare-search-drop {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.compare-search-results::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent), var(--accent-2));
+  border-radius: 10px 10px 0 0;
+  opacity: 0.7;
+}
+
+.compare-search-results .dash-empty {
+  padding: 16px 8px;
+  text-align: center;
+}
+
+.compare-search-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.compare-search-card:hover {
+  border-color: var(--accent-2);
+  background: rgba(122, 180, 245, 0.04);
+}
+
+.compare-search-card--added {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.compare-search-card--added:hover {
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.compare-search-type {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding: 3px 8px;
+  border: 1px solid var(--panel-border);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.compare-search-added {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--accent-2);
+  flex-shrink: 0;
+}
+
+.compare-setup-card .compare-chips {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.compare-metrics-card {
+  background: linear-gradient(135deg, var(--panel) 0%, var(--panel-strong) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 3px solid var(--accent-2);
+  padding: 20px;
+  animation: card-in 0.5s ease both;
+  animation-delay: 0.1s;
+  position: relative;
+  z-index: 3;
+  overflow: visible;
+}
+
+.compare-metrics-card .panel-header h2 {
+  background: linear-gradient(90deg, var(--ink) 30%, var(--accent-2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.compare-results-card {
+  animation: card-in 0.5s ease both;
+  animation-delay: 0.18s;
+}
+
+.compare-results-card table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.compare-results-card table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* Player Page Polish */

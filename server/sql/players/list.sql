@@ -11,7 +11,12 @@ SELECT
   MIN(p."All Aliases") AS aliases,
   MIN(p."Country") AS country,
   MIN(p."Photo URL") AS photo_url,
-  ARRAY_AGG(DISTINCT base."Team") AS teams,
+  (SELECT ARRAY_AGG(sub.team ORDER BY sub.latest_date DESC NULLS LAST) FROM (
+    SELECT b2."Team" AS team, MAX(b2."Date") AS latest_date
+    FROM base b2
+    WHERE b2.player_key = base.player_key
+    GROUP BY b2."Team"
+  ) sub) AS teams,
   COUNT(*) AS games
 FROM base
 LEFT JOIN players p ON p."Player ID" = base.player_key

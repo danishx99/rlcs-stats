@@ -110,13 +110,6 @@ export default function ComparePanel({
 
   return (
     <>
-      <div className="panel-header">
-        <div>
-          <p className="panel-label">Stats View</p>
-          <h2>{compareSelection.length < 2 ? "Player Statistics" : "Head-to-Head Comparison"}</h2>
-        </div>
-      </div>
-
       {compareLoading && <p className="empty">Loading statistics...</p>}
       {!compareLoading && (!compareResults || compareResults.rows.length === 0) && (
         <p className="empty">Select a player or roster to view stats.</p>
@@ -139,7 +132,7 @@ export default function ComparePanel({
                   <td>
                     <div className="cell-title">
                       <strong>{row.label}</strong>
-                      {row.teams?.length ? <span>{row.teams.join(" / ")}</span> : null}
+                      {row.teams?.length ? <span>{row.teams[0]}</span> : null}
                     </div>
                   </td>
                   <td>{formatValue(row.games)}</td>

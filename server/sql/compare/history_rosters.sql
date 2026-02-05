@@ -1,80 +1,86 @@
 -- Head-to-head history for rosters: show series where rosters actually played against each other
--- Groups games by date + round to show proper series scores
+-- Counts wins from ALL games in the series, not just games where both rosters had data
 {{rosterCtes}},
--- Find all games where selected rosters played against each other
-head_to_head_games AS (
+-- Identify series where selected rosters appeared on opposing teams (any game)
+h2h_series AS (
   SELECT DISTINCT
-    base.series_id,
+    a.series_id,
+    a."Date"::date AS match_date,
+    a."Round",
+    a."Stage",
+    a."Season",
+    a."Split",
+    a."Regional",
+    LEAST(a.team, b.team) AS team_a,
+    GREATEST(a.team, b.team) AS team_b
+  FROM base a
+  JOIN series_roster sra ON a.series_id = sra.series_id AND a.team = sra.team
+  JOIN base b
+    ON b.series_id = a.series_id
+    AND b.team != a.team
+  JOIN series_roster srb ON b.series_id = srb.series_id AND b.team = srb.team
+  WHERE sra.roster_id = ANY({{idsParam}})
+    AND srb.roster_id = ANY({{idsParam}})
+    AND sra.roster_id != srb.roster_id
+),
+-- Get ALL games for those series from the full dataset
+series_games AS (
+  SELECT DISTINCT
     base."Date"::date AS match_date,
     base."Round",
-    base."Stage",
-    base."Season",
-    base."Split",
-    base."Regional",
     base."Game Number",
     base.team,
-    sr.roster_id,
     base."Victory",
     base."Best of "
   FROM base
-  JOIN series_roster sr ON base.series_id = sr.series_id AND base.team = sr.team
-  WHERE sr.roster_id = ANY({{idsParam}})
-    AND EXISTS (
-      SELECT 1 
-      FROM base b2
-      JOIN series_roster sr2 ON b2.series_id = sr2.series_id AND b2.team = sr2.team
-      WHERE b2.series_id = base.series_id
-        AND b2."Game Number" = base."Game Number"
-        AND b2.team != base.team
-        AND sr2.roster_id = ANY({{idsParam}})
-        AND sr2.roster_id != sr.roster_id
-    )
+  JOIN h2h_series h
+    ON base.series_id = h.series_id
+    AND base.team IN (h.team_a, h.team_b)
 ),
--- Identify the two teams that played each other
-matchups AS (
-  SELECT DISTINCT
-    match_date,
-    "Round",
-    "Stage",
-    "Season",
-    "Split",
-    "Regional",
-    MIN(team) AS team_a,
-    MAX(team) AS team_b
-  FROM head_to_head_games
-  GROUP BY match_date, "Round", "Stage", "Season", "Split", "Regional"
-  HAVING COUNT(DISTINCT team) = 2
-),
--- Calculate series totals by grouping all games in same date+round
+-- Calculate series totals from all games
 totals AS (
-  SELECT 
-    m.match_date,
-    m."Round",
-    m."Stage",
-    m."Season",
-    m."Split",
-    m."Regional",
-    m.team_a,
-    m.team_b,
-    COUNT(DISTINCT CASE WHEN h.team = m.team_a AND h."Victory" THEN h."Game Number" END) AS team_a_wins,
-    COUNT(DISTINCT CASE WHEN h.team = m.team_b AND h."Victory" THEN h."Game Number" END) AS team_b_wins,
-    MAX(h."Best of ") AS best_of
-  FROM matchups m
-  JOIN head_to_head_games h
-    ON h.match_date = m.match_date
-    AND h."Round" = m."Round"
-    AND h.team IN (m.team_a, m.team_b)
-  GROUP BY m.match_date, m."Round", m."Stage", m."Season", m."Split", m."Regional", m.team_a, m.team_b
-),
--- Get rosters per team
-series_entities AS (
   SELECT
     h.match_date,
     h."Round",
-    h.team,
-    ARRAY_AGG(DISTINCT h.roster_id ORDER BY h.roster_id) AS entity_ids
-  FROM head_to_head_games h
-  GROUP BY h.match_date, h."Round", h.team
+    h."Stage",
+    h."Season",
+    h."Split",
+    h."Regional",
+    h.team_a,
+    h.team_b,
+    COUNT(DISTINCT CASE WHEN g.team = h.team_a AND g."Victory" THEN g."Game Number" END) AS team_a_wins,
+    COUNT(DISTINCT CASE WHEN g.team = h.team_b AND g."Victory" THEN g."Game Number" END) AS team_b_wins,
+    MAX(g."Best of ") AS best_of
+  FROM h2h_series h
+  JOIN series_games g
+    ON g.match_date = h.match_date
+    AND g."Round" = h."Round"
+    AND g.team IN (h.team_a, h.team_b)
+  GROUP BY h.match_date, h."Round", h."Stage", h."Season", h."Split", h."Regional", h.team_a, h.team_b
+),
+-- Get rosters per team per series
+series_entities AS (
+  SELECT
+    base."Date"::date AS match_date,
+    base."Round",
+    sr.roster_id,
+    base.team
+  FROM base
+  JOIN series_roster sr ON base.series_id = sr.series_id AND base.team = sr.team
+  JOIN h2h_series h
+    ON base.series_id = h.series_id
+    AND base.team IN (h.team_a, h.team_b)
+  WHERE sr.roster_id = ANY({{idsParam}})
+  GROUP BY base."Date"::date, base."Round", sr.roster_id, base.team
+),
+series_entity_arrays AS (
+  SELECT
+    match_date,
+    "Round",
+    team,
+    ARRAY_AGG(DISTINCT roster_id ORDER BY roster_id) AS entity_ids
+  FROM series_entities
+  GROUP BY match_date, "Round", team
 )
 SELECT
   t.match_date AS date,
@@ -123,12 +129,12 @@ SELECT
     )
   ) AS teams
 FROM totals t
-LEFT JOIN series_entities se 
-  ON se.match_date = t.match_date 
+LEFT JOIN series_entity_arrays se
+  ON se.match_date = t.match_date
   AND se."Round" = t."Round"
   AND se.team = t.team_a
-LEFT JOIN series_entities se2 
-  ON se2.match_date = t.match_date 
+LEFT JOIN series_entity_arrays se2
+  ON se2.match_date = t.match_date
   AND se2."Round" = t."Round"
   AND se2.team = t.team_b
 ORDER BY t.match_date DESC NULLS LAST;

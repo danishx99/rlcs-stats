@@ -6,7 +6,7 @@ const MAX_RESULTS_PER_SECTION = 6;
 type SearchResultsProps = {
   sections: SearchSection[];
   onView: (item: SearchResult) => void;
-  onCompare: (item: SearchResult) => void;
+  onCompare?: (item: SearchResult) => void;
   onTopStat: (item: SearchResult) => void;
   renderWrapper?: boolean;
 };
@@ -52,14 +52,9 @@ export default function SearchResults({
                   Top 10
                 </button>
               ) : (
-                <>
-                  <button className="ghost" onClick={() => onView(item)}>
-                    View
-                  </button>
-                  <button className="ghost" onClick={() => onCompare(item)}>
-                    Compare
-                  </button>
-                </>
+                <button className="ghost" onClick={() => onView(item)}>
+                  View
+                </button>
               )}
             </div>
           </li>

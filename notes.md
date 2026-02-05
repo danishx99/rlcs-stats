@@ -7,6 +7,21 @@ In the last two seasons, event round designations were abbreviated:
 
 The earlier sheets were **not** updated to match, so there is an inconsistency between older and newer seasons.
 
+## Normalised Stats (per 300 seconds)
+
+All per-game stat values in the source CSVs are **normalised to 300 seconds** (the standard length of a Rocket League game). Raw values are rates scaled to a 5-minute baseline, not absolute counts.
+
+To recover actual integer totals for a single game, denormalise: `actual = normalised_value * (game_duration / 300)`. Without game duration data in the dataset, normalised values can only be treated as rates.
+
+This affects Goals, Assists, Saves, Demos, Score, and all zone-specific variants. When summing across games for career/season totals, the normalised values accumulate fractional amounts rather than whole numbers. This is why some individual game rows show fractional values (e.g. 0.72 goals) — those games had non-standard durations (overtime, early forfeits, etc.).
+
+**Impact on the app:**
+- Per-game averages are already meaningful (rate per 300s).
+- Career/season **totals** (SUM) will be fractional, not true integer counts.
+- Any UI showing "total goals" etc. should be aware these are normalised sums.
+
+---
+
 ## 1v1s
 For 1v1 matches, the event type is listed as "1v1" under "regional".
 

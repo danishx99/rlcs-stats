@@ -1,5 +1,5 @@
--- Head-to-head history: show series where selected players actually played against each other
--- Groups games by date + round to show proper series scores (e.g., 2-4, not 0-1/1-0 per game)
+-- Head-to-head history: show series where selected players appeared on opposing teams
+-- Counts wins from ALL games in the series, not just games where both players had data
 WITH base AS (
   SELECT
     s.*,
@@ -9,77 +9,74 @@ WITH base AS (
   FROM stats s
   {{where}}
 ),
--- Find all games where selected players played against each other
-head_to_head_games AS (
+-- Identify series where selected players appeared on opposing teams (any game)
+h2h_series AS (
   SELECT DISTINCT
-    base.series_id,
+    a.series_id,
+    a."Date"::date AS match_date,
+    a."Round",
+    a."Stage",
+    a."Season",
+    a."Split",
+    a."Regional",
+    LEAST(a.team, b.team) AS team_a,
+    GREATEST(a.team, b.team) AS team_b
+  FROM base a
+  JOIN base b
+    ON b.series_id = a.series_id
+    AND b.team != a.team
+    AND b.player_key = ANY({{idsParam}})
+    AND b.player_key != a.player_key
+  WHERE a.player_key = ANY({{idsParam}})
+),
+-- Get ALL games for those series from the full dataset (not just selected players)
+series_games AS (
+  SELECT DISTINCT
     base."Date"::date AS match_date,
     base."Round",
-    base."Stage",
-    base."Season",
-    base."Split",
-    base."Regional",
     base."Game Number",
     base.team,
-    base.player_key,
     base."Victory",
     base."Best of "
   FROM base
-  WHERE base.player_key = ANY({{idsParam}})
-    AND EXISTS (
-      SELECT 1 FROM base b2
-      WHERE b2.series_id = base.series_id
-        AND b2."Game Number" = base."Game Number"
-        AND b2.team != base.team
-        AND b2.player_key = ANY({{idsParam}})
-        AND b2.player_key != base.player_key
-    )
+  JOIN h2h_series h
+    ON base.series_id = h.series_id
+    AND base.team IN (h.team_a, h.team_b)
 ),
--- Identify the two teams that played each other
-matchups AS (
-  SELECT DISTINCT
-    match_date,
-    "Round",
-    "Stage",
-    "Season",
-    "Split",
-    "Regional",
-    MIN(team) AS team_a,
-    MAX(team) AS team_b
-  FROM head_to_head_games
-  GROUP BY match_date, "Round", "Stage", "Season", "Split", "Regional"
-  HAVING COUNT(DISTINCT team) = 2
-),
--- Calculate series totals by grouping all games in same date+round
+-- Calculate series totals from all games
 totals AS (
-  SELECT 
-    m.match_date,
-    m."Round",
-    m."Stage",
-    m."Season",
-    m."Split",
-    m."Regional",
-    m.team_a,
-    m.team_b,
-    COUNT(DISTINCT CASE WHEN h.team = m.team_a AND h."Victory" THEN h."Game Number" END) AS team_a_wins,
-    COUNT(DISTINCT CASE WHEN h.team = m.team_b AND h."Victory" THEN h."Game Number" END) AS team_b_wins,
-    MAX(h."Best of ") AS best_of
-  FROM matchups m
-  JOIN head_to_head_games h
-    ON h.match_date = m.match_date
-    AND h."Round" = m."Round"
-    AND h.team IN (m.team_a, m.team_b)
-  GROUP BY m.match_date, m."Round", m."Stage", m."Season", m."Split", m."Regional", m.team_a, m.team_b
-),
--- Get entities (players) per team
-series_entities AS (
   SELECT
     h.match_date,
     h."Round",
-    h.team,
-    ARRAY_AGG(DISTINCT h.player_key ORDER BY h.player_key) AS entity_ids
-  FROM head_to_head_games h
-  GROUP BY h.match_date, h."Round", h.team
+    h."Stage",
+    h."Season",
+    h."Split",
+    h."Regional",
+    h.team_a,
+    h.team_b,
+    COUNT(DISTINCT CASE WHEN g.team = h.team_a AND g."Victory" THEN g."Game Number" END) AS team_a_wins,
+    COUNT(DISTINCT CASE WHEN g.team = h.team_b AND g."Victory" THEN g."Game Number" END) AS team_b_wins,
+    MAX(g."Best of ") AS best_of
+  FROM h2h_series h
+  JOIN series_games g
+    ON g.match_date = h.match_date
+    AND g."Round" = h."Round"
+    AND g.team IN (h.team_a, h.team_b)
+  GROUP BY h.match_date, h."Round", h."Stage", h."Season", h."Split", h."Regional", h.team_a, h.team_b
+),
+-- Get entities (selected players) per team per series
+series_entities AS (
+  SELECT
+    base."Date"::date AS match_date,
+    base."Round",
+    base.team,
+    ARRAY_AGG(DISTINCT base.player_key ORDER BY base.player_key) AS entity_ids
+  FROM base
+  JOIN h2h_series h
+    ON base.series_id = h.series_id
+    AND base.team IN (h.team_a, h.team_b)
+  WHERE base.player_key = ANY({{idsParam}})
+  GROUP BY base."Date"::date, base."Round", base.team
 ),
 -- Get player labels
 entity_labels AS (
@@ -138,12 +135,12 @@ SELECT
     )
   ) AS teams
 FROM totals t
-LEFT JOIN series_entities se 
-  ON se.match_date = t.match_date 
+LEFT JOIN series_entities se
+  ON se.match_date = t.match_date
   AND se."Round" = t."Round"
   AND se.team = t.team_a
-LEFT JOIN series_entities se2 
-  ON se2.match_date = t.match_date 
+LEFT JOIN series_entities se2
+  ON se2.match_date = t.match_date
   AND se2."Round" = t."Round"
   AND se2.team = t.team_b
 ORDER BY t.match_date DESC NULLS LAST;
