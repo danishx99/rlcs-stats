@@ -266,7 +266,8 @@ async function main(): Promise<void> {
           schemaFile: dataset.schemaFile,
           headerNormalizer: dataset.headerNormalizer,
           ignoreCoercionErrors: dataset.ignoreCoercionErrors,
-          stopAfterHeader: dataset.stopAfterHeader
+          stopAfterHeader: dataset.stopAfterHeader,
+          denormalize: dataset.denormalize
         });
         report.fileHash = fileHash;
         report.dataset = dataset.key;

@@ -19,6 +19,7 @@ export type DatasetConfig = {
   headerNormalizer?: (header: string) => string;
   ignoreCoercionErrors?: boolean;
   stopAfterHeader?: string;
+  denormalize?: boolean;
 };
 
 const playerHeaderAliases = new Map<string, string>([
@@ -50,7 +51,8 @@ export const DATASETS: DatasetConfig[] = [
     tableName: "stats",
     schemaFile: "src/stats-schema.ts",
     createTableSql: createStatsTableSql,
-    addCommentsSql: addStatsTableCommentsSql
+    addCommentsSql: addStatsTableCommentsSql,
+    denormalize: true
   },
   {
     key: "players",

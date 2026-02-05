@@ -2,7 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
-import { denormExpr, metricExpression, resolveStatOption } from "../utils/stats";
+import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr, seriesIdExpr } from "../utils/roster";
 const playersListSql = loadSql("../../sql/players/list.sql", import.meta.url);
@@ -61,11 +61,7 @@ export async function handlePlayerProfile(
         playerKeyExpr: playerKeyExpr("s"),
         seriesIdExpr: seriesIdExpr("s"),
         where,
-        playerIdParam: `$${playerIndex}`,
-        goalsDenorm: denormExpr("player_stats", "Goals_All Zones"),
-        assistsDenorm: denormExpr("player_stats", "Assists_All Zones"),
-        savesDenorm: denormExpr("player_stats", "Saves_All Zones"),
-        demosDenorm: denormExpr("player_stats", "Kills_All Zones")
+        playerIdParam: `$${playerIndex}`
       }),
       [...values, playerId]
     );

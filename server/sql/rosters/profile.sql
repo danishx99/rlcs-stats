@@ -146,12 +146,12 @@ SELECT
   (SELECT placement FROM best_result) AS best_result,
   COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")) AS games,
   COUNT(DISTINCT roster_scope.series_id) AS series_played,
-  SUM({{goalsDenorm}}) AS goals_total,
-  SUM({{goalsDenorm}})::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS goals_avg,
-  SUM({{assistsDenorm}}) AS assists_total,
-  SUM({{assistsDenorm}})::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS assists_avg,
-  SUM({{savesDenorm}}) AS saves_total,
-  SUM({{savesDenorm}})::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS saves_avg,
-  SUM({{demosDenorm}}) AS demos_total,
-  SUM({{demosDenorm}})::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS demos_avg
+  SUM(roster_scope."Goals_All Zones") AS goals_total,
+  SUM(roster_scope."Goals_All Zones")::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS goals_avg,
+  SUM(roster_scope."Assists_All Zones") AS assists_total,
+  SUM(roster_scope."Assists_All Zones")::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS assists_avg,
+  SUM(roster_scope."Saves_All Zones") AS saves_total,
+  SUM(roster_scope."Saves_All Zones")::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS saves_avg,
+  SUM(roster_scope."Kills_All Zones") AS demos_total,
+  SUM(roster_scope."Kills_All Zones")::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS demos_avg
 FROM roster_scope;

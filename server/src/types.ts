@@ -4,7 +4,6 @@ export type StatOption = {
   column?: string;
   format?: "int" | "float" | "pct";
   kind?: "series_played" | "rating";
-  denorm?: boolean;
 };
 
 export type FeaturedColumn = {

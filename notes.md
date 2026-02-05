@@ -9,16 +9,14 @@ The earlier sheets were **not** updated to match, so there is an inconsistency b
 
 ## Normalised Stats (per 300 seconds)
 
-All per-game stat values in the source CSVs are **normalised to 300 seconds** (the standard length of a Rocket League game). Raw values are rates scaled to a 5-minute baseline, not absolute counts.
+Source CSVs normalise count-based stats to 300 seconds (the standard game length). The CSV loader (`src/load-csv.ts`) **denormalizes at ingestion time**: for OT games with `Extra Time > 0`, each count-based stat is scaled back to actual counts via `Math.round(value * (300 + extraTime) / 300)`.
 
-To recover actual integer totals for a single game, denormalise: `actual = normalised_value * (game_duration / 300)`. Without game duration data in the dataset, normalised values can only be treated as rates.
+**Affected stats (16 base x 4 zones = 64 columns):**
+Goals, Assists, Saves, Shots, Score, Kills, Deaths, Passes Given, Passes Received, 50/50s, Possession Losses, Interceptions, Self Touches, Small Pads Collected, Big Boosts Collected, Ball Touches — each with `_All Zones`, `_Defense Zone`, `_Neutral Zone`, `_Offense Zone` suffixes.
 
-This affects Goals, Assists, Saves, Demos, Score, and all zone-specific variants. When summing across games for career/season totals, the normalised values accumulate fractional amounts rather than whole numbers. This is why some individual game rows show fractional values (e.g. 0.72 goals) — those games had non-standard durations (overtime, early forfeits, etc.).
+Rate/percentage columns (Average Speed, On Ground %, etc.) are **not** denormalized — they remain as rates.
 
-**Impact on the app:**
-- Per-game averages are already meaningful (rate per 300s).
-- Career/season **totals** (SUM) will be fractional, not true integer counts.
-- Any UI showing "total goals" etc. should be aware these are normalised sums.
+After a re-import with `--truncate`, all stored values are true integer counts. Server-side queries use raw column references with no runtime denormalization.
 
 ---
 

@@ -14,7 +14,7 @@ export const INSIGHTS = [
         MIN("Best of ") AS best_of,
         MIN("Team") AS team_a,
         MAX("Team") AS team_b,
-        ROUND(SUM("Goals_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0))::INT AS total_goals
+        SUM("Goals_All Zones")::INT AS total_goals
       FROM stats
       GROUP BY regexp_replace(regexp_replace("Match ID", '^[0-9]{8}-[0-9]{6}-', ''), '-G[0-9]+$', '')
       ) series
@@ -238,15 +238,15 @@ export const INSIGHTS = [
   {
     id: "best-accuracy",
     title: "Best Shooting Accuracy",
-    subtitle: "Time-adjusted shots & goals",
+    subtitle: "Total shots & goals",
     sql: `
       SELECT
         MIN("Player Name") AS player_name,
         ARRAY_AGG(DISTINCT "Team") AS teams,
-        ROUND(SUM("Shots_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0))::INT AS shots,
-        ROUND(SUM("Goals_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0))::INT AS goals,
-        SUM("Goals_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0)
-          / NULLIF(SUM("Shots_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0), 0) AS accuracy
+        SUM("Shots_All Zones")::INT AS shots,
+        SUM("Goals_All Zones")::INT AS goals,
+        SUM("Goals_All Zones")::float
+          / NULLIF(SUM("Shots_All Zones"), 0) AS accuracy
       FROM stats
       GROUP BY "Unique ID"
       ORDER BY accuracy DESC, shots DESC
@@ -256,13 +256,13 @@ export const INSIGHTS = [
   {
     id: "top-assist-rate",
     title: "Top Assist Rate",
-    subtitle: "Time-adjusted assists per game",
+    subtitle: "Avg assists per game",
     sql: `
       SELECT
         MIN("Player Name") AS player_name,
         ARRAY_AGG(DISTINCT "Team") AS teams,
         COUNT(*) AS games,
-        AVG("Assists_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0) AS avg_assists
+        AVG("Assists_All Zones") AS avg_assists
       FROM stats
       GROUP BY "Unique ID"
       ORDER BY avg_assists DESC, games DESC
@@ -441,7 +441,7 @@ export const INSIGHTS = [
   {
     id: "team-goals-per-game",
     title: "Team Goals per Game",
-    subtitle: "Roster-based, time-adjusted",
+    subtitle: "Roster-based avg goals per game",
     sql: `
       WITH base AS (
         SELECT
@@ -450,8 +450,7 @@ export const INSIGHTS = [
           "Team" AS team,
           "Unique ID" AS player_id,
           "Player Name" AS player_name,
-          "Goals_All Zones" AS goals,
-          "Extra Time" AS extra_time
+          "Goals_All Zones" AS goals
         FROM stats
       ),
       player_counts AS (
@@ -491,7 +490,7 @@ export const INSIGHTS = [
           base.game_number,
           base.team,
           roster_map.roster,
-          ROUND(SUM(base.goals * (300 + COALESCE(base.extra_time, 0)) / 300.0))::INT AS team_goals
+          SUM(base.goals)::INT AS team_goals
         FROM base
         JOIN roster_map USING (series_id, team)
         GROUP BY base.series_id, base.game_number, base.team, roster_map.roster
@@ -511,13 +510,13 @@ export const INSIGHTS = [
   {
     id: "best-score",
     title: "Best Player by Score",
-    subtitle: "Time-adjusted score per game",
+    subtitle: "Avg score per game",
     sql: `
       SELECT
         MIN("Player Name") AS player_name,
         ARRAY_AGG(DISTINCT "Team") AS teams,
         COUNT(*) AS games,
-        AVG("Score_All Zones" * (300 + COALESCE("Extra Time", 0)) / 300.0) AS avg_score
+        AVG("Score_All Zones") AS avg_score
       FROM stats
       GROUP BY "Unique ID"
       ORDER BY avg_score DESC, games DESC

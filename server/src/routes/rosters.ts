@@ -2,7 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
-import { denormExpr, metricExpression, resolveStatOption } from "../utils/stats";
+import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
 import { rosterCtes } from "../utils/roster";
 const rosterSeasonSql = loadSql("../../sql/rosters/season.sql", import.meta.url);
@@ -22,11 +22,7 @@ export async function handleRosterProfile(
     const result = await pool.query(
       formatSql(rosterProfileSql, {
         rosterCtes: rosterCtes(where),
-        rosterIdParam: `$${rosterIndex}`,
-        goalsDenorm: denormExpr("roster_scope", "Goals_All Zones"),
-        assistsDenorm: denormExpr("roster_scope", "Assists_All Zones"),
-        savesDenorm: denormExpr("roster_scope", "Saves_All Zones"),
-        demosDenorm: denormExpr("roster_scope", "Kills_All Zones")
+        rosterIdParam: `$${rosterIndex}`
       }),
       [...values, rosterId]
     );

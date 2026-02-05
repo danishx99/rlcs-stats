@@ -19,7 +19,43 @@ export type LoadOptions = {
   headerNormalizer?: (header: string) => string;
   ignoreCoercionErrors?: boolean;
   stopAfterHeader?: string;
+  denormalize?: boolean;
 };
+
+const DENORM_BASE_STATS = [
+  "Goals", "Assists", "Saves", "Shots", "Score", "Kills", "Deaths",
+  "Passes Given", "Passes Received", "50/50s", "Possession Losses",
+  "Interceptions", "Self Touches", "Small Pads Collected",
+  "Big Boosts Collected", "Ball Touches"
+];
+
+const ZONE_SUFFIXES = [
+  "_All Zones", "_Defense Zone", "_Neutral Zone", "_Offense Zone"
+];
+
+const DENORM_COLUMNS = new Set(
+  DENORM_BASE_STATS.flatMap((stat) => ZONE_SUFFIXES.map((zone) => stat + zone))
+);
+
+function denormalizeRow(
+  headers: string[],
+  values: any[]
+): void {
+  const otIndex = headers.indexOf("OT");
+  const extraTimeIndex = headers.indexOf("Extra Time");
+  if (otIndex < 0 || extraTimeIndex < 0) return;
+
+  const isOt = values[otIndex];
+  const extraTime = values[extraTimeIndex];
+  if (!isOt || typeof extraTime !== "number" || extraTime <= 0) return;
+
+  const gameDuration = 300 + extraTime;
+  for (let i = 0; i < headers.length; i++) {
+    if (DENORM_COLUMNS.has(headers[i]) && typeof values[i] === "number") {
+      values[i] = Math.round(values[i] * gameDuration / 300);
+    }
+  }
+}
 
 export function extractColumnSpecs(sql: string): ColumnSpec[] {
   const specs: ColumnSpec[] = [];
@@ -303,7 +339,14 @@ export async function loadCsvFile(
           }
         }
         coercedValues.push(value);
-        hashParts.push(normalizeForHash(value));
+      }
+
+      if (options.denormalize) {
+        denormalizeRow(headers, coercedValues);
+      }
+
+      for (let i = 0; i < coercedValues.length; i++) {
+        hashParts.push(normalizeForHash(coercedValues[i]));
       }
 
       if (rowHasError) {

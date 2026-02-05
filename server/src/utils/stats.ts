@@ -13,12 +13,12 @@ const mostDemosSql = loadSql("../../sql/featured/most_demos.sql", import.meta.ur
 const topRatedSql = loadSql("../../sql/featured/top_rated.sql", import.meta.url);
 
 export const STAT_OPTIONS: StatOption[] = [
-  { key: "goals", label: "Goals", column: "Goals_All Zones", format: "float", denorm: true },
-  { key: "assists", label: "Assists", column: "Assists_All Zones", format: "float", denorm: true },
-  { key: "saves", label: "Saves", column: "Saves_All Zones", format: "float", denorm: true },
-  { key: "demos", label: "Demos", column: "Kills_All Zones", format: "float", denorm: true },
-  { key: "shots", label: "Shots", column: "Shots_All Zones", format: "float", denorm: true },
-  { key: "score", label: "Score", column: "Score_All Zones", format: "float", denorm: true },
+  { key: "goals", label: "Goals", column: "Goals_All Zones", format: "float" },
+  { key: "assists", label: "Assists", column: "Assists_All Zones", format: "float" },
+  { key: "saves", label: "Saves", column: "Saves_All Zones", format: "float" },
+  { key: "demos", label: "Demos", column: "Kills_All Zones", format: "float" },
+  { key: "shots", label: "Shots", column: "Shots_All Zones", format: "float" },
+  { key: "score", label: "Score", column: "Score_All Zones", format: "float" },
   { key: "avg_speed", label: "Avg Speed", column: "Average Speed_All Zones", format: "float" },
   { key: "on_ground", label: "On Ground %", column: "On Ground_All Zones", format: "pct" },
   { key: "in_air", label: "In Air", column: "In Air_All Zones", format: "float" },
@@ -181,8 +181,7 @@ export async function getAllStatOptions() {
       key,
       label: humanizeColumn(column),
       column,
-      format,
-      denorm: isCountColumn(column)
+      format
     } satisfies StatOption;
   });
 
@@ -211,35 +210,15 @@ export function resolveStatOption(key: string) {
   return STAT_OPTIONS.find((option) => option.key === key) ?? null;
 }
 
-// OT games have stats normalized to 300s; denormalize count-based stats
-// by scaling back to actual game length: raw = normalized * (300 + extra) / 300
-export function denormExpr(alias: string, column: string) {
-  return `ROUND(${alias}."${column}" * (300.0 + COALESCE(${alias}."Extra Time", 0)) / 300.0)`;
-}
-
-// Rate/percentage columns that should NOT be denormalized
-const RATE_PREFIXES = [
-  "Average ", "Avg ", "On Ground", "In Air", "In Low Air", "In High Air",
-  "SuperSonic", "Boost Speed", "Drive Speed", "Stopped",
-  "Empty", "Low (0-33)", "Medium", "High (67-100)", "Full",
-  "Closest to Ball", "Furthest from Ball", "First man", "Last man",
-  "Left Side", "Right Side", "Behind Ball", "Ahead of Ball",
-  "Max Speed"
-];
-
-function isCountColumn(column: string) {
-  return !RATE_PREFIXES.some((p) => column.startsWith(p));
-}
-
 // Composite rating: data-driven weights from win-correlation analysis (r=0.731)
 // Goals & assists equally weighted (both ~0.38 Pearson r with victory)
 // Shooting % as decimal (0-1), demo differential (demos - deaths)
 function ratingExpression(alias: string) {
-  const goals = denormExpr(alias, "Goals_All Zones");
-  const assists = denormExpr(alias, "Assists_All Zones");
-  const shots = denormExpr(alias, "Shots_All Zones");
-  const kills = denormExpr(alias, "Kills_All Zones");
-  const deaths = denormExpr(alias, "Deaths_All Zones");
+  const goals = `${alias}."Goals_All Zones"`;
+  const assists = `${alias}."Assists_All Zones"`;
+  const shots = `${alias}."Shots_All Zones"`;
+  const kills = `${alias}."Kills_All Zones"`;
+  const deaths = `${alias}."Deaths_All Zones"`;
   return `(
     AVG(${goals}) * 2.0 +
     AVG(${assists}) * 2.0 +
@@ -260,9 +239,7 @@ export function metricExpression(option: StatOption | null, mode: "avg" | "total
     return ratingExpression(alias);
   }
   if (!option.column) return "NULL";
-  const column = option.denorm
-    ? denormExpr(alias, option.column)
-    : `${alias}."${option.column}"`;
+  const column = `${alias}."${option.column}"`;
   if (mode === "total") {
     return `SUM(${column})`;
   }
