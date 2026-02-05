@@ -2,7 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
-import { metricExpression, resolveStatOption } from "../utils/stats";
+import { denormExpr, metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
 import { rosterCtes } from "../utils/roster";
 const rosterSeasonSql = loadSql("../../sql/rosters/season.sql", import.meta.url);
@@ -22,7 +22,11 @@ export async function handleRosterProfile(
     const result = await pool.query(
       formatSql(rosterProfileSql, {
         rosterCtes: rosterCtes(where),
-        rosterIdParam: `$${rosterIndex}`
+        rosterIdParam: `$${rosterIndex}`,
+        goalsDenorm: denormExpr("roster_scope", "Goals_All Zones"),
+        assistsDenorm: denormExpr("roster_scope", "Assists_All Zones"),
+        savesDenorm: denormExpr("roster_scope", "Saves_All Zones"),
+        demosDenorm: denormExpr("roster_scope", "Kills_All Zones")
       }),
       [...values, rosterId]
     );
@@ -33,6 +37,8 @@ export async function handleRosterProfile(
     }
 
     const row = result.rows[0];
+    const debutParts = [row.debut_season, row.debut_split, row.debut_event].filter(Boolean);
+    const debut = debutParts.length ? debutParts.join(" / ") : null;
 
     json(res, 200, {
       roster: {
@@ -40,7 +46,7 @@ export async function handleRosterProfile(
         name: row.roster_name,
         starters: row.starters ?? [],
         alternates: row.alternates ?? [],
-        debut: row.debut_date,
+        debut,
         bestResult: row.best_result,
         games: Number(row.games ?? 0),
         seriesPlayed: Number(row.series_played ?? 0),
@@ -75,10 +81,11 @@ export async function handleRosterSeason(
   const mode = normalizeMode(url.searchParams.get("mode"));
   const rosterIndex = values.length + 1;
 
-  const goalsExpr = metricExpression(resolveStatOption("goals"), mode, "roster_scope");
-  const assistsExpr = metricExpression(resolveStatOption("assists"), mode, "roster_scope");
-  const savesExpr = metricExpression(resolveStatOption("saves"), mode, "roster_scope");
-  const demosExpr = metricExpression(resolveStatOption("demos"), mode, "roster_scope");
+  const gameCount = `COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game"))`;
+  const goalsExpr = metricExpression(resolveStatOption("goals"), mode, "roster_scope", gameCount);
+  const assistsExpr = metricExpression(resolveStatOption("assists"), mode, "roster_scope", gameCount);
+  const savesExpr = metricExpression(resolveStatOption("saves"), mode, "roster_scope", gameCount);
+  const demosExpr = metricExpression(resolveStatOption("demos"), mode, "roster_scope", gameCount);
 
   try {
     const result = await pool.query(

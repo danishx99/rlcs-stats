@@ -9,7 +9,7 @@ roster_scope AS (
 )
 SELECT
   roster_scope."Season" AS season,
-  COUNT(*) AS games,
+  COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")) AS games,
   COUNT(DISTINCT roster_scope.series_id) AS series_played,
   {{goalsExpr}} AS goals,
   {{assistsExpr}} AS assists,

@@ -82,7 +82,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {!isHome && !location.pathname.startsWith("/players/") && !location.pathname.startsWith("/compare") && (
+      {!isHome && !location.pathname.startsWith("/players/") && !location.pathname.startsWith("/rosters/") && !location.pathname.startsWith("/compare") && (
         <TopNav
           meta={meta}
           metaError={metaError}
@@ -124,7 +124,7 @@ export default function App() {
             }
           />
           <Route path="/players/:uniqueId" element={<PlayerPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
-          <Route path="/rosters/:rosterId" element={<RosterPage filters={filters} />} />
+          <Route path="/rosters/:rosterId" element={<RosterPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
           <Route path="/stats/:statKey" element={<StatPage filters={filters} />} />
         </Routes>
       </div>

@@ -1255,6 +1255,51 @@ body {
   align-items: flex-start;
 }
 
+/* Roster Profile Card (blue accent variant) */
+.roster-profile-card {
+  margin-bottom: 32px;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--panel) 0%, var(--panel-strong) 60%, rgba(122, 180, 245, 0.06) 100%);
+  border: 1px solid rgba(122, 180, 245, 0.12);
+  position: relative;
+  overflow: hidden;
+  animation: card-in 0.5s ease both;
+}
+
+.roster-profile-card::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(122, 180, 245, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.roster-profile-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.roster-profile-card .profile-header {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.roster-profile-card .profile-media {
+  border-color: rgba(122, 180, 245, 0.3);
+  box-shadow: 0 0 20px rgba(122, 180, 245, 0.1), 0 0 40px rgba(122, 180, 245, 0.05);
+}
+
+.roster-avatar {
+  color: var(--accent-2);
+  background: linear-gradient(135deg, var(--panel-strong) 0%, rgba(122, 180, 245, 0.08) 100%);
+}
+
 /* Player Page Specific Styles */
 .profile-media {
   width: 140px;

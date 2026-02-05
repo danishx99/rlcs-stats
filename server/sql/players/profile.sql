@@ -117,14 +117,14 @@ stats_summary AS (
     ) sub) AS teams,
     COUNT(*) AS games,
     COUNT(DISTINCT series_id) AS series_played,
-    SUM("Goals_All Zones") AS goals_total,
-    AVG("Goals_All Zones") AS goals_avg,
-    SUM("Assists_All Zones") AS assists_total,
-    AVG("Assists_All Zones") AS assists_avg,
-    SUM("Saves_All Zones") AS saves_total,
-    AVG("Saves_All Zones") AS saves_avg,
-    SUM("Kills_All Zones") AS demos_total,
-    AVG("Kills_All Zones") AS demos_avg
+    SUM({{goalsDenorm}}) AS goals_total,
+    AVG({{goalsDenorm}}) AS goals_avg,
+    SUM({{assistsDenorm}}) AS assists_total,
+    AVG({{assistsDenorm}}) AS assists_avg,
+    SUM({{savesDenorm}}) AS saves_total,
+    AVG({{savesDenorm}}) AS saves_avg,
+    SUM({{demosDenorm}}) AS demos_total,
+    AVG({{demosDenorm}}) AS demos_avg
   FROM player_stats
 )
 SELECT

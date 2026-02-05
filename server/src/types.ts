@@ -3,7 +3,8 @@ export type StatOption = {
   label: string;
   column?: string;
   format?: "int" | "float" | "pct";
-  kind?: "series_played";
+  kind?: "series_played" | "rating";
+  denorm?: boolean;
 };
 
 export type FeaturedColumn = {

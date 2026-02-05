@@ -79,12 +79,6 @@ Start with **weighted per-game average** — it's transparent, cheap to compute,
 
 ---
 
-## TODO: Player Profiles — Current Team & Past Teams
-
-Player profile pages should show the player's current team and a history of past teams. "Current" could be derived from the most recent season/split they appeared in. Past teams would be all other distinct teams they've played for, ideally in chronological order.
-
----
-
 ### Available columns for the formula (rating)
 
 All from `stats` table, `_All Zones` suffix:

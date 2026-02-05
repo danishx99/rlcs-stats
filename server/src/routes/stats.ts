@@ -29,6 +29,13 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
     havingClause = `HAVING COUNT(DISTINCT ${seriesIdExpr("player_scope")}) >= $${values.length}`;
   }
 
+  const minGames = Number.parseInt(url.searchParams.get("minGames") ?? "0", 10);
+  if (minGames > 0) {
+    values.push(String(minGames));
+    const cond = `COUNT(*) >= $${values.length}`;
+    havingClause = havingClause ? `${havingClause} AND ${cond}` : `HAVING ${cond}`;
+  }
+
   const limitIndex = values.length + 1;
 
   try {
