@@ -1,7 +1,6 @@
 WITH base AS (
   SELECT
-    s.*,
-    {{seriesIdExpr}} AS series_id
+    s.*
   FROM stats s
   {{where}}
 )

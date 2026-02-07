@@ -1,8 +1,7 @@
 WITH base AS (
   SELECT
     s.*,
-    {{playerKeyExpr}} AS player_key,
-    {{seriesIdExpr}} AS series_id
+    {{playerKeyExpr}} AS player_key
   FROM stats s
   {{where}}
 ),

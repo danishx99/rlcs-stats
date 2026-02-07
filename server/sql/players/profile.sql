@@ -20,8 +20,7 @@ player_exists AS (
 stats_base AS (
   SELECT
     s.*,
-    {{playerKeyExpr}} AS player_key,
-    {{seriesIdExpr}} AS series_id
+    {{playerKeyExpr}} AS player_key
   FROM stats s
   {{where}}
 ),
@@ -153,7 +152,10 @@ SELECT
   COALESCE(ss.saves_avg, 0) AS saves_avg,
   COALESCE(ss.demos_total, 0) AS demos_total,
   COALESCE(ss.demos_avg, 0) AS demos_avg,
-  CASE WHEN EXISTS (SELECT 1 FROM player_exists) THEN 1 ELSE 0 END AS player_found
+  CASE
+    WHEN EXISTS (SELECT 1 FROM player_exists) OR EXISTS (SELECT 1 FROM player_stats) THEN 1
+    ELSE 0
+  END AS player_found
 FROM player_base pb
 FULL OUTER JOIN player_stats ps ON pb.player_key = ps.player_key
 LEFT JOIN stats_summary ss ON true

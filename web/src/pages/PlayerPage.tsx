@@ -66,7 +66,12 @@ export default function PlayerPage({
       } catch (error) {
         console.error(error);
         setPlayerProfile(null);
-        setPlayerProfileError("Failed to load player profile");
+        const message = error instanceof Error ? error.message.toLowerCase() : "";
+        if (message.includes("player not found") || message.includes("api error 404")) {
+          setPlayerProfileError("Player profile not found.");
+        } else {
+          setPlayerProfileError("Failed to load player profile");
+        }
       } finally {
         setPlayerProfileLoading(false);
       }

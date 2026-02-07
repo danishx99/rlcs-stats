@@ -26,7 +26,16 @@ export async function fetchJson<T>(
   }
   const response = await fetch(url.toString());
   if (!response.ok) {
-    throw new Error(`API error ${response.status}`);
+    let apiError: string | null = null;
+    try {
+      const payload = (await response.json()) as { error?: unknown };
+      if (typeof payload.error === "string" && payload.error.trim()) {
+        apiError = payload.error.trim();
+      }
+    } catch {
+      // Ignore JSON parse errors and fall back to status message.
+    }
+    throw new Error(apiError ? `API error ${response.status}: ${apiError}` : `API error ${response.status}`);
   }
   return (await response.json()) as T;
 }

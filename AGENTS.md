@@ -142,6 +142,7 @@ cd web && bun run dev    # Start Vite dev server
 
 **`stats`** - Per-player, per-game statistics (~280 columns). Each row represents one player's performance in a single game. A 3v3 game produces 6 rows (one per player), all sharing the same `Match ID` and `Game Number`. A best-of-5 series (one `Match ID`) can have up to 30 rows.
 - Key columns: `Match ID`, `Game Number`, `Unique ID` (player), `Team`, `Victory`
+- `series_id`: Materialized semantic series identifier — `md5(Season|Split|Regional|Day|Stage|Round|Best of|team_a|team_b)`. Computed after ingestion by `computeSeriesIds()`. NULL for single-team or collided matches. See `docs/series-grouping.md`.
 - Player performance metrics partitioned by zone (All/Defense/Neutral/Offense)
 - Covers: positioning, ball touches, speed, boost, goals, assists, saves, demos
 - Metadata: `source_file`, `ingested_at`, `row_hash` (for deduplication)
@@ -179,6 +180,14 @@ cd web && bun run dev    # Start Vite dev server
 - Git history only shows a single `Init` commit, so no convention is established yet.
 - Use clear, imperative commit subjects (e.g., `Add row hash index guard`).
 - PRs should include: what changed, how to run it, and any data/schema impact.
+
+---
+
+## Notes & Learnings
+
+- Use `.notes/` as a scratchpad for learnings, data quirks, design decisions, and anything worth remembering across sessions.
+- Read existing notes before starting work to avoid re-discovering known issues.
+- Write new notes when you encounter data issues, resolve bugs, or make non-obvious decisions.
 
 ---
 

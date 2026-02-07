@@ -280,7 +280,8 @@ CREATE TABLE IF NOT EXISTS stats (
   "Boost Gained from Big Boosts_All Zones" DOUBLE PRECISION,
   "Boost Gained from Big Boosts_Defense Zone" DOUBLE PRECISION,
   "Boost Gained from Big Boosts_Neutral Zone" DOUBLE PRECISION,
-  "Boost Gained from Big Boosts_Offense Zone" DOUBLE PRECISION
+  "Boost Gained from Big Boosts_Offense Zone" DOUBLE PRECISION,
+  "series_id" TEXT
 );
 `;
 
@@ -563,6 +564,7 @@ COMMENT ON COLUMN stats."Boost Gained from Big Boosts_All Zones" IS 'Boost gaine
 COMMENT ON COLUMN stats."Boost Gained from Big Boosts_Defense Zone" IS 'Boost gained from big boosts after overfill in the defense zone.';
 COMMENT ON COLUMN stats."Boost Gained from Big Boosts_Neutral Zone" IS 'Boost gained from big boosts after overfill in the neutral zone.';
 COMMENT ON COLUMN stats."Boost Gained from Big Boosts_Offense Zone" IS 'Boost gained from big boosts after overfill in the offense zone.';
+COMMENT ON COLUMN stats."series_id" IS 'Materialized semantic series identifier: md5 of (Season|Split|Regional|Day|Stage|Round|Best of|team_a|team_b).';
 COMMENT ON COLUMN stats."source_file" IS 'Source filename for the ingested row.';
 COMMENT ON COLUMN stats."ingested_at" IS 'Timestamp when the row was ingested.';
 COMMENT ON COLUMN stats."row_hash" IS 'Deterministic hash for the row contents.';

@@ -4,7 +4,7 @@ import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOptionAsync } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
-import { playerKeyExpr, seriesIdExpr } from "../utils/roster";
+import { playerKeyExpr } from "../utils/roster";
 const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
 
 export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse, url: URL) {
@@ -26,7 +26,7 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
   let havingClause = "";
   if (minSeries > 0) {
     values.push(String(minSeries));
-    havingClause = `HAVING COUNT(DISTINCT ${seriesIdExpr("player_scope")}) >= $${values.length}`;
+    havingClause = `HAVING COUNT(DISTINCT "player_scope".series_id) >= $${values.length}`;
   }
 
   const minGames = Number.parseInt(url.searchParams.get("minGames") ?? "0", 10);

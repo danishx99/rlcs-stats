@@ -1,6 +1,6 @@
 import { pool } from "../db";
 import { type FeaturedInsight, type StatCategory, type StatOption } from "../types";
-import { playerKeyExpr, seriesIdExpr } from "./roster";
+import { playerKeyExpr } from "./roster";
 import { formatSql, loadSql } from "./sql";
 
 const statOptionsSql = loadSql("../../sql/stats/options.sql", import.meta.url);
@@ -233,7 +233,7 @@ function ratingExpression(alias: string) {
 export function metricExpression(option: StatOption | null, mode: "avg" | "total", alias: string, gameCountExpr?: string) {
   if (!option) return "NULL";
   if (option.kind === "series_played") {
-    return `COUNT(DISTINCT ${seriesIdExpr(alias)})`;
+    return `COUNT(DISTINCT ${alias}.series_id)`;
   }
   if (option.kind === "rating") {
     return ratingExpression(alias);

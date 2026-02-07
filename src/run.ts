@@ -11,7 +11,7 @@ import {
   createRowHashIndexSql,
   createFileIngestTableSql
 } from "./schema-utils";
-import { loadCsvFile } from "./load-csv";
+import { loadCsvFile, computeSeriesIds } from "./load-csv";
 import type { ColumnSpec, ColumnType, FileReport } from "./util/types";
 
 const DEFAULT_DIR = "./data";
@@ -82,7 +82,7 @@ function patternToRegex(pattern: string): RegExp {
   return new RegExp(`^${escaped}$`);
 }
 
-const IGNORED_COLUMNS = new Set(["id", "source_file", "ingested_at", "row_hash"]);
+const IGNORED_COLUMNS = new Set(["id", "source_file", "ingested_at", "row_hash", "series_id"]);
 
 function mapDbType(dataType: string): ColumnType {
   const normalized = dataType.toLowerCase();
@@ -188,6 +188,7 @@ async function listFiles(dir: string, pattern: string): Promise<string[]> {
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const datasets = resolveDatasets(options.dataset);
+  const hasStatsDataset = datasets.some((dataset) => dataset.tableName === "stats");
   const client = await connectDb();
 
   try {
@@ -204,6 +205,10 @@ async function main(): Promise<void> {
         await client.query(dataset.addCommentsSql);
       }
       await client.query(createRowHashIndexSql(dataset.tableName));
+      if (dataset.tableName === "stats") {
+        await client.query(`ALTER TABLE stats ADD COLUMN IF NOT EXISTS series_id TEXT`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_series_id ON stats (series_id)`);
+      }
     }
     console.log("schema ensured");
 
@@ -280,6 +285,11 @@ async function main(): Promise<void> {
           await recordFileIngest(client, dataset.tableName, report, fileHash, fileStats.size);
         }
       }
+    }
+
+    if (!options.dryRun && hasStatsDataset) {
+      const updated = await computeSeriesIds(client);
+      console.log(`series_id backfill: ${updated} rows updated`);
     }
 
     const totals = reports.reduce(

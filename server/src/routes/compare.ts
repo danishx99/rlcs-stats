@@ -5,7 +5,7 @@ import { buildFilterClauses, normalizeMode, parseListParam } from "../utils/filt
 import { DEFAULT_COMPARE_STATS, metricExpression, resolveStatOptionAsync } from "../utils/stats";
 import type { StatOption } from "../types";
 import { formatSql, loadSql } from "../utils/sql";
-import { playerKeyExpr, rosterCtes, seriesIdExpr } from "../utils/roster";
+import { playerKeyExpr, rosterCtes } from "../utils/roster";
 const comparePlayersSql = loadSql("../../sql/compare/compare_players.sql", import.meta.url);
 const compareTeamsSql = loadSql("../../sql/compare/compare_teams.sql", import.meta.url);
 const compareRostersSql = loadSql("../../sql/compare/compare_rosters.sql", import.meta.url);
@@ -83,7 +83,6 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
       const result = await pool.query(
         formatSql(compareTeamsSql, {
           where,
-          seriesIdExpr: seriesIdExpr("s"),
           idsParam: `$${idsIndex}`,
           metricSelect
         }),
@@ -123,7 +122,6 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
       formatSql(comparePlayersSql, {
         where,
         playerKeyExpr: playerKeyExpr("s"),
-        seriesIdExpr: seriesIdExpr("s"),
         idsParam: `$${idsIndex}`,
         metricSelect
       }),
@@ -185,7 +183,6 @@ export async function handleCompareHistory(
       formatSql(historyPlayersSql, {
         where,
         playerKeyExpr: playerKeyExpr("s"),
-        seriesIdExpr: seriesIdExpr("s"),
         idsParam: `$${idsIndex}`
       }),
       [...values, ids]

@@ -2,8 +2,7 @@ WITH base AS (
   SELECT
     s.*,
     TRIM(s."Team") AS team,
-    {{playerKeyExpr}} AS player_key,
-    {{seriesIdExpr}} AS series_id
+    {{playerKeyExpr}} AS player_key
   FROM stats s
   {{where}}
 ),
@@ -15,6 +14,7 @@ series_roster AS (
     md5(array_to_string(ARRAY_AGG(DISTINCT player_key ORDER BY player_key), '|')) AS roster_id
   FROM base
   WHERE player_key IS NOT NULL
+    AND series_id IS NOT NULL
   GROUP BY series_id, team
   HAVING COUNT(DISTINCT player_key) = 3
 ),

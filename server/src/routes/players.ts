@@ -4,7 +4,7 @@ import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
-import { playerKeyExpr, seriesIdExpr } from "../utils/roster";
+import { playerKeyExpr } from "../utils/roster";
 const playersListSql = loadSql("../../sql/players/list.sql", import.meta.url);
 const playerSeasonSql = loadSql("../../sql/players/season.sql", import.meta.url);
 const playerProfileSql = loadSql("../../sql/players/profile.sql", import.meta.url);
@@ -59,7 +59,6 @@ export async function handlePlayerProfile(
     const result = await pool.query(
       formatSql(playerProfileSql, {
         playerKeyExpr: playerKeyExpr("s"),
-        seriesIdExpr: seriesIdExpr("s"),
         where,
         playerIdParam: `$${playerIndex}`
       }),
@@ -132,7 +131,6 @@ export async function handlePlayerSeason(
     const result = await pool.query(
       formatSql(playerSeasonSql, {
         playerKeyExpr: playerKeyExpr("s"),
-        seriesIdExpr: seriesIdExpr("s"),
         where,
         playerIdParam: `$${playerIndex}`,
         goalsExpr,
