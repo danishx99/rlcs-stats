@@ -98,6 +98,7 @@ bun run src/run.ts --dir ./data --dry-run   # Dry run validation
 ```bash
 docker compose up -d     # Start Postgres + pgAdmin containers
 bun run db:reset         # Wipe Postgres volume and restart containers
+psql postgres://stats:stats_pw@localhost:5432/statsdb  # Query the local DB
 ```
 
 ### API Server
@@ -139,7 +140,8 @@ cd web && bun run dev    # Start Vite dev server
 
 ### Tables
 
-**`stats`** - Match/game-level player statistics (~280 columns)
+**`stats`** - Per-player, per-game statistics (~280 columns). Each row represents one player's performance in a single game. A 3v3 game produces 6 rows (one per player), all sharing the same `Match ID` and `Game Number`. A best-of-5 series (one `Match ID`) can have up to 30 rows.
+- Key columns: `Match ID`, `Game Number`, `Unique ID` (player), `Team`, `Victory`
 - Player performance metrics partitioned by zone (All/Defense/Neutral/Offense)
 - Covers: positioning, ball touches, speed, boost, goals, assists, saves, demos
 - Metadata: `source_file`, `ingested_at`, `row_hash` (for deduplication)

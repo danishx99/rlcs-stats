@@ -1,6 +1,17 @@
 {
   "reports": [
     {
+      "fileName": "2021-2026 RLCS SSA Datase Combined  - 2021-2026 RLCS Database Combined.csv",
+      "status": "processed",
+      "totalRows": 29374,
+      "inserted": 28630,
+      "skipped": 744,
+      "errored": 0,
+      "errors": [],
+      "fileHash": "7452f1261efbd3f4ffa55da9a5cd9e5bfc72f410a9bd8f661cf0adcf0a54df4e",
+      "dataset": "matches"
+    },
+    {
       "fileName": "SSA RLCS Master Reference  - Player IDs.csv",
       "status": "processed",
       "totalRows": 222,
@@ -13,9 +24,9 @@
     }
   ],
   "totals": {
-    "totalRows": 222,
-    "inserted": 222,
-    "skipped": 0,
+    "totalRows": 29596,
+    "inserted": 28852,
+    "skipped": 744,
     "errored": 0
   }
 }

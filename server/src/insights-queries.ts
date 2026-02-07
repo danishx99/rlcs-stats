@@ -16,7 +16,7 @@ export const INSIGHTS = [
         MAX("Team") AS team_b,
         SUM("Goals_All Zones")::INT AS total_goals
       FROM stats
-      GROUP BY regexp_replace(regexp_replace("Match ID", '^[0-9]{8}-[0-9]{6}-', ''), '-G[0-9]+$', '')
+      GROUP BY regexp_replace("Match ID", '-G[0-9]+$', '')
       ) series
       ORDER BY total_goals DESC
       LIMIT 10;
@@ -106,7 +106,7 @@ export const INSIGHTS = [
     sql: `
       WITH base AS (
         SELECT
-          regexp_replace(regexp_replace("Match ID", '^[0-9]{8}-[0-9]{6}-', ''), '-G[0-9]+$', '') AS series_id,
+          regexp_replace("Match ID", '-G[0-9]+$', '') AS series_id,
           "Team" AS team,
           "Game Number" AS game_number,
           "Victory" AS victory,
@@ -372,7 +372,7 @@ export const INSIGHTS = [
     sql: `
       WITH base AS (
         SELECT
-          regexp_replace(regexp_replace("Match ID", '^[0-9]{8}-[0-9]{6}-', ''), '-G[0-9]+$', '') AS series_id,
+          regexp_replace("Match ID", '-G[0-9]+$', '') AS series_id,
           "Game Number" AS game_number,
           "Team" AS team,
           "Victory" AS victory,
@@ -445,7 +445,7 @@ export const INSIGHTS = [
     sql: `
       WITH base AS (
         SELECT
-          regexp_replace(regexp_replace("Match ID", '^[0-9]{8}-[0-9]{6}-', ''), '-G[0-9]+$', '') AS series_id,
+          regexp_replace("Match ID", '-G[0-9]+$', '') AS series_id,
           "Game Number" AS game_number,
           "Team" AS team,
           "Unique ID" AS player_id,

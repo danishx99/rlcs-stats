@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS stats (
   "Game" INTEGER,
   "Team" TEXT,
   "Victory" BOOLEAN,
+  "Forfeit" BOOLEAN,
   "OT" BOOLEAN,
   "Extra Time" DOUBLE PRECISION,
   "Arena" TEXT,
@@ -302,6 +303,7 @@ COMMENT ON COLUMN stats."Game Number" IS 'Game number within the series.';
 COMMENT ON COLUMN stats."Game" IS 'Game identifier from source data.';
 COMMENT ON COLUMN stats."Team" IS 'Team name or abbreviation.';
 COMMENT ON COLUMN stats."Victory" IS 'Whether the player''s team won.';
+COMMENT ON COLUMN stats."Forfeit" IS 'Whether the game was a forfeit.';
 COMMENT ON COLUMN stats."OT" IS 'Whether the game went to overtime.';
 COMMENT ON COLUMN stats."Extra Time" IS 'Overtime duration in seconds.';
 COMMENT ON COLUMN stats."Arena" IS 'Arena name.';

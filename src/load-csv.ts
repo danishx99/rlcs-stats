@@ -89,13 +89,16 @@ function parseDateString(value: string): Date | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  if (/\d{4}-\d{2}-\d{2}/.test(trimmed) || trimmed.includes("T")) {
-    const adjusted = hasTimezone(trimmed) ? trimmed : `${trimmed}Z`;
+  // Normalize dot-separated time: 2021-10-22T17.00 → 2021-10-22T17:00
+  const normalized = trimmed.replace(/T(\d{2})\.(\d{2})/, "T$1:$2");
+
+  if (/\d{4}-\d{2}-\d{2}/.test(normalized) || normalized.includes("T")) {
+    const adjusted = hasTimezone(normalized) ? normalized : `${normalized}Z`;
     const date = new Date(adjusted);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  const match = trimmed.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  const match = normalized.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
   if (match) {
     const first = Number.parseInt(match[1], 10);
     const second = Number.parseInt(match[2], 10);
@@ -113,7 +116,7 @@ function parseDateString(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  const adjusted = hasTimezone(trimmed) ? trimmed : `${trimmed}Z`;
+  const adjusted = hasTimezone(normalized) ? normalized : `${normalized}Z`;
   const date = new Date(adjusted);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -151,7 +154,7 @@ function coerceValue(raw: string, type: ColumnType): { value: any; error?: strin
       if (["true", "t", "1", "yes", "y"].includes(normalized)) {
         return { value: true };
       }
-      if (["false", "f", "0", "no", "n"].includes(normalized)) {
+      if (["false", "f", "0", "no", "n", "ff"].includes(normalized)) {
         return { value: false };
       }
       return { value: null, error: "invalid boolean" };
@@ -232,6 +235,8 @@ export async function loadCsvFile(
   let batchValues: any[] = [];
   let batchRows = 0;
   let batchLimit = 100;
+  let victoryIndex = -1;
+  let forfeitIndex = -1;
 
   async function flushBatch(): Promise<void> {
     if (batchRows === 0) {
@@ -299,6 +304,13 @@ export async function loadCsvFile(
           }
           console.log(`${fileName}: added ${extra.length} new columns to ${options.tableName}`);
         }
+        // Inject synthetic Forfeit column if Victory exists and Forfeit is not in the CSV
+        victoryIndex = headers.indexOf("Victory");
+        forfeitIndex = headers.indexOf("Forfeit");
+        if (victoryIndex >= 0 && forfeitIndex < 0 && typeMap.has("Forfeit")) {
+          headers.push("Forfeit");
+          forfeitIndex = headers.length - 1;
+        }
         columnTypes = headers.map((col) => typeMap.get(col) as ColumnType);
         batchLimit = maxBatchRows(headers.length);
       }
@@ -318,7 +330,8 @@ export async function loadCsvFile(
       const hashParts: string[] = [];
       let rowHasError = false;
 
-      for (let i = 0; i < headers.length; i += 1) {
+      // Coerce CSV-sourced columns (rawValues has one entry per CSV column)
+      for (let i = 0; i < rawValues.length; i += 1) {
         const raw = rawValues[i];
         const type = columnTypes[i];
         const { value, error } = coerceValue(raw, type);
@@ -339,6 +352,12 @@ export async function loadCsvFile(
           }
         }
         coercedValues.push(value);
+      }
+
+      // Populate synthetic Forfeit column from raw Victory value
+      if (forfeitIndex >= 0 && forfeitIndex >= rawValues.length && victoryIndex >= 0) {
+        const rawVictory = rawValues[victoryIndex]?.trim().toLowerCase() ?? "";
+        coercedValues.push(rawVictory === "ff");
       }
 
       if (options.denormalize) {
