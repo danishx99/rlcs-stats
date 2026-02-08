@@ -31,6 +31,13 @@ TODO: Handle 1v1 data separately from standard team formats (3v3) in API queries
 ## Forfeits (FF)
 When a team forfeits, the victor column shows **FF** for those games. This means fewer games than expected appear in a series (e.g. 3 games in a Bo5, 4 games in a Bo7).
 
+## Series Explorer (2026-02-08)
+- New `/api/series` endpoints and `/series` page use game winner reconstruction at game level:
+  - Prefer `Victory` flags when exactly one team is flagged winner.
+  - If no winner flags exist, fall back to unique higher team goals for that game.
+  - If still ambiguous (ties/conflicts), winner remains unknown for that game.
+- This keeps series score calculation aligned with compare-history behavior.
+
 ---
 
 ## TODO: Search Result Behaviors by Type

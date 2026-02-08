@@ -246,6 +246,20 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
             </div>
             <svg className="dash-nav-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>
           </div>
+
+          <div className="dash-nav-card" onClick={() => navigate("/series")}>
+            <div className="dash-nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+                <path d="M7 6v12M17 6v12" />
+              </svg>
+            </div>
+            <div>
+              <strong>Series Explorer</strong>
+              <span>Browse every matchup by split and stage</span>
+            </div>
+            <svg className="dash-nav-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>
+          </div>
         </div>
 
         <div className="dash-standings">

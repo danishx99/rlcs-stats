@@ -119,3 +119,30 @@
     - one match-id per game number in the series
 - Initial run result:
   - `C16_series_id_best_of_row_completeness`: `fail` (`39` series)
+
+## Update: Post Best-of Conflict Fixes (2026-02-08)
+- Reload validation confirms `Best of` conflicts are resolved:
+  - `r_best_of_variants`: `7 -> 0`
+- Current C16 state:
+  - Scoped series: `1162`
+  - Failed series: `32` (`2.75%`)
+- Current top remaining category:
+  - `r_below_required_games`: `24` series
+
+## Update: Series-ID Day Split Artifact (2026-02-08)
+- Issue discovered:
+  - `series_id` includes `Day`, so a single real matchup can split into multiple series IDs when `Day` differs across games.
+- Confirmed impacted pair-contexts:
+  1. `ATK` vs `ORLANDO PIRATES`
+     - `2021-22 / Winter / Regional Event 2 / Playoffs / UF`
+     - Games `{1,2,3,4,5,6}` exist, but split as:
+       - `G1 -> dd43261d7829c20a2646214d003c3258` (`Day=2`)
+       - `G2-G6 -> d56b0f3a6625aa95270e4f60c2ebefdb` (`Day=3`)
+  2. `NIXUH` vs `WHITE RABBIT GAMING`
+     - `2022-23 / Winter / Invitational / Playoffs / QF`
+     - Games `{1,2,3,4,5,6}` exist, but split as:
+       - `G1 -> e4eb363a8707553013bbc4647b2ef885` (`Day=1`)
+       - `G2-G6 -> 412853ee90d094ba17e742930c1c5ae6` (`Day=2`)
+- Impact on missing-games interpretation:
+  - Under `series_id` grouping: `r_below_required_games = 24`
+  - Under pair+context grouping (`Season/Split/Regional/Stage/Round + normalized team pair`): missing groups = `22`

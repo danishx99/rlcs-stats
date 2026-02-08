@@ -1,0 +1,25 @@
+series_id,season,split,regional,stage,round,match_date,best_of,min_required_games,game_count,match_count,row_count,game_numbers
+f05c413128aae181cbc39cc82f44386a,2021-22,Fall,Regional Event 2,Swiss,3,2021-11-12,5,3,2,2,12,"{1,2}"
+6854c8abbf732206934185f4b5aec2ea,2021-22,Fall,Regional Event 3,Swiss,2,2021-11-26,5,3,2,2,12,"{2,3}"
+72c83465854428860c19b0e5f2e35023,2021-22,Fall,Regional Event 3,Swiss,4,2021-11-26,5,3,1,1,6,{1}
+653d85a9eac15c2217ffd9b9a2356321,2021-22,Spring,Regional Event 1,Double Elim,UQF,2022-05-06,5,3,2,2,12,"{2,3}"
+342a80a9b6593c7b7b3e60ab00cabee8,2021-22,Winter,Regional Event 1,Playoffs,LR1,2022-01-22,5,3,1,1,6,{1}
+a54c5af15e7b90271d84f936fae93de1,2021-22,Winter,Regional Event 2,Playoffs,LSF,2022-02-06,7,4,3,4,24,"{1,2,3}"
+dd43261d7829c20a2646214d003c3258,2021-22,Winter,Regional Event 2,Playoffs,UF,2022-02-06,7,4,1,1,6,{1}
+93f01071af30aad586978e807c665340,2021-22,Winter,Regional Event 3,Groups,3,2022-02-25,5,3,2,2,12,"{1,2}"
+d61c53b795d346e955e637233329d802,2022-23,Spring,Invitational,Double Elim,LR1,2023-06-09,5,3,1,1,6,{1}
+9bf1a06833626ea2055ecdada62cf45f,2022-23,Winter,Cup,Groups,1,2023-02-10,5,3,2,2,12,"{1,2}"
+a7429661deac1f2e9fe47ebc2478e977,2022-23,Winter,Cup,Groups,1,2023-02-10,5,3,2,2,12,"{1,2}"
+28e2cf7852d2c03f3f8b1c071ec0d540,2022-23,Winter,Cup,Groups,2,2023-02-10,5,3,2,2,12,"{1,2}"
+1b0b354cb75781742e02947c64f752d1,2022-23,Winter,Cup,Groups,3,2023-02-10,5,3,2,2,12,"{1,2}"
+3f9bbd6349c4b463a475d982a9461a02,2022-23,Winter,Invitational,Groups,2,2023-02-24,5,3,2,2,12,"{1,2}"
+b62444ebecc30789d841ca77307c7001,2022-23,Winter,Invitational,Groups,3,2023-02-24,5,3,2,2,12,"{1,2}"
+e4eb363a8707553013bbc4647b2ef885,2022-23,Winter,Invitational,Playoffs,QF,2023-02-25,7,4,1,1,6,{1}
+688f646e9c13457d6a79c5f85a384520,2024,Major 1,Open Qualifier 2,Playoffs,SF,2024-02-18,7,4,1,1,6,{1}
+4ac37e7ef597fb22811df6336d2c677d,2024,Major 1,Open Qualifier 3,Playoffs,SF,2024-03-03,7,4,1,1,6,{1}
+6c9afee974c1e4d186a20c2ca91e4f16,2025,Birmingham Major,Open 1,GSL,LQF,2025-01-17,5,3,1,1,6,{3}
+268782dada05553328229910c794dd98,2025,Birmingham Major,Open 1,GSL,UQF,2025-01-17,5,3,2,2,12,"{2,3}"
+fc550c08025962e5910328450c36d4c4,2025,Birmingham Major,Open 1,GSL,UQF,2025-01-17,5,3,2,2,12,"{1,2}"
+7806b535b5ab0b9e2525a204a4509274,2025,Birmingham Major,Open 3,GSL,LF,2025-02-28,5,3,2,2,12,"{1,2}"
+cdb785a6f62596893e1f736dd8c718f4,2025,Raleigh Major,Open 5,GSL,UQF,2025-05-09,5,3,2,2,12,"{1,2}"
+243e0170bc9e0b9134434959063cfbbd,2026,Boston Major,Open 1,GSL,UQF,2025-11-28,5,3,2,3,18,"{1,3}"

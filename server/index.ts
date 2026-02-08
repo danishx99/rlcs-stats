@@ -16,6 +16,7 @@ import { handleMeta, handleMetaColumns } from "./src/routes/meta";
 import { handlePlayers, handlePlayerProfile, handlePlayerSeason } from "./src/routes/players";
 import { handleRosterProfile, handleRosterSeason } from "./src/routes/rosters";
 import { handleSearch } from "./src/routes/search";
+import { handleSeriesDetail, handleSeriesList, handleSeriesMeta } from "./src/routes/series";
 import { handleStatsTop } from "./src/routes/stats";
 
 const server = createServer(async (req, res) => {
@@ -52,6 +53,28 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === "/api/meta") {
     await handleMeta(req, res, url);
+    return;
+  }
+
+  if (url.pathname === "/api/series/meta") {
+    await handleSeriesMeta(req, res, url);
+    return;
+  }
+
+  if (url.pathname === "/api/series") {
+    await handleSeriesList(req, res, url);
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/series/")) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    const seriesId = parts[2];
+    if (!seriesId) {
+      badRequest(res, "Series id is required");
+      return;
+    }
+
+    await handleSeriesDetail(req, res, seriesId);
     return;
   }
 

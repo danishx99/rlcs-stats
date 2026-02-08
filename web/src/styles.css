@@ -2529,6 +2529,99 @@ th {
   background: rgba(255, 255, 255, 0.04);
 }
 
+/* Series Page */
+.series-filters-card h1 {
+  margin: 6px 0 0;
+  font-size: 1.6rem;
+}
+
+.series-filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.series-filter-row label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-muted);
+}
+
+.series-filter-row select {
+  background: var(--panel-strong);
+  border: 1px solid var(--panel-border);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  padding: 8px 10px;
+}
+
+.series-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.series-row:hover {
+  background: rgba(122, 180, 245, 0.08);
+}
+
+.series-row td {
+  vertical-align: top;
+}
+
+.series-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(3, 6, 10, 0.74);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.series-modal-card {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  background: linear-gradient(160deg, var(--panel) 0%, var(--panel-strong) 100%);
+  border: 1px solid rgba(122, 180, 245, 0.25);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+  padding: 20px;
+  animation: panel-in 0.22s ease-out both;
+}
+
+.series-modal-score {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.series-modal-score strong {
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+.series-subline {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+}
+
+.series-match-id {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+}
+
 /* Player Page Polish */
 .profile-filter-row select:focus {
   border-color: var(--accent);
@@ -2647,5 +2740,19 @@ th {
 
   .featured-cards {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .series-modal-backdrop {
+    padding: 10px;
+  }
+
+  .series-modal-card {
+    max-height: calc(100vh - 20px);
+    padding: 14px;
+  }
+
+  .series-modal-score {
+    font-size: 0.8rem;
+    gap: 8px;
   }
 }

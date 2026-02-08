@@ -5,7 +5,8 @@ export function json(res: ServerResponse, status: number, payload: unknown) {
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS"
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "ngrok-skip-browser-warning"
   });
   res.end(body);
 }
@@ -25,7 +26,8 @@ export function notFound(res: ServerResponse) {
 export function handleOptions(res: ServerResponse) {
   res.writeHead(204, {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS"
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "ngrok-skip-browser-warning"
   });
   res.end();
 }

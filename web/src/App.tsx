@@ -9,6 +9,7 @@ import HomePage from "./pages/HomePage";
 import ComparePage from "./pages/ComparePage";
 import PlayerPage from "./pages/PlayerPage";
 import RosterPage from "./pages/RosterPage";
+import SeriesPage from "./pages/SeriesPage";
 import StatPage from "./pages/StatPage";
 
 export default function App() {
@@ -27,6 +28,12 @@ export default function App() {
   const location = useLocation();
 
   const isHome = location.pathname === "/";
+  const hideTopNav =
+    isHome ||
+    location.pathname.startsWith("/players/") ||
+    location.pathname.startsWith("/rosters/") ||
+    location.pathname.startsWith("/compare") ||
+    location.pathname.startsWith("/series");
 
   const { meta, metaError } = useMeta(filters);
 
@@ -82,7 +89,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {!isHome && !location.pathname.startsWith("/players/") && !location.pathname.startsWith("/rosters/") && !location.pathname.startsWith("/compare") && (
+      {!hideTopNav && (
         <TopNav
           meta={meta}
           metaError={metaError}
@@ -126,6 +133,7 @@ export default function App() {
           <Route path="/players/:uniqueId" element={<PlayerPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
           <Route path="/rosters/:rosterId" element={<RosterPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
           <Route path="/stats/:statKey" element={<StatPage filters={filters} />} />
+          <Route path="/series" element={<SeriesPage />} />
         </Routes>
       </div>
     </div>

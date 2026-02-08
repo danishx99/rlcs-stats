@@ -13,6 +13,52 @@ export type MetaResponse = {
   featuredOptions?: StatOption[];
 };
 
+export type SeriesMetaResponse = {
+  generatedAt: string;
+  seasons: string[];
+  splits: string[];
+  events: string[];
+  stages: string[];
+  teams: string[];
+};
+
+export type SeriesListRow = {
+  seriesId: string;
+  date: string | null;
+  season: string | null;
+  split: string | null;
+  event: string | null;
+  stage: string | null;
+  round: string | null;
+  day: number | null;
+  bestOf: number | null;
+  teamA: string | null;
+  teamB: string | null;
+  teamAWins: number;
+  teamBWins: number;
+  gamesRecorded: number;
+};
+
+export type SeriesListResponse = {
+  rows: SeriesListRow[];
+};
+
+export type SeriesGame = {
+  gameNumber: number;
+  matchId: string | null;
+  teamAGoals: number | null;
+  teamBGoals: number | null;
+  winnerTeam: string | null;
+};
+
+export type SeriesDetail = SeriesListRow & {
+  games: SeriesGame[];
+};
+
+export type SeriesDetailResponse = {
+  series: SeriesDetail;
+};
+
 export type SearchResult = {
   id: string;
   label: string;

@@ -6,7 +6,8 @@ export default defineConfig({
   root: resolve(__dirname),
   plugins: [react()],
   server: {
-    port: 5173
+    port: 5173,
+    allowedHosts: true
   },
   build: {
     outDir: resolve(__dirname, "dist"),

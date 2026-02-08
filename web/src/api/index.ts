@@ -6,6 +6,9 @@ import type {
   MetaColumnsResponse,
   MetaResponse,
   PlayerProfile,
+  SeriesDetailResponse,
+  SeriesListResponse,
+  SeriesMetaResponse,
   RosterProfile,
   SearchResponse,
   SeasonResponse
@@ -24,7 +27,9 @@ export async function fetchJson<T>(
       url.searchParams.set(key, String(value));
     });
   }
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), {
+    headers: { "ngrok-skip-browser-warning": "1" }
+  });
   if (!response.ok) {
     let apiError: string | null = null;
     try {
@@ -43,6 +48,15 @@ export async function fetchJson<T>(
 export const api = {
   meta(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<MetaResponse>("/api/meta", params);
+  },
+  seriesMeta(params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<SeriesMetaResponse>("/api/series/meta", params);
+  },
+  seriesList(params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<SeriesListResponse>("/api/series", params);
+  },
+  seriesDetail(seriesId: string) {
+    return fetchJson<SeriesDetailResponse>(`/api/series/${encodeURIComponent(seriesId)}`);
   },
   search(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<SearchResponse>("/api/search", params);
