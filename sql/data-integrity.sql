@@ -6,6 +6,7 @@
 WITH base_stats AS (
   SELECT
     s."Match ID" AS match_id,
+    s."Game Number" AS game_number,
     s."Date"::date AS match_date,
     s."Season" AS season,
     s."Split" AS split,
@@ -34,6 +35,7 @@ WITH base_stats AS (
     s."Small Pads Collected_All Zones" AS small_pads_all,
     s."Big Boosts Collected_All Zones" AS big_boosts_all,
     s."Ball Touches_All Zones" AS ball_touches_all,
+    s.series_id,
     s.source_file
   FROM stats s
 ),
@@ -168,6 +170,84 @@ current_series_teams AS (
   WHERE s.series_id IS NOT NULL
   GROUP BY s.series_id
 ),
+series_from_id AS (
+  SELECT
+    b.series_id,
+    MAX(b.best_of) AS best_of,
+    COUNT(DISTINCT b.best_of) AS best_of_variants,
+    COUNT(*) AS row_count,
+    COUNT(DISTINCT b.team_key) AS team_count,
+    COUNT(DISTINCT b.match_id) AS match_count,
+    COUNT(DISTINCT b.game_number) AS game_count,
+    COUNT(*) FILTER (WHERE b.game_number IS NULL) AS null_game_number_rows,
+    MIN(b.game_number) AS min_game_number,
+    MAX(b.game_number) AS max_game_number,
+    ARRAY_AGG(DISTINCT b.game_number ORDER BY b.game_number) AS game_numbers
+  FROM base_stats b
+  WHERE b.series_id IS NOT NULL
+    AND b.best_of IN (3, 5, 7)
+  GROUP BY b.series_id
+),
+series_game_rows AS (
+  SELECT
+    b.series_id,
+    b.game_number,
+    COUNT(*) AS row_count,
+    COUNT(DISTINCT b.match_id) AS match_count
+  FROM base_stats b
+  WHERE b.series_id IS NOT NULL
+    AND b.best_of IN (3, 5, 7)
+  GROUP BY b.series_id, b.game_number
+),
+series_game_shape AS (
+  SELECT
+    sgr.series_id,
+    COUNT(*) FILTER (WHERE sgr.row_count <> 6) AS games_with_bad_row_count,
+    COALESCE(
+      JSONB_AGG(
+        JSONB_BUILD_OBJECT(
+          'game_number', sgr.game_number,
+          'row_count', sgr.row_count,
+          'match_count', sgr.match_count
+        )
+        ORDER BY sgr.game_number
+      ) FILTER (WHERE sgr.row_count <> 6),
+      '[]'::jsonb
+    ) AS bad_games_json
+  FROM series_game_rows sgr
+  GROUP BY sgr.series_id
+),
+series_id_integrity_failures AS (
+  SELECT
+    sfi.series_id,
+    sfi.best_of,
+    CEIL(sfi.best_of / 2.0)::int AS min_required_games,
+    sfi.best_of_variants,
+    sfi.row_count,
+    sfi.team_count,
+    sfi.match_count,
+    sfi.game_count,
+    sfi.null_game_number_rows,
+    sfi.min_game_number,
+    sfi.max_game_number,
+    sfi.game_numbers,
+    COALESCE(sgs.games_with_bad_row_count, 0) AS games_with_bad_row_count,
+    COALESCE(sgs.bad_games_json, '[]'::jsonb) AS bad_games_json,
+    (
+      sfi.best_of_variants <> 1
+      OR sfi.team_count <> 2
+      OR sfi.null_game_number_rows > 0
+      OR sfi.game_count < CEIL(sfi.best_of / 2.0)
+      OR sfi.game_count > sfi.best_of
+      OR sfi.min_game_number <> 1
+      OR sfi.max_game_number <> sfi.game_count
+      OR sfi.row_count <> (sfi.game_count * 6)
+      OR sfi.match_count <> sfi.game_count
+      OR COALESCE(sgs.games_with_bad_row_count, 0) > 0
+    ) AS has_issue
+  FROM series_from_id sfi
+  LEFT JOIN series_game_shape sgs ON sgs.series_id = sfi.series_id
+),
 fractional_non_ot_rows AS (
   SELECT
     b.match_id,
@@ -228,6 +308,18 @@ case_team_variants AS (
   WHERE NULLIF(TRIM(s."Team"), '') IS NOT NULL
   GROUP BY UPPER(TRIM(s."Team"))
   HAVING COUNT(DISTINCT TRIM(s."Team")) > 1
+),
+player_name_id_variants AS (
+  SELECT
+    NULLIF(TRIM(s."Player Name"), '') AS player_name,
+    COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) AS unique_id_count,
+    ARRAY_AGG(DISTINCT NULLIF(TRIM(s."Unique ID"), '') ORDER BY NULLIF(TRIM(s."Unique ID"), ''))
+      FILTER (WHERE NULLIF(TRIM(s."Unique ID"), '') IS NOT NULL) AS unique_ids,
+    COUNT(*) AS row_count
+  FROM stats s
+  WHERE NULLIF(TRIM(s."Player Name"), '') IS NOT NULL
+  GROUP BY NULLIF(TRIM(s."Player Name"), '')
+  HAVING COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) > 1
 ),
 checks AS (
   -- C01
@@ -586,6 +678,32 @@ checks AS (
 
   UNION ALL
 
+  -- C14
+  SELECT
+    'C14_player_name_unique_id_consistency',
+    'critical',
+    CASE WHEN COUNT(*) = 0 THEN 'pass' ELSE 'fail' END,
+    'player_names_with_multiple_unique_ids',
+    COUNT(*)::bigint,
+    '0',
+    COALESCE((
+      SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+        'player_name', x.player_name,
+        'unique_id_count', x.unique_id_count,
+        'unique_ids', x.unique_ids,
+        'row_count', x.row_count
+      ))
+      FROM (
+        SELECT pniv.*
+        FROM player_name_id_variants pniv
+        ORDER BY pniv.unique_id_count DESC, pniv.row_count DESC, pniv.player_name
+        LIMIT 20
+      ) x
+    ), '[]'::jsonb)
+  FROM player_name_id_variants
+
+  UNION ALL
+
   -- W14
   SELECT
     'W14_issue_E_fractional_counts_non_ot',
@@ -630,6 +748,43 @@ checks AS (
       ) x
     ), '[]'::jsonb)
   FROM match_meta m
+
+  UNION ALL
+
+  -- C16
+  SELECT
+    'C16_series_id_best_of_row_completeness',
+    'critical',
+    CASE WHEN COUNT(*) FILTER (WHERE s.has_issue) = 0 THEN 'pass' ELSE 'fail' END,
+    'series_ids_with_best_of_shape_or_row_count_issues',
+    COUNT(*) FILTER (WHERE s.has_issue)::bigint,
+    '0',
+    COALESCE((
+      SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+        'series_id', x.series_id,
+        'best_of', x.best_of,
+        'min_required_games', x.min_required_games,
+        'game_count', x.game_count,
+        'match_count', x.match_count,
+        'row_count', x.row_count,
+        'game_numbers', x.game_numbers,
+        'games_with_bad_row_count', x.games_with_bad_row_count,
+        'bad_games', x.bad_games_json,
+        'best_of_variants', x.best_of_variants,
+        'team_count', x.team_count,
+        'null_game_number_rows', x.null_game_number_rows
+      ))
+      FROM (
+        SELECT sif.*
+        FROM series_id_integrity_failures sif
+        WHERE sif.has_issue
+        ORDER BY
+          sif.best_of,
+          sif.series_id
+        LIMIT 20
+      ) x
+    ), '[]'::jsonb)
+  FROM series_id_integrity_failures s
 
   UNION ALL
 

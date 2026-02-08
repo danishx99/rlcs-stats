@@ -192,7 +192,11 @@ async function main(): Promise<void> {
   const client = await connectDb();
 
   try {
-    console.log("connected to db");
+    console.log("Connected to DB");
+    console.log(
+      `Ingestion start: datasets=${datasets.map((dataset) => dataset.key).join(", ")}, dryRun=${options.dryRun}, truncate=${options.truncate}`
+    );
+    console.log("Ensuring schema...");
     await client.query(createFileIngestTableSql);
     for (const dataset of datasets) {
       await client.query(dataset.createTableSql);
@@ -210,9 +214,10 @@ async function main(): Promise<void> {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_series_id ON stats (series_id)`);
       }
     }
-    console.log("schema ensured");
+    console.log("Schema ensured");
 
     if (options.truncate && !options.dryRun) {
+      console.log("Truncating selected dataset tables...");
       for (const dataset of datasets) {
         await client.query(`TRUNCATE ${quoteIdent(dataset.tableName)} RESTART IDENTITY;`);
       }
@@ -225,13 +230,14 @@ async function main(): Promise<void> {
           ]);
         }
       }
-      console.log("data truncated");
+      console.log("Data truncated");
     }
 
     const reports: FileReport[] = [];
     for (const dataset of datasets) {
       const datasetDir = join(options.dir, dataset.dataSubdir);
       const files = await listFiles(datasetDir, options.pattern);
+      console.log(`[${dataset.label}] scanning ${datasetDir}: ${files.length} files matched`);
       if (files.length === 0) {
         console.log(`${dataset.label}: no files matched`);
         continue;
@@ -288,8 +294,9 @@ async function main(): Promise<void> {
     }
 
     if (!options.dryRun && hasStatsDataset) {
+      console.log("Generating series ids...");
       const updated = await computeSeriesIds(client);
-      console.log(`series_id backfill: ${updated} rows updated`);
+      console.log(`Series id backfill complete: ${updated} rows updated`);
     }
 
     const totals = reports.reduce(
@@ -309,7 +316,7 @@ async function main(): Promise<void> {
     await writeFile("./out/import-report.json", JSON.stringify({ reports, totals }, null, 2));
 
     console.log(
-      `total rows ${totals.totalRows}, inserted ${totals.inserted}, skipped ${totals.skipped}, errored ${totals.errored}`
+      `Ingestion totals: rows ${totals.totalRows}, inserted ${totals.inserted}, skipped ${totals.skipped}, errored ${totals.errored}`
     );
   } finally {
     await client.end();

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>c14-player-name-id-mismatches</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="pandoc-table.css" />
+</head>
+<body>
+<h1 id="c14-canonical-id-mismatches">C14 Canonical ID Mismatches</h1>
+<p>Date: 2026-02-07</p>
+<p>Rule: Exact <code>Player Name</code> should map to one canonical
+<code>Player ID</code> from <code>players</code> (Primary Handle + All
+Aliases).</p>
+<table>
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Player Name</th>
+<th>Canonical Unique ID (From players table)</th>
+<th>Seen IDs in stats</th>
+<th>Incorrect IDs</th>
+<th>Incorrect Seasons</th>
+<th style="text-align: right;">Mismatch Rows</th>
+<th style="text-align: right;">Total Rows</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Paarthurnax.</td>
+<td>SSA-P-10045</td>
+<td>SSA-P-10045, SSA-P-10101</td>
+<td>SSA-P-10101</td>
+<td>2021-22</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">51</td>
+</tr>
+<tr class="even">
+<td>Fusion77</td>
+<td>SSA-P-10146</td>
+<td>SSA-P-10170</td>
+<td>SSA-P-10170</td>
+<td>2024</td>
+<td style="text-align: right;">43</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="odd">
+<td>twnzr.</td>
+<td>SSA-P-10148</td>
+<td>SSA-P-10177</td>
+<td>SSA-P-10177</td>
+<td>2024</td>
+<td style="text-align: right;">24</td>
+<td style="text-align: right;">24</td>
+</tr>
+<tr class="even">
+<td>Eliakim</td>
+<td>SSA-P-10019</td>
+<td>SSA-P-10019, SSA-P-10020, SSA-P-10021, SSA-P-10022, SSA-P-10023,
+SSA-P-10024, SSA-P-10025, SSA-P-10026, SSA-P-10027, SSA-P-10028,
+SSA-P-10029, SSA-P-10030, SSA-P-10031, SSA-P-10032, SSA-P-10033,
+SSA-P-10034, SSA-P-10035, SSA-P-10036, SSA-P-10037, SSA-P-10038,
+SSA-P-10039, SSA-P-10040, SSA-P-10041</td>
+<td>SSA-P-10020, SSA-P-10021, SSA-P-10022, SSA-P-10023, SSA-P-10024,
+SSA-P-10025, SSA-P-10026, SSA-P-10027, SSA-P-10028, SSA-P-10029,
+SSA-P-10030, SSA-P-10031, SSA-P-10032, SSA-P-10033, SSA-P-10034,
+SSA-P-10035, SSA-P-10036, SSA-P-10037, SSA-P-10038, SSA-P-10039,
+SSA-P-10040, SSA-P-10041</td>
+<td>2022-23</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">36</td>
+</tr>
+<tr class="odd">
+<td>twnzr</td>
+<td>SSA-P-10148</td>
+<td>SSA-P-10148, SSA-P-10177</td>
+<td>SSA-P-10177</td>
+<td>2024</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">145</td>
+</tr>
+<tr class="even">
+<td>ckeno.</td>
+<td>SSA-P-10070</td>
+<td>SSA-P-10070, SSA-P-10110</td>
+<td>SSA-P-10110</td>
+<td>2021-22</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: right;">21</td>
+</tr>
+<tr class="odd">
+<td>lazybear</td>
+<td>SSA-P-10147</td>
+<td>SSA-P-10147, SSA-P-10174</td>
+<td>SSA-P-10174</td>
+<td>2024</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">29</td>
+</tr>
+<tr class="even">
+<td>pnda.</td>
+<td>SSA-P-10084</td>
+<td>SSA-P-10066, SSA-P-10084</td>
+<td>SSA-P-10066</td>
+<td>2021-22</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">125</td>
+</tr>
+<tr class="odd">
+<td>Trstxnz</td>
+<td>SSA-P-10072</td>
+<td>SSA-P-10072, SSA-P-10114</td>
+<td>SSA-P-10114</td>
+<td>2022-23</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80</td>
+</tr>
+<tr class="even">
+<td>Amogus</td>
+<td>SSA-P-10071</td>
+<td>SSA-P-10119</td>
+<td>SSA-P-10119</td>
+<td>2022-23</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">6</td>
+</tr>
+<tr class="odd">
+<td>Galaxy</td>
+<td>SSA-P-10081</td>
+<td>SSA-P-10081, SSA-P-10121</td>
+<td>SSA-P-10121</td>
+<td>2022-23</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">112</td>
+</tr>
+<tr class="even">
+<td>Werty ^^</td>
+<td>SSA-P-10061</td>
+<td>SSA-P-10015, SSA-P-10061</td>
+<td>SSA-P-10015</td>
+<td>2022-23, 2025</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">700</td>
+</tr>
+<tr class="odd">
+<td>Duklaz</td>
+<td>SSA-P-10123</td>
+<td>SSA-P-10090, SSA-P-10123</td>
+<td>SSA-P-10090</td>
+<td>2022-23</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">111</td>
+</tr>
+<tr class="even">
+<td>ntr.������</td>
+<td>SSA-P-10124</td>
+<td>SSA-P-10048, SSA-P-10124</td>
+<td>SSA-P-10048</td>
+<td>2022-23</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">17</td>
+</tr>
+<tr class="odd">
+<td>!xyro</td>
+<td>SSA-P-10122</td>
+<td>SSA-P-10017, SSA-P-10122</td>
+<td>SSA-P-10017</td>
+<td>2022-23</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">40</td>
+</tr>
+<tr class="even">
+<td>Gyzow</td>
+<td>SSA-P-10117</td>
+<td>SSA-P-10054, SSA-P-10117</td>
+<td>SSA-P-10054</td>
+<td>2022-23</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">128</td>
+</tr>
+<tr class="odd">
+<td>Wiiilooo</td>
+<td>SSA-P-10069</td>
+<td>SSA-P-10053, SSA-P-10069</td>
+<td>SSA-P-10053</td>
+<td>2022-23</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">438</td>
+</tr>
+<tr class="even">
+<td>boy974s</td>
+<td>SSA-P-10068</td>
+<td>SSA-P-10053, SSA-P-10068</td>
+<td>SSA-P-10053</td>
+<td>2022-23</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">195</td>
+</tr>
+<tr class="odd">
+<td>Olympic.</td>
+<td>SSA-P-10042</td>
+<td>SSA-P-10015, SSA-P-10042</td>
+<td>SSA-P-10015</td>
+<td>2022-23</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">237</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

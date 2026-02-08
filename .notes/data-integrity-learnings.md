@@ -69,3 +69,53 @@
 1. Fix source-level match completeness (`C01`, `C02`, `C15`) before tuning series logic further.
 2. Normalize dimension strings (`Split`, `Regional`, `Stage`, `Round`, `Team`) to reduce semantic duplicates.
 3. Re-run full suite after each source refresh and track deltas per check ID.
+
+## Update: Post-Normalization Reload (2026-02-07)
+- Ingestion pipeline update landed in `src/load-csv.ts` for `stats` rows:
+  - `TRIM` on `Split`, `Regional`, `Stage`, `Round`
+  - `UPPER(TRIM(...))` on `Team`
+- Full reload run with:
+  - `bun run src/run.ts --dir ./data --truncate`
+- Full audit rerun with:
+  - `psql "postgres://stats:stats_pw@localhost:5432/statsdb" -P pager=off -f "sql/data-integrity.sql"`
+
+### Result Delta
+- `W16_dimensional_whitespace_variants`: `fail -> pass` (`0`)
+- `W17_case_variants_team_names`: `fail -> pass` (`0`)
+- `C11_issue_B_series_id_collision_risk`: `fail -> pass` (`0` current collisions)
+
+### Remaining Critical Focus (Superseded by Update Below)
+1. `C01/C10/C15`: malformed/collided match structures.
+2. `C03/C04`: downstream team-row/player-shape anomalies caused by malformed structures.
+
+## Update: Post Source-Fix Reload (2026-02-07)
+- Source rows were corrected for the LE BOSH vs STR1VE ESPORTS LSF games and reloaded.
+- Reload command:
+  - `bun run src/run.ts --dir ./data --dataset matches --truncate`
+- Integrity rerun command:
+  - `psql "postgres://stats:stats_pw@localhost:5432/statsdb" -P pager=off -f "sql/data-integrity.sql"`
+
+### Result Delta
+- `C06_team_level_victory_consistency`: `fail -> pass` (`0`)
+- `C08_series_best_of_consistency`: `fail -> pass` (`0`)
+- `C15_issue_F_single_team_matches`: `fail -> pass` (`0`)
+- `C01_game_team_count_exactly_two`: `12 -> 10`
+- `C03_team_rows_per_match_expected_three`: `32 -> 30`
+- `C04_player_uniqueness_within_match_team`: `44 -> 42`
+
+### Current Remaining Critical Focus
+1. `C01/C10`: remaining 4-team match-ID collisions.
+2. `C03/C04`: downstream team-row/player-shape anomalies driven by those collisions.
+
+## Update: Added Series BoN Completeness Check (2026-02-08)
+- New critical check added to `sql/data-integrity.sql`:
+  - `C16_series_id_best_of_row_completeness`
+- Scope:
+  - Groups by materialized `series_id`
+  - Audits Bo3/Bo5/Bo7 series for:
+    - game count in valid range (`ceil(best_of/2)` to `best_of`)
+    - contiguous game numbers (starting at 1, no gaps)
+    - consistent per-game 6-row shape (`row_count = game_count * 6`)
+    - one match-id per game number in the series
+- Initial run result:
+  - `C16_series_id_best_of_row_completeness`: `fail` (`39` series)

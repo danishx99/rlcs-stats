@@ -110,6 +110,30 @@ const DENORM_COLUMNS = new Set(
   DENORM_BASE_STATS.flatMap((stat) => ZONE_SUFFIXES.map((zone) => stat + zone))
 );
 
+const STATS_TRIM_COLUMNS = new Set(["Split", "Regional", "Stage", "Round"]);
+const STATS_UPPERCASE_COLUMNS = new Set(["Team"]);
+
+function normalizeStatsTextValue(column: string, value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (STATS_UPPERCASE_COLUMNS.has(column)) {
+    return trimmed.toUpperCase();
+  }
+
+  if (STATS_TRIM_COLUMNS.has(column)) {
+    return trimmed;
+  }
+
+  return value;
+}
+
 function denormalizeRow(
   headers: string[],
   values: any[]
@@ -431,6 +455,12 @@ export async function loadCsvFile(
       if (forfeitIndex >= 0 && forfeitIndex >= rawValues.length && victoryIndex >= 0) {
         const rawVictory = rawValues[victoryIndex]?.trim().toLowerCase() ?? "";
         coercedValues.push(rawVictory === "ff");
+      }
+
+      if (options.tableName === "stats") {
+        for (let i = 0; i < coercedValues.length; i += 1) {
+          coercedValues[i] = normalizeStatsTextValue(headers[i], coercedValues[i]);
+        }
       }
 
       if (options.denormalize) {

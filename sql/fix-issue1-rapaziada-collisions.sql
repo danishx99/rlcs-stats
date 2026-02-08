@@ -1,0 +1,40 @@
+BEGIN;
+
+UPDATE stats
+SET "Team" = 'RAPAZIADA 1906'
+WHERE "Match ID" IN (
+  '20250425-160825-2025-Raleigh Major-Open 4-GSL-UQF-G1',
+  '20250425-161515-2025-Raleigh Major-Open 4-GSL-UQF-G2',
+  '20250425-162118-2025-Raleigh Major-Open 4-GSL-UQF-G3',
+  '20250425-162817-2025-Raleigh Major-Open 4-GSL-UQF-G4',
+  '20250425-165147-2025-Raleigh Major-Open 4-GSL-LSF-G1',
+  '20250425-175757-2025-Raleigh Major-Open 4-GSL-USF-G1',
+  '20250425-180514-2025-Raleigh Major-Open 4-GSL-USF-G2',
+  '20250425-184450-2025-Raleigh Major-Open 4-GSL-LSF-G2',
+  '20250425-185914-2025-Raleigh Major-Open 4-GSL-LSF-G3',
+  '20250425-190712-2025-Raleigh Major-Open 4-GSL-LSF-G4'
+)
+AND TRIM("Team") LIKE 'RAPAZIADA %'
+AND TRIM("Team") <> 'RAPAZIADA 1906';
+
+COMMIT;
+
+SELECT
+  "Match ID",
+  COUNT(DISTINCT TRIM("Team")) AS team_count,
+  ARRAY_AGG(DISTINCT TRIM("Team") ORDER BY TRIM("Team")) AS teams
+FROM stats
+WHERE "Match ID" IN (
+  '20250425-160825-2025-Raleigh Major-Open 4-GSL-UQF-G1',
+  '20250425-161515-2025-Raleigh Major-Open 4-GSL-UQF-G2',
+  '20250425-162118-2025-Raleigh Major-Open 4-GSL-UQF-G3',
+  '20250425-162817-2025-Raleigh Major-Open 4-GSL-UQF-G4',
+  '20250425-165147-2025-Raleigh Major-Open 4-GSL-LSF-G1',
+  '20250425-175757-2025-Raleigh Major-Open 4-GSL-USF-G1',
+  '20250425-180514-2025-Raleigh Major-Open 4-GSL-USF-G2',
+  '20250425-184450-2025-Raleigh Major-Open 4-GSL-LSF-G2',
+  '20250425-185914-2025-Raleigh Major-Open 4-GSL-LSF-G3',
+  '20250425-190712-2025-Raleigh Major-Open 4-GSL-LSF-G4'
+)
+GROUP BY "Match ID"
+ORDER BY "Match ID";

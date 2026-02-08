@@ -57,6 +57,7 @@ This policy is for audit/reporting only. Ingestion behavior is unchanged.
 | `C13_issue_D_double_winner_matches` | critical | 2-team matches with >1 winners | D |
 | `W14_issue_E_fractional_counts_non_ot` | warning | Fractional count stats in non-OT rows | E |
 | `C15_issue_F_single_team_matches` | critical | `Match ID` with only one team | F |
+| `C16_series_id_best_of_row_completeness` | critical | For Bo3/Bo5/Bo7 series_id groups: valid game count, contiguous game numbers, and 6 rows per game | series-id / completeness |
 | `W16_dimensional_whitespace_variants` | warning | Trailing/leading whitespace in dimensions | data hygiene |
 | `W17_case_variants_team_names` | warning | Same team represented by case variants | data hygiene |
 
@@ -66,7 +67,8 @@ If these fail, use this order:
 2. `C02`-`C04`: Restore complete 3v3 row shape (6 rows/match, 3 per team, 3 unique players).
 3. `C05`, `C07`, `C12`, `C13`: Correct `Victory` flags using authoritative match outcomes.
 4. `C08`, `C09`, `C11`: Rebuild series grouping after structural fixes; avoid timestamp-only heuristics.
-5. `W16`, `W17`: Normalize text dimensions (`TRIM`, case canonicalization) in source or ingest pre-processing.
+5. `C16`: Validate Bo3/Bo5/Bo7 series-id completeness (minimum required games, contiguous numbering, 6 rows per game).
+6. `W16`, `W17`: Normalize text dimensions (`TRIM`, case canonicalization) in source or ingest pre-processing.
 
 ## Baseline Workflow
 After each major dataset refresh:

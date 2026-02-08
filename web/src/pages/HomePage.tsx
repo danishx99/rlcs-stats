@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { LeaderboardResponse, SearchResponse, StatOption } from "../types/api";
+import type { FeaturedResponse, SearchResponse, StatOption } from "../types/api";
 import { api } from "../api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatStat } from "../utils/format";
@@ -23,7 +23,7 @@ export type HomePageProps = {
 
 export default function HomePage({ filters, latestSeason, featuredOptions }: HomePageProps) {
   const navigate = useNavigate();
-  const [topScorers, setTopScorers] = useState<LeaderboardResponse | null>(null);
+  const [topScorers, setTopScorers] = useState<FeaturedResponse | null>(null);
   const [topLoading, setTopLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
@@ -33,17 +33,16 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   const [playerSearchLoading, setPlayerSearchLoading] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Load top scorers for the latest season
+  // Load top rated players for the latest season
   useEffect(() => {
+    if (!latestSeason) return;
     async function loadTopScorers() {
       setTopLoading(true);
       try {
-        const response = await api.statsTop({
-          metric: "score",
-          mode: "avg",
-          limit: 6,
-          season: latestSeason || undefined,
-          minSeries: 10
+        const response = await api.featured({
+          metric: "top_rated",
+          season: latestSeason,
+          limit: 6
         });
         setTopScorers(response);
       } catch (error) {
@@ -271,7 +270,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
         <div className="dash-featured-header">
           <div>
             <span className="dash-label">Featured &middot; {seasonLabel}</span>
-            <h2>Highest Average Score</h2>
+            <h2>Top Rated</h2>
           </div>
         </div>
         {topLoading && <p className="dash-empty">Loading...</p>}
