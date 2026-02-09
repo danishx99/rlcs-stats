@@ -212,6 +212,7 @@ async function main(): Promise<void> {
       if (dataset.tableName === "stats") {
         await client.query(`ALTER TABLE stats ADD COLUMN IF NOT EXISTS series_id TEXT`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_series_id ON stats (series_id)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_match_team ON stats ("Match ID", "Team")`);
       }
     }
     console.log("Schema ensured");

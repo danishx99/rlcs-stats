@@ -1,25 +1,14 @@
 {
   "reports": [
     {
-      "fileName": "2024 Season Database - 2024 Major 1.csv",
+      "fileName": "2024 Season Database - 2024 Major 1 (1).csv",
       "status": "processed",
       "totalRows": 5784,
       "inserted": 5784,
       "skipped": 0,
       "errored": 0,
       "errors": [],
-      "fileHash": "c9aa30e460bd59611f52de6810935481fd83441bbc2460d0bb46c376a5968747",
-      "dataset": "matches"
-    },
-    {
-      "fileName": "2025 Season Database - 2025 Birmingham Major.csv",
-      "status": "processed",
-      "totalRows": 4626,
-      "inserted": 4626,
-      "skipped": 0,
-      "errored": 0,
-      "errors": [],
-      "fileHash": "ab55a4caed87d08cc74717a41fe27b4ebd2c79e7d0fb8cd2f68910bcf54b3994",
+      "fileHash": "efe7682761b1e3d062aa0e09285e16a76b9cf64812aa5904f669229ecbeeebe1",
       "dataset": "matches"
     },
     {
@@ -30,35 +19,57 @@
       "skipped": 0,
       "errored": 0,
       "errors": [],
-      "fileHash": "a64a2f008fb4fcdec75d9e397f0d5403d0900524440f20ab8f6db2223bab026c",
+      "fileHash": "0c36a00b770b4031d500582f0b1d42660938c4057a394852df2ba3649019432b",
       "dataset": "matches"
     },
     {
-      "fileName": "2022-23 Season Database - 22-23 Season.csv",
+      "fileName": "2022-23 Season Database - 22-23 Season (4).csv",
       "status": "processed",
-      "totalRows": 7422,
-      "inserted": 7422,
+      "totalRows": 7488,
+      "inserted": 7488,
       "skipped": 0,
       "errored": 0,
       "errors": [],
-      "fileHash": "f0226f5f4b6a78b313b92b2ee690b611973a5364f9f6ff015da6ebe43b2439dc",
+      "fileHash": "06008a00acd5d8cbf8df855cf166e778b0cc3e6c2ddf2d4f3a7750f550f05831",
       "dataset": "matches"
     },
     {
-      "fileName": "2021-22 Season Database - 2021-22 Season (1).csv",
+      "fileName": "2025 Season Database - 2025 Birmingham Major (1).csv",
       "status": "processed",
-      "totalRows": 7854,
-      "inserted": 7854,
+      "totalRows": 4644,
+      "inserted": 4644,
       "skipped": 0,
       "errored": 0,
       "errors": [],
-      "fileHash": "34f6075cf3a2eb538523294efb277be2ab0b9b80c16e909a6f31721a34a1b923",
+      "fileHash": "c53d6862c8bf8f7bd71a1922052165f5d1dd133a04d61cf7113758a41da3f3c5",
       "dataset": "matches"
+    },
+    {
+      "fileName": "2021-22 Season Database - 2021-22 Season (2).csv",
+      "status": "processed",
+      "totalRows": 7872,
+      "inserted": 7872,
+      "skipped": 0,
+      "errored": 0,
+      "errors": [],
+      "fileHash": "38e19a3b0a9aa6280c311e0618e4e9a4f817995be9b1f228e6a83b04c8cd248e",
+      "dataset": "matches"
+    },
+    {
+      "fileName": "SSA RLCS Master Reference  - Player IDs (1).csv",
+      "status": "processed",
+      "totalRows": 365,
+      "inserted": 365,
+      "skipped": 0,
+      "errored": 0,
+      "errors": [],
+      "fileHash": "9ddd3c4f4aeec76786de0231cb61ac1ed2a88bc4243b4a0771dc92353f98da27",
+      "dataset": "players"
     }
   ],
   "totals": {
-    "totalRows": 27924,
-    "inserted": 27924,
+    "totalRows": 28391,
+    "inserted": 28391,
     "skipped": 0,
     "errored": 0
   }
