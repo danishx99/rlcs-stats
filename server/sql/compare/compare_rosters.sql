@@ -1,10 +1,13 @@
 {{rosterCtes}},
+filtered_base AS (
+  SELECT * FROM base fb WHERE 1=1 {{filterClauses}}
+),
 roster_scope AS (
-  SELECT b.*, sr.roster_id
-  FROM base b
+  SELECT fb.*, sr.roster_id
+  FROM filtered_base fb
   JOIN series_roster sr
-    ON b.series_id = sr.series_id
-   AND b.team = sr.team
+    ON fb.series_id = sr.series_id
+   AND fb.team = sr.team
   WHERE sr.roster_id = ANY({{idsParam}})
 )
 SELECT

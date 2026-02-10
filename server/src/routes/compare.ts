@@ -33,8 +33,8 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
   }
 
   if (type === "rosters") {
-    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const { clauses, values } = buildFilterClauses(url.searchParams, "fb");
+    const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
     const idsIndex = values.length + 1;
     const metricSelect = options
       .map((option) => `${metricExpression(option, mode, "roster_scope")} AS "${option.key}"`)
@@ -43,9 +43,10 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
     try {
       const result = await pool.query(
         formatSql(compareRostersSql, {
-          rosterCtes: rosterCtes(where),
+          rosterCtes: rosterCtes(""),
           idsParam: `$${idsIndex}`,
-          metricSelect
+          metricSelect,
+          filterClauses
         }),
         [...values, ids]
       );
@@ -161,16 +162,17 @@ export async function handleCompareHistory(
     return;
   }
 
-  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  const idsIndex = values.length + 1;
-
   try {
     if (type === "rosters") {
+      const { clauses, values } = buildFilterClauses(url.searchParams, "fb");
+      const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
+      const idsIndex = values.length + 1;
+
       const result = await pool.query(
         formatSql(historyRostersSql, {
-          rosterCtes: rosterCtes(where),
-          idsParam: `$${idsIndex}`
+          rosterCtes: rosterCtes(""),
+          idsParam: `$${idsIndex}`,
+          filterClauses
         }),
         [...values, ids]
       );
@@ -179,9 +181,12 @@ export async function handleCompareHistory(
       return;
     }
 
+    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+    const idsIndex = values.length + 1;
+    const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
     const result = await pool.query(
       formatSql(historyPlayersSql, {
-        where,
+        filterClauses,
         playerKeyExpr: playerKeyExpr("s"),
         idsParam: `$${idsIndex}`
       }),

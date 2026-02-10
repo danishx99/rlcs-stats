@@ -1,9 +1,12 @@
 -- Head-to-head history for rosters: show series where rosters actually played each other
 -- Uses game-level winner reconstruction to handle bad/missing Victory flags.
 {{rosterCtes}},
+filtered_base AS (
+  SELECT * FROM base fb WHERE 1=1 {{filterClauses}}
+),
 valid_series AS (
   SELECT series_id
-  FROM base
+  FROM filtered_base
   GROUP BY series_id
   HAVING COUNT(DISTINCT team) = 2
 ),
@@ -19,10 +22,10 @@ h2h_series AS (
     MAX(a."Best of ") OVER (PARTITION BY a.series_id) AS best_of,
     LEAST(a.team, b.team) AS team_a,
     GREATEST(a.team, b.team) AS team_b
-  FROM base a
+  FROM filtered_base a
   JOIN valid_series v ON v.series_id = a.series_id
   JOIN series_roster sra ON a.series_id = sra.series_id AND a.team = sra.team
-  JOIN base b
+  JOIN filtered_base b
     ON b.series_id = a.series_id
     AND b.team != a.team
   JOIN series_roster srb ON b.series_id = srb.series_id AND b.team = srb.team
@@ -32,17 +35,17 @@ h2h_series AS (
 ),
 game_team_results AS (
   SELECT
-    base.series_id,
-    base."Game Number" AS game_number,
-    base.team,
-    bool_or(base."Victory") AS team_won,
-    SUM(COALESCE(base."Goals_All Zones", 0)) AS team_goals,
-    MAX(base."Best of ") AS best_of
-  FROM base
+    fb.series_id,
+    fb."Game Number" AS game_number,
+    fb.team,
+    bool_or(fb."Victory") AS team_won,
+    SUM(COALESCE(fb."Goals_All Zones", 0)) AS team_goals,
+    MAX(fb."Best of ") AS best_of
+  FROM filtered_base fb
   JOIN h2h_series h
-    ON base.series_id = h.series_id
-    AND base.team IN (h.team_a, h.team_b)
-  GROUP BY base.series_id, base."Game Number", base.team
+    ON fb.series_id = h.series_id
+    AND fb.team IN (h.team_a, h.team_b)
+  GROUP BY fb.series_id, fb."Game Number", fb.team
 ),
 game_outcomes AS (
   SELECT
@@ -107,16 +110,16 @@ totals AS (
 ),
 series_entities AS (
   SELECT
-    base.series_id,
+    fb.series_id,
     sr.roster_id,
-    base.team
-  FROM base
-  JOIN series_roster sr ON base.series_id = sr.series_id AND base.team = sr.team
+    fb.team
+  FROM filtered_base fb
+  JOIN series_roster sr ON fb.series_id = sr.series_id AND fb.team = sr.team
   JOIN h2h_series h
-    ON base.series_id = h.series_id
-    AND base.team IN (h.team_a, h.team_b)
+    ON fb.series_id = h.series_id
+    AND fb.team IN (h.team_a, h.team_b)
   WHERE sr.roster_id = ANY({{idsParam}})
-  GROUP BY base.series_id, sr.roster_id, base.team
+  GROUP BY fb.series_id, sr.roster_id, fb.team
 ),
 series_entity_arrays AS (
   SELECT

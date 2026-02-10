@@ -108,6 +108,24 @@ export default function ComparePanel({
     loadHistory();
   }, [compareIds, compareMode, compareSelection.length, filters.event, filters.season, filters.split]);
 
+  const bestValues = useMemo(() => {
+    if (!compareResults || compareResults.rows.length < 2) return {};
+    const bests: Record<string, number> = {};
+    for (const metric of compareResults.metrics) {
+      let max = -Infinity;
+      for (const row of compareResults.rows) {
+        const val = row.values[metric.key];
+        if (val !== null && val !== undefined && val > max) {
+          max = val;
+        }
+      }
+      if (max !== -Infinity) {
+        bests[metric.key] = max;
+      }
+    }
+    return bests;
+  }, [compareResults]);
+
   return (
     <>
       {compareLoading && <p className="empty">Loading statistics...</p>}
@@ -115,40 +133,72 @@ export default function ComparePanel({
         <p className="empty">Select a player or roster to view stats.</p>
       )}
       {compareResults && compareResults.rows.length > 0 && (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Games</th>
-                {compareResults.metrics.map((metric) => (
-                  <th key={metric.key}>{metric.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {compareResults.rows.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <div className="cell-title">
-                      <strong>{row.label}</strong>
-                      {row.teams?.length ? <span>{row.teams[0]}</span> : null}
+        <div className="sg-grid">
+          {/* Games card */}
+          <div className="sg-card">
+            <div className="sg-card-label">Games</div>
+            {[...compareResults.rows]
+              .sort((a, b) => (b.games ?? 0) - (a.games ?? 0))
+              .map((row, rank) => {
+                const maxGames = Math.max(...compareResults.rows.map((r) => r.games ?? 0));
+                const pct = maxGames > 0 ? ((row.games ?? 0) / maxGames) * 100 : 0;
+                const isBest = rank === 0 && compareResults.rows.length > 1;
+                return (
+                  <div key={row.id}>
+                    <div className={`sg-entry${isBest ? " sg-best" : ""}`}>
+                      <span className="sg-rank">{rank + 1}</span>
+                      <span className="sg-name">{row.label}</span>
+                      <span className="sg-team">{row.teams?.[0] ?? ""}</span>
+                      <span className="sg-val">{formatValue(row.games)}</span>
                     </div>
-                  </td>
-                  <td>{formatValue(row.games)}</td>
-                  {compareResults.metrics.map((metric) => (
-                    <td key={metric.key}>
-                      {formatStat(
-                        row.values[metric.key],
-                        statOptions.find((option) => option.key === metric.key)?.format,
-                        compareResults.mode
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <div className="sg-bar">
+                      <div
+                        className={`sg-bar-fill${isBest ? " sg-bar-best" : ""}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+          {/* Metric cards */}
+          {compareResults.metrics.map((metric) => {
+            const format = statOptions.find((o) => o.key === metric.key)?.format;
+            const sorted = [...compareResults.rows].sort(
+              (a, b) => (b.values[metric.key] ?? 0) - (a.values[metric.key] ?? 0)
+            );
+            const maxVal = Math.max(
+              ...compareResults.rows.map((r) => r.values[metric.key] ?? 0)
+            );
+            return (
+              <div key={metric.key} className="sg-card">
+                <div className="sg-card-label">{metric.label}</div>
+                {sorted.map((row, rank) => {
+                  const val = row.values[metric.key];
+                  const pct = maxVal > 0 ? ((val ?? 0) / maxVal) * 100 : 0;
+                  const isBest = rank === 0 && compareResults.rows.length > 1;
+                  return (
+                    <div key={row.id}>
+                      <div className={`sg-entry${isBest ? " sg-best" : ""}`}>
+                        <span className="sg-rank">{rank + 1}</span>
+                        <span className="sg-name">{row.label}</span>
+                        <span className="sg-team">{row.teams?.[0] ?? ""}</span>
+                        <span className="sg-val">
+                          {formatStat(val, format, compareResults.mode)}
+                        </span>
+                      </div>
+                      <div className="sg-bar">
+                        <div
+                          className={`sg-bar-fill${isBest ? " sg-bar-best" : ""}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -200,7 +250,7 @@ export default function ComparePanel({
                         <td>{formatSeriesLabel(row)}</td>
                         <td>
                           <div className="cell-title">
-                            <strong>{teamLabel(teamA)}</strong>
+                            <strong className={scoreClass(teamA, teamB)}>{teamLabel(teamA)}</strong>
                             <span>
                               {entityLabel(teamA)} ·{" "}
                               <span className={scoreClass(teamA, teamB)}>
@@ -211,7 +261,7 @@ export default function ComparePanel({
                         </td>
                         <td>
                           <div className="cell-title">
-                            <strong>{teamLabel(teamB)}</strong>
+                            <strong className={scoreClass(teamB, teamA)}>{teamLabel(teamB)}</strong>
                             <span>
                               {entityLabel(teamB)} ·{" "}
                               <span className={scoreClass(teamB, teamA)}>

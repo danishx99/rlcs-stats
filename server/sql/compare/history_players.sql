@@ -1,18 +1,25 @@
 -- Head-to-head history: show series where selected players appeared on opposing teams
 -- Uses game-level winner reconstruction to handle bad/missing Victory flags.
-WITH base AS (
+-- Player-first approach: starts from target players only, not all rows.
+WITH player_rows AS (
   SELECT
-    s.*,
+    s.series_id,
+    s."Date",
+    s."Round",
+    s."Stage",
+    s."Season",
+    s."Split",
+    s."Regional",
+    s."Best of ",
+    s."Game Number",
+    s."Victory",
+    s."Goals_All Zones",
+    s."Player Name",
     TRIM(s."Team") AS team,
     {{playerKeyExpr}} AS player_key
   FROM stats s
-  {{where}}
-),
-valid_series AS (
-  SELECT series_id
-  FROM base
-  GROUP BY series_id
-  HAVING COUNT(DISTINCT team) = 2
+  WHERE {{playerKeyExpr}} = ANY({{idsParam}})
+    {{filterClauses}}
 ),
 h2h_series AS (
   SELECT DISTINCT
@@ -26,28 +33,36 @@ h2h_series AS (
     MAX(a."Best of ") OVER (PARTITION BY a.series_id) AS best_of,
     LEAST(a.team, b.team) AS team_a,
     GREATEST(a.team, b.team) AS team_b
-  FROM base a
-  JOIN valid_series v ON v.series_id = a.series_id
-  JOIN base b
+  FROM player_rows a
+  JOIN player_rows b
     ON b.series_id = a.series_id
     AND b.team != a.team
-    AND b.player_key = ANY({{idsParam}})
     AND b.player_key != a.player_key
-  WHERE a.player_key = ANY({{idsParam}})
+),
+series_games AS (
+  SELECT
+    s.series_id,
+    s."Game Number",
+    TRIM(s."Team") AS team,
+    s."Victory",
+    COALESCE(s."Goals_All Zones", 0) AS goals,
+    s."Best of "
+  FROM stats s
+  JOIN (SELECT DISTINCT series_id FROM h2h_series) h ON h.series_id = s.series_id
 ),
 game_team_results AS (
   SELECT
-    base.series_id,
-    base."Game Number" AS game_number,
-    base.team,
-    bool_or(base."Victory") AS team_won,
-    SUM(COALESCE(base."Goals_All Zones", 0)) AS team_goals,
-    MAX(base."Best of ") AS best_of
-  FROM base
+    sg.series_id,
+    sg."Game Number" AS game_number,
+    sg.team,
+    bool_or(sg."Victory") AS team_won,
+    SUM(sg.goals) AS team_goals,
+    MAX(sg."Best of ") AS best_of
+  FROM series_games sg
   JOIN h2h_series h
-    ON base.series_id = h.series_id
-    AND base.team IN (h.team_a, h.team_b)
-  GROUP BY base.series_id, base."Game Number", base.team
+    ON sg.series_id = h.series_id
+    AND sg.team IN (h.team_a, h.team_b)
+  GROUP BY sg.series_id, sg."Game Number", sg.team
 ),
 game_outcomes AS (
   SELECT
@@ -112,24 +127,22 @@ totals AS (
 ),
 series_entities AS (
   SELECT
-    base.series_id,
-    base.team,
-    ARRAY_AGG(DISTINCT base.player_key ORDER BY base.player_key) AS entity_ids
-  FROM base
+    pr.series_id,
+    pr.team,
+    ARRAY_AGG(DISTINCT pr.player_key ORDER BY pr.player_key) AS entity_ids
+  FROM player_rows pr
   JOIN h2h_series h
-    ON base.series_id = h.series_id
-    AND base.team IN (h.team_a, h.team_b)
-  WHERE base.player_key = ANY({{idsParam}})
-  GROUP BY base.series_id, base.team
+    ON pr.series_id = h.series_id
+    AND pr.team IN (h.team_a, h.team_b)
+  GROUP BY pr.series_id, pr.team
 ),
 entity_labels AS (
   SELECT
-    base.player_key AS id,
-    COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label
-  FROM base
-  LEFT JOIN players p ON p."Player ID" = base.player_key
-  WHERE base.player_key = ANY({{idsParam}})
-  GROUP BY base.player_key
+    pr.player_key AS id,
+    COALESCE(MIN(p."Primary Handle"), MIN(pr."Player Name")) AS label
+  FROM player_rows pr
+  LEFT JOIN players p ON p."Player ID" = pr.player_key
+  GROUP BY pr.player_key
 )
 SELECT
   t.match_date AS date,

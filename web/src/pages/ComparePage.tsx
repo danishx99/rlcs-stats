@@ -16,6 +16,7 @@ export type ComparePageProps = {
   compareSelection: SearchResult[];
   onAddCompare: (item: SearchResult) => void;
   onRemoveCompare: (id: string) => void;
+  onClearCompare: () => void;
   statOptions: StatOption[];
 };
 
@@ -27,6 +28,7 @@ export default function ComparePage({
   compareSelection,
   onAddCompare,
   onRemoveCompare,
+  onClearCompare,
   statOptions
 }: ComparePageProps) {
   const navigate = useNavigate();
@@ -88,6 +90,10 @@ export default function ComparePage({
       .catch((error) => console.error("Failed to load stat categories:", error));
   }, []);
 
+  const lockedType = compareSelection.length > 0
+    ? (compareMode === "players" ? "player" : "roster")
+    : null;
+
   // Inline search for adding players/rosters
   useEffect(() => {
     const trimmed = searchQuery.trim();
@@ -110,6 +116,11 @@ export default function ComparePage({
     return () => window.clearTimeout(handle);
   }, [searchQuery]);
 
+  const filteredResults = useMemo(() => {
+    if (!lockedType) return searchResults;
+    return searchResults.filter((item) => item.type === lockedType);
+  }, [searchResults, lockedType]);
+
   const handleAddResult = (item: SearchResult) => {
     onAddCompare(item);
     setSearchQuery("");
@@ -130,7 +141,9 @@ export default function ComparePage({
         </div>
 
         <div className="compare-search-area">
-          <div className="compare-search-label">Add Players or Teams</div>
+          <div className="compare-search-label">
+            {lockedType === "player" ? "Add Players" : lockedType === "roster" ? "Add Teams" : "Add Players or Teams"}
+          </div>
           <div className="dash-search-bar compare-search-bar">
             <svg className="dash-search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="8.5" cy="8.5" r="5.5" />
@@ -138,7 +151,7 @@ export default function ComparePage({
             </svg>
             <input
               type="text"
-              placeholder="Search players or teams..."
+              placeholder={lockedType === "player" ? "Search players..." : lockedType === "roster" ? "Search teams..." : "Search players or teams..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -151,8 +164,8 @@ export default function ComparePage({
           {searchQuery.trim() && (
             <div className="compare-search-results">
               {searchLoading && <p className="dash-empty">Searching...</p>}
-              {!searchLoading && searchResults.length > 0 &&
-                searchResults.slice(0, 6).map((item) => {
+              {!searchLoading && filteredResults.length > 0 &&
+                filteredResults.slice(0, 6).map((item) => {
                   const already = compareSelection.some((s) => s.id === item.id);
                   const imgSrc = item.type === "player" ? proxyImageUrl(item.meta?.photoUrl) : null;
                   return (
@@ -175,8 +188,10 @@ export default function ComparePage({
                     </div>
                   );
                 })}
-              {!searchLoading && searchResults.length === 0 && (
-                <p className="dash-empty">No players or teams found.</p>
+              {!searchLoading && filteredResults.length === 0 && (
+                <p className="dash-empty">
+                  {lockedType === "player" ? "No players found." : lockedType === "roster" ? "No teams found." : "No players or teams found."}
+                </p>
               )}
             </div>
           )}
@@ -186,17 +201,27 @@ export default function ComparePage({
           {compareSelection.length === 0 ? (
             <p className="empty">Search and add 2-6 players or teams to compare.</p>
           ) : (
-            compareSelection.map((entry) => (
+            <>
+              {compareSelection.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="chip"
+                  onClick={() => onRemoveCompare(entry.id)}
+                >
+                  {entry.label}
+                  <span>&times;</span>
+                </button>
+              ))}
               <button
-                key={entry.id}
                 type="button"
-                className="chip"
-                onClick={() => onRemoveCompare(entry.id)}
+                className="ghost"
+                style={{ marginLeft: "auto" }}
+                onClick={onClearCompare}
               >
-                {entry.label}
-                <span>&times;</span>
+                Clear All
               </button>
-            ))
+            </>
           )}
         </div>
       </div>
@@ -245,7 +270,7 @@ export default function ComparePage({
         <div className="panel-header">
           <div>
             <p className="panel-label">Stats View</p>
-            <h2>{compareSelection.length < 2 ? "Player Statistics" : "Head-to-Head Comparison"}</h2>
+            <h2>{compareSelection.length < 2 ? (compareMode === "rosters" ? "Team Statistics" : "Player Statistics") : "Head-to-Head Comparison"}</h2>
           </div>
           <div className="profile-filter-row">
             <select

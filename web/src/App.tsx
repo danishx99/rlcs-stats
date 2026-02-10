@@ -61,6 +61,10 @@ export default function App() {
     setCompareSelection((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const clearCompareSelection = () => {
+    setCompareSelection([]);
+  };
+
   const clearSearch = () => setSearchQuery("");
 
   const handleView = (item: SearchResult) => {
@@ -126,6 +130,7 @@ export default function App() {
                 compareSelection={compareSelection}
                 onAddCompare={addCompareSelection}
                 onRemoveCompare={removeCompareSelection}
+                onClearCompare={clearCompareSelection}
                 statOptions={meta?.statOptions ?? []}
               />
             }
