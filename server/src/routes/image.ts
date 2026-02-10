@@ -8,7 +8,9 @@ function isAllowedImageHost(hostname: string) {
     normalized === "liquipedia.net" ||
     normalized.endsWith(".liquipedia.net") ||
     normalized === "liquipedia.org" ||
-    normalized.endsWith(".liquipedia.org")
+    normalized.endsWith(".liquipedia.org") ||
+    normalized === "rlesport.gg" ||
+    normalized.endsWith(".rlesport.gg")
   );
 }
 

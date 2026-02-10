@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { FeaturedResponse, SearchResponse, StatOption } from "../types/api";
+import type { FeaturedResponse, SearchResponse, StatOption, StandingsResponse } from "../types/api";
 import { api } from "../api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatStat } from "../utils/format";
@@ -31,6 +31,8 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   const [playerQuery, setPlayerQuery] = useState("");
   const [playerResults, setPlayerResults] = useState<SearchResponse["players"]>([]);
   const [playerSearchLoading, setPlayerSearchLoading] = useState(false);
+  const [standings, setStandings] = useState<StandingsResponse | null>(null);
+  const [standingsSeason, setStandingsSeason] = useState<string>("");
   const searchRef = useRef<HTMLDivElement>(null);
 
   // Load top rated players for the latest season
@@ -53,6 +55,24 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
     }
     loadTopScorers();
   }, [latestSeason]);
+
+  // Load standings
+  useEffect(() => {
+    async function loadStandings() {
+      try {
+        const params: Record<string, string> = {};
+        if (standingsSeason) params.season = standingsSeason;
+        const response = await api.standings(params);
+        setStandings(response);
+        if (!standingsSeason && response.season) {
+          setStandingsSeason(response.season);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    loadStandings();
+  }, [standingsSeason]);
 
   // Global search (search bar under hero)
   useEffect(() => {
@@ -247,34 +267,51 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
             <svg className="dash-nav-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>
           </div>
 
-          <div className="dash-nav-card" onClick={() => navigate("/series")}>
-            <div className="dash-nav-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 6h16M4 12h16M4 18h16" />
-                <path d="M7 6v12M17 6v12" />
-              </svg>
-            </div>
-            <div>
-              <strong>Series Explorer</strong>
-              <span>Browse every matchup by split and stage</span>
-            </div>
-            <svg className="dash-nav-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>
-          </div>
         </div>
 
         <div className="dash-standings">
           <div className="dash-standings-header">
             <span className="dash-label">Standings</span>
-            <span className="dash-standings-badge">Coming Soon</span>
+            {standings && standings.seasons.length > 0 && (
+              <select
+                className="dash-standings-select"
+                value={standingsSeason}
+                onChange={(e) => setStandingsSeason(e.target.value)}
+              >
+                {standings.seasons.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            )}
           </div>
           <ol className="dash-standings-list">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <li key={`slot-${i}`}>
-                <span className="dash-standings-rank">{i + 1}</span>
-                <div className="dash-standings-bar" />
-                <span className="dash-standings-pts">&mdash;</span>
-              </li>
-            ))}
+            {standings && standings.rows.length > 0
+              ? standings.rows.slice(0, 8).map((row) => {
+                  const maxPts = standings.rows[0].points || 1;
+                  const barWidth = Math.round((row.points / maxPts) * 100);
+                  return (
+                    <li key={row.rank}>
+                      <span className="dash-standings-rank">{row.rank}</span>
+                      <div className="dash-standings-bar-wrap">
+                        <span className="dash-standings-team">{row.teamName}</span>
+                        <div
+                          className="dash-standings-bar"
+                          style={{ "--bar-width": `${barWidth}%` } as React.CSSProperties}
+                        />
+                      </div>
+                      <span className="dash-standings-pts">{row.points}</span>
+                    </li>
+                  );
+                })
+              : Array.from({ length: 8 }).map((_, i) => (
+                  <li key={`slot-${i}`}>
+                    <span className="dash-standings-rank">{i + 1}</span>
+                    <div className="dash-standings-bar-wrap">
+                      <div className="dash-standings-bar" />
+                    </div>
+                    <span className="dash-standings-pts">&mdash;</span>
+                  </li>
+                ))}
           </ol>
         </div>
       </div>

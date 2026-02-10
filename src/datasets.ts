@@ -1,11 +1,14 @@
+import type { Client } from "pg";
 import { createStatsTableSql, addStatsTableCommentsSql } from "./stats-schema";
 import {
   createPlayersTableSql,
   addPlayersTableCommentsSql,
   addPlayersColumnsSql
 } from "./players-schema";
+import { createStandingsTableSql } from "./standings-schema";
+import { loadStandingsCsv } from "./load-standings";
 
-export type DatasetKey = "matches" | "players";
+export type DatasetKey = "matches" | "players" | "standings";
 
 export type DatasetConfig = {
   key: DatasetKey;
@@ -20,6 +23,8 @@ export type DatasetConfig = {
   ignoreCoercionErrors?: boolean;
   stopAfterHeader?: string;
   denormalize?: boolean;
+  /** Custom loader for non-standard CSV formats. Skips the generic loadCsvFile pipeline. */
+  customLoader?: (client: Client, filePaths: string[], dryRun: boolean) => Promise<void>;
 };
 
 const playerHeaderAliases = new Map<string, string>([
@@ -66,6 +71,19 @@ export const DATASETS: DatasetConfig[] = [
     headerNormalizer: normalizePlayerHeader,
     ignoreCoercionErrors: true,
     stopAfterHeader: "Photo URL"
+  },
+  {
+    key: "standings",
+    label: "standings",
+    dataSubdir: "standings",
+    tableName: "standings",
+    schemaFile: "src/standings-schema.ts",
+    createTableSql: createStandingsTableSql,
+    customLoader: async (client, filePaths, dryRun) => {
+      for (const filePath of filePaths) {
+        await loadStandingsCsv(client, filePath, dryRun);
+      }
+    }
   }
 ];
 

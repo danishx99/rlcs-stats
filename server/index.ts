@@ -17,6 +17,7 @@ import { handlePlayers, handlePlayerProfile, handlePlayerSeason } from "./src/ro
 import { handleRosterProfile, handleRosterSeason } from "./src/routes/rosters";
 import { handleSearch } from "./src/routes/search";
 import { handleSeriesDetail, handleSeriesList, handleSeriesMeta } from "./src/routes/series";
+import { handleStandings } from "./src/routes/standings";
 import { handleStatsTop } from "./src/routes/stats";
 
 const server = createServer(async (req, res) => {
@@ -139,6 +140,11 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === "/api/featured") {
     await handleFeatured(req, res, url);
+    return;
+  }
+
+  if (url.pathname === "/api/standings") {
+    await handleStandings(req, res, url);
     return;
   }
 

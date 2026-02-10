@@ -200,6 +200,7 @@ async function main(): Promise<void> {
     await client.query(createFileIngestTableSql);
     for (const dataset of datasets) {
       await client.query(dataset.createTableSql);
+      if (dataset.customLoader) continue;
       if (dataset.addColumnsSql) {
         await client.query(dataset.addColumnsSql);
       }
@@ -241,6 +242,12 @@ async function main(): Promise<void> {
       console.log(`[${dataset.label}] scanning ${datasetDir}: ${files.length} files matched`);
       if (files.length === 0) {
         console.log(`${dataset.label}: no files matched`);
+        continue;
+      }
+
+      if (dataset.customLoader) {
+        console.log(`[${dataset.label}] using custom loader for ${files.length} file(s)`);
+        await dataset.customLoader(client, files, options.dryRun);
         continue;
       }
 

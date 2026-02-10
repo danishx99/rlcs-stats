@@ -213,6 +213,18 @@ export type MetaColumnsResponse = {
   categories: StatCategory[];
 };
 
+export type StandingsRow = {
+  rank: number;
+  teamName: string;
+  points: number;
+};
+
+export type StandingsResponse = {
+  seasons: string[];
+  season: string;
+  rows: StandingsRow[];
+};
+
 export type SeasonRow = {
   season: string;
   games: number;

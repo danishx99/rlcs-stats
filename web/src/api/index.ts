@@ -11,7 +11,8 @@ import type {
   SeriesMetaResponse,
   RosterProfile,
   SearchResponse,
-  SeasonResponse
+  SeasonResponse,
+  StandingsResponse
 } from "../types/api";
 
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8787";
@@ -90,5 +91,8 @@ export const api = {
   },
   metaColumns() {
     return fetchJson<MetaColumnsResponse>("/api/meta/columns");
+  },
+  standings(params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<StandingsResponse>("/api/standings", params);
   }
 };
