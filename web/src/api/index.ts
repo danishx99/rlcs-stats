@@ -6,6 +6,7 @@ import type {
   MetaColumnsResponse,
   MetaResponse,
   PlayerProfile,
+  PlayerResultsResponse,
   SeriesDetailResponse,
   SeriesListResponse,
   SeriesMetaResponse,
@@ -70,6 +71,9 @@ export const api = {
   },
   playerSeason(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<SeasonResponse>(`/api/players/${id}/season`, params);
+  },
+  playerResults(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<PlayerResultsResponse>(`/api/players/${id}/results`, params);
   },
   rosterProfile(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<{ roster: RosterProfile }>(`/api/rosters/${id}`, params);

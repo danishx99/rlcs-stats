@@ -244,3 +244,28 @@ export type SeasonResponse = {
   mode: "avg" | "total";
   rows: SeasonRow[];
 };
+
+export type PlayerResultSeries = {
+  seriesId: string;
+  opponent: string;
+  playerWins: number;
+  opponentWins: number;
+  bestOf: number;
+  round: string | null;
+  stage: string | null;
+  wonSeries: boolean;
+  date: string | null;
+};
+
+export type PlayerResultEvent = {
+  season: string;
+  split: string;
+  regional: string;
+  placement: string | null;
+  series: PlayerResultSeries[];
+};
+
+export type PlayerResultsResponse = {
+  seasons: string[];
+  events: PlayerResultEvent[];
+};

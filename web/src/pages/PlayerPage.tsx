@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import type { MetaResponse, PlayerProfile, SeasonResponse, SeasonRow } from "../types/api";
+import type { MetaResponse, PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
 import SeasonTable from "../components/SeasonTable";
 import { computeAge, formatDate } from "../utils/date";
 import { normalizeSocialLink, proxyImageUrl } from "../utils/normalize";
@@ -23,6 +23,10 @@ export default function PlayerPage({
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
   const [showAllSeasons, setShowAllSeasons] = useState(false);
+  const [results, setResults] = useState<PlayerResultEvent[]>([]);
+  const [resultSeasons, setResultSeasons] = useState<string[]>([]);
+  const [resultSeason, setResultSeason] = useState("");
+  const [resultsLoading, setResultsLoading] = useState(false);
 
   const seasonTableRows = useMemo(() => {
     if (!playerProfile) return [];
@@ -102,6 +106,31 @@ export default function PlayerPage({
 
     loadSeason();
   }, [filters.event, filters.season, filters.split, uniqueId]);
+
+  useEffect(() => {
+    if (!uniqueId) return;
+    const playerId = uniqueId;
+    async function loadResults() {
+      setResultsLoading(true);
+      try {
+        const response = await api.playerResults(playerId, {
+          season: resultSeason || undefined
+        });
+        if (!resultSeason && response.seasons.length) {
+          setResultSeasons(response.seasons);
+          setResultSeason(response.seasons[0]);
+        } else {
+          setResults(response.events);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setResultsLoading(false);
+      }
+    }
+
+    loadResults();
+  }, [uniqueId, resultSeason]);
 
   if (playerProfileLoading) {
     return <div className="page page-no-nav">Loading player profile...</div>;
@@ -236,6 +265,68 @@ export default function PlayerPage({
 
       {seasonLoading ? <div className="loading">Loading seasons...</div> : null}
       <SeasonTable rows={seasonTableRows} />
+
+      <div className="section-divider" />
+
+      <div className="section-header">
+        <h2>Results</h2>
+        {resultSeasons.length > 0 && (
+          <select
+            className="results-season-select"
+            value={resultSeason}
+            onChange={(e) => setResultSeason(e.target.value)}
+          >
+            {resultSeasons.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {resultsLoading ? (
+        <div className="loading">Loading results...</div>
+      ) : results.length === 0 ? (
+        <div className="empty-state">No event results found.</div>
+      ) : (
+        <div className="results-table-wrap">
+          <table className="results-table">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Round</th>
+                <th>Opponent</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((event) => {
+                const s = event.series[0];
+                const won = s?.wonSeries ?? false;
+                const eventLabel = [event.split, event.regional].filter(Boolean).join(" / ");
+                return (
+                  <tr
+                    key={`${event.season}-${event.split}-${event.regional}`}
+                    className={won ? "results-row--win" : "results-row--loss"}
+                  >
+                    <td className="results-cell-event">{eventLabel}</td>
+                    <td className="results-cell-round">{s?.round || s?.stage || "—"}</td>
+                    <td className="results-cell-opponent">{s?.opponent || "—"}</td>
+                    <td className="results-cell-score">
+                      {s ? (
+                        <>
+                          <span className={won ? "score-win" : "score-loss"}>{s.playerWins}</span>
+                          <span className="score-dash"> - </span>
+                          <span className={won ? "score-loss" : "score-win"}>{s.opponentWins}</span>
+                        </>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="section-divider" />
 

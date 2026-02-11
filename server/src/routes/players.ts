@@ -8,6 +8,7 @@ import { playerKeyExpr } from "../utils/roster";
 const playersListSql = loadSql("../../sql/players/list.sql", import.meta.url);
 const playerSeasonSql = loadSql("../../sql/players/season.sql", import.meta.url);
 const playerProfileSql = loadSql("../../sql/players/profile.sql", import.meta.url);
+const playerResultsSql = loadSql("../../sql/players/results.sql", import.meta.url);
 
 export async function handlePlayers(_req: IncomingMessage, res: ServerResponse, url: URL) {
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
@@ -108,6 +109,55 @@ export async function handlePlayerProfile(
   } catch (error) {
     console.error(error);
     json(res, 500, { error: "Failed to load player profile" });
+  }
+}
+
+export async function handlePlayerResults(
+  _req: IncomingMessage,
+  res: ServerResponse,
+  url: URL,
+  playerId: string
+) {
+  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const playerIndex = values.length + 1;
+
+  try {
+    const result = await pool.query(
+      formatSql(playerResultsSql, {
+        playerKeyExpr: playerKeyExpr("s"),
+        where,
+        playerIdParam: `$${playerIndex}`
+      }),
+      [...values, playerId]
+    );
+
+    const seasons: string[] = result.rows.length
+      ? (result.rows[0].available_seasons ?? [])
+      : [];
+
+    const events = result.rows.map((row) => ({
+      season: row.season,
+      split: row.split,
+      regional: row.regional,
+      placement: row.placement ?? null,
+      series: (row.series ?? []).map((s: Record<string, unknown>) => ({
+        seriesId: s.series_id ?? "",
+        opponent: s.opponent ?? "",
+        playerWins: Number(s.player_wins ?? 0),
+        opponentWins: Number(s.opponent_wins ?? 0),
+        bestOf: Number(s.best_of ?? 0),
+        round: s.round ?? null,
+        stage: s.stage ?? null,
+        wonSeries: Boolean(s.won_series),
+        date: s.date ?? null
+      }))
+    }));
+
+    json(res, 200, { seasons, events });
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: "Failed to load player results" });
   }
 }
 

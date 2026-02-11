@@ -13,7 +13,7 @@ import { handleFeatured } from "./src/routes/featured";
 import { handleImage } from "./src/routes/image";
 import { handleInsights } from "./src/routes/insights";
 import { handleMeta, handleMetaColumns } from "./src/routes/meta";
-import { handlePlayers, handlePlayerProfile, handlePlayerSeason } from "./src/routes/players";
+import { handlePlayers, handlePlayerProfile, handlePlayerResults, handlePlayerSeason } from "./src/routes/players";
 import { handleRosterProfile, handleRosterSeason } from "./src/routes/rosters";
 import { handleSearch } from "./src/routes/search";
 import { handleSeriesDetail, handleSeriesList, handleSeriesMeta } from "./src/routes/series";
@@ -99,6 +99,11 @@ const server = createServer(async (req, res) => {
 
     if (parts[3] === "season") {
       await handlePlayerSeason(req, res, url, playerId);
+      return;
+    }
+
+    if (parts[3] === "results") {
+      await handlePlayerResults(req, res, url, playerId);
       return;
     }
 
