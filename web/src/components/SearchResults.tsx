@@ -1,5 +1,6 @@
 import type { SearchResult } from "../types/api";
 import type { SearchSection } from "../types/ui";
+import { proxyImageUrl } from "../utils/normalize";
 
 const MAX_RESULTS_PER_SECTION = 6;
 
@@ -36,6 +37,15 @@ export default function SearchResults({
         {sectionResults(section.results).map((item) => (
           <li key={`${item.type}-${item.id}`}>
             <div className="result-main">
+              {(item.type === "player" || item.type === "roster") && (
+                <div className={`result-avatar${item.type === "roster" ? " result-avatar--logo" : ""}`}>
+                  {proxyImageUrl(item.meta?.photoUrl) ? (
+                    <img src={proxyImageUrl(item.meta?.photoUrl)!} alt="" />
+                  ) : (
+                    item.label.charAt(0)
+                  )}
+                </div>
+              )}
               <div>
                 <strong>{item.label}</strong>
                 {item.type === "player" && item.meta?.realName ? (

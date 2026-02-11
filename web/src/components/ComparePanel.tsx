@@ -31,26 +31,23 @@ export default function ComparePanel({
   const [compareResults, setCompareResults] = useState<CompareResponse | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareHistory, setCompareHistory] = useState<CompareHistoryRow[]>([]);
+  const [compareHistoryTotal, setCompareHistoryTotal] = useState(0);
   const [compareHistoryLoading, setCompareHistoryLoading] = useState(false);
   const [compareHistoryPage, setCompareHistoryPage] = useState(1);
 
   const compareIds = useMemo(() => compareSelection.map((item) => item.id), [compareSelection]);
+  const compareIdsKey = useMemo(() => compareIds.join(","), [compareIds]);
   const compareMetricsList = useMemo(() => compareMetrics.join(","), [compareMetrics]);
 
   const compareHistoryPageSize = 5;
   const compareHistoryTotalPages = Math.max(
     1,
-    Math.ceil(compareHistory.length / compareHistoryPageSize)
-  );
-  const compareHistoryStart = (compareHistoryPage - 1) * compareHistoryPageSize;
-  const compareHistorySlice = compareHistory.slice(
-    compareHistoryStart,
-    compareHistoryStart + compareHistoryPageSize
+    Math.ceil(compareHistoryTotal / compareHistoryPageSize)
   );
 
   useEffect(() => {
     setCompareHistoryPage(1);
-  }, [compareSelection.length]);
+  }, [compareIdsKey, compareMode, filters.event, filters.season, filters.split]);
 
   useEffect(() => {
     async function loadCompare() {
@@ -86,27 +83,42 @@ export default function ComparePanel({
     async function loadHistory() {
       if (compareSelection.length < 2) {
         setCompareHistory([]);
+        setCompareHistoryTotal(0);
         return;
       }
       setCompareHistoryLoading(true);
       try {
+        const offset = (compareHistoryPage - 1) * compareHistoryPageSize;
         const response = await api.compareHistory({
           type: compareMode,
-          ids: compareIds.join(","),
+          ids: compareIdsKey,
           season: filters.season || undefined,
           split: filters.split || undefined,
-          event: filters.event || undefined
+          event: filters.event || undefined,
+          limit: compareHistoryPageSize,
+          offset
         });
         setCompareHistory(response.rows ?? []);
+        setCompareHistoryTotal(response.total ?? 0);
       } catch (error) {
         console.error(error);
+        setCompareHistory([]);
+        setCompareHistoryTotal(0);
       } finally {
         setCompareHistoryLoading(false);
       }
     }
 
     loadHistory();
-  }, [compareIds, compareMode, compareSelection.length, filters.event, filters.season, filters.split]);
+  }, [
+    compareHistoryPage,
+    compareIdsKey,
+    compareMode,
+    compareSelection.length,
+    filters.event,
+    filters.season,
+    filters.split
+  ]);
 
   const bestValues = useMemo(() => {
     if (!compareResults || compareResults.rows.length < 2) return {};
@@ -224,7 +236,7 @@ export default function ComparePanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {compareHistorySlice.map((row) => {
+                  {compareHistory.map((row) => {
                     const teams = row.teams ?? [];
                     const teamA = teams[0];
                     const teamB = teams[1];
@@ -280,7 +292,7 @@ export default function ComparePanel({
             <p className="empty">No series found for this matchup.</p>
           )}
 
-          {compareHistory.length > compareHistoryPageSize && (
+          {compareHistoryTotal > compareHistoryPageSize && (
             <div className="compare-history-pagination">
               <button
                 type="button"

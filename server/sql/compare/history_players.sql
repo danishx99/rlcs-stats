@@ -145,6 +145,7 @@ entity_labels AS (
   GROUP BY pr.player_key
 )
 SELECT
+  t.series_id,
   t.match_date AS date,
   t."Season" AS season,
   t."Split" AS split,

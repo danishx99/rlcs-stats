@@ -11,7 +11,7 @@ import {
   createRowHashIndexSql,
   createFileIngestTableSql
 } from "./schema-utils";
-import { loadCsvFile, computeSeriesIds } from "./load-csv";
+import { loadCsvFile, computeSeriesIds, refreshSeriesRoster } from "./load-csv";
 import type { ColumnSpec, ColumnType, FileReport } from "./util/types";
 
 const DEFAULT_DIR = "./data";
@@ -215,6 +215,31 @@ async function main(): Promise<void> {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_series_id ON stats (series_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_match_team ON stats ("Match ID", "Team")`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_unique_id ON stats ("Unique ID")`);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_stats_series_team_game
+          ON stats (series_id, "Team", "Game Number")
+          WHERE series_id IS NOT NULL
+        `);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS series_roster (
+            series_id TEXT NOT NULL,
+            team TEXT NOT NULL,
+            roster_id TEXT NOT NULL,
+            starters TEXT[] NOT NULL
+          )
+        `);
+        await client.query(`
+          CREATE UNIQUE INDEX IF NOT EXISTS series_roster_series_team_uq
+          ON series_roster (series_id, team)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_series_roster_roster_series_team
+          ON series_roster (roster_id, series_id, team)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_series_roster_series_team
+          ON series_roster (series_id, team)
+        `);
       }
     }
     console.log("Schema ensured");
@@ -306,6 +331,9 @@ async function main(): Promise<void> {
       console.log("Generating series ids...");
       const updated = await computeSeriesIds(client);
       console.log(`Series id backfill complete: ${updated} rows updated`);
+      console.log("Refreshing series roster table...");
+      const seriesRosterRows = await refreshSeriesRoster(client);
+      console.log(`Series roster refresh complete: ${seriesRosterRows} rows`);
     }
 
     const totals = reports.reduce(

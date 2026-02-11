@@ -11,6 +11,18 @@ const compareTeamsSql = loadSql("../../sql/compare/compare_teams.sql", import.me
 const compareRostersSql = loadSql("../../sql/compare/compare_rosters.sql", import.meta.url);
 const historyPlayersSql = loadSql("../../sql/compare/history_players.sql", import.meta.url);
 const historyRostersSql = loadSql("../../sql/compare/history_rosters.sql", import.meta.url);
+const DEFAULT_HISTORY_LIMIT = 5;
+const MAX_HISTORY_LIMIT = 50;
+
+function parseHistoryPagination(url: URL) {
+  const limitRaw = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
+  const offsetRaw = Number.parseInt(url.searchParams.get("offset") ?? "", 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0
+    ? Math.min(limitRaw, MAX_HISTORY_LIMIT)
+    : DEFAULT_HISTORY_LIMIT;
+  const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+  return { limit, offset };
+}
 
 export async function handleCompare(_req: IncomingMessage, res: ServerResponse, url: URL) {
   const type = url.searchParams.get("type") ?? "players";
@@ -156,28 +168,37 @@ export async function handleCompareHistory(
 ) {
   const type = url.searchParams.get("type") ?? "players";
   const ids = parseListParam(url.searchParams.get("ids"));
+  const { limit, offset } = parseHistoryPagination(url);
 
   if (ids.length < 2) {
-    json(res, 200, { rows: [] });
+    json(res, 200, { rows: [], total: 0, limit, offset });
     return;
   }
 
   try {
     if (type === "rosters") {
-      const { clauses, values } = buildFilterClauses(url.searchParams, "fb");
+      const { clauses, values } = buildFilterClauses(url.searchParams, "s");
       const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
       const idsIndex = values.length + 1;
+      const limitIndex = idsIndex + 1;
+      const offsetIndex = idsIndex + 2;
 
       const result = await pool.query(
         formatSql(historyRostersSql, {
-          rosterCtes: rosterCtes(""),
           idsParam: `$${idsIndex}`,
-          filterClauses
+          filterClauses,
+          limitParam: `$${limitIndex}`,
+          offsetParam: `$${offsetIndex}`
         }),
-        [...values, ids]
+        [...values, ids, limit, offset]
       );
 
-      json(res, 200, { rows: result.rows });
+      const total = Number(result.rows[0]?.total_count ?? 0);
+      const rows = result.rows.filter((row) => row.series_id !== null).map((row) => {
+        const { total_count, ...rest } = row as Record<string, unknown>;
+        return rest;
+      });
+      json(res, 200, { rows, total, limit, offset });
       return;
     }
 
@@ -193,7 +214,9 @@ export async function handleCompareHistory(
       [...values, ids]
     );
 
-    json(res, 200, { rows: result.rows });
+    const total = result.rows.length;
+    const rows = result.rows.slice(offset, offset + limit);
+    json(res, 200, { rows, total, limit, offset });
   } catch (error) {
     console.error(error);
     json(res, 500, { error: "Failed to load compare history" });

@@ -1,51 +1,62 @@
--- Head-to-head history for rosters: show series where rosters actually played each other
--- Uses game-level winner reconstruction to handle bad/missing Victory flags.
-{{rosterCtes}},
-filtered_base AS (
-  SELECT * FROM base fb WHERE 1=1 {{filterClauses}}
+-- Head-to-head history for rosters: show series where selected rosters actually played each other.
+-- Uses persisted series_roster table + game-level winner reconstruction.
+WITH target_rosters AS (
+  SELECT
+    sr.series_id,
+    sr.team,
+    sr.roster_id
+  FROM series_roster sr
+  WHERE sr.roster_id = ANY({{idsParam}})
 ),
 valid_series AS (
-  SELECT series_id
-  FROM filtered_base
-  GROUP BY series_id
-  HAVING COUNT(DISTINCT team) = 2
+  SELECT
+    sr.series_id
+  FROM series_roster sr
+  GROUP BY sr.series_id
+  HAVING COUNT(*) = 2
 ),
 h2h_series AS (
   SELECT DISTINCT
     a.series_id,
-    a."Date"::date AS match_date,
-    a."Round",
-    a."Stage",
-    a."Season",
-    a."Split",
-    a."Regional",
-    MAX(a."Best of ") OVER (PARTITION BY a.series_id) AS best_of,
     LEAST(a.team, b.team) AS team_a,
     GREATEST(a.team, b.team) AS team_b
-  FROM filtered_base a
-  JOIN valid_series v ON v.series_id = a.series_id
-  JOIN series_roster sra ON a.series_id = sra.series_id AND a.team = sra.team
-  JOIN filtered_base b
+  FROM target_rosters a
+  JOIN target_rosters b
     ON b.series_id = a.series_id
-    AND b.team != a.team
-  JOIN series_roster srb ON b.series_id = srb.series_id AND b.team = srb.team
-  WHERE sra.roster_id = ANY({{idsParam}})
-    AND srb.roster_id = ANY({{idsParam}})
-    AND sra.roster_id != srb.roster_id
+    AND b.team <> a.team
+    AND b.roster_id <> a.roster_id
+  JOIN valid_series v
+    ON v.series_id = a.series_id
+),
+series_meta AS (
+  SELECT
+    h.series_id,
+    MIN(s."Date")::date AS match_date,
+    MIN(s."Round") AS "Round",
+    MIN(s."Stage") AS "Stage",
+    MIN(s."Season") AS "Season",
+    MIN(s."Split") AS "Split",
+    MIN(s."Regional") AS "Regional",
+    MAX(s."Best of ") AS best_of,
+    h.team_a,
+    h.team_b
+  FROM h2h_series h
+  JOIN stats s ON s.series_id = h.series_id
+  WHERE 1=1 {{filterClauses}}
+  GROUP BY h.series_id, h.team_a, h.team_b
 ),
 game_team_results AS (
   SELECT
-    fb.series_id,
-    fb."Game Number" AS game_number,
-    fb.team,
-    bool_or(fb."Victory") AS team_won,
-    SUM(COALESCE(fb."Goals_All Zones", 0)) AS team_goals,
-    MAX(fb."Best of ") AS best_of
-  FROM filtered_base fb
-  JOIN h2h_series h
-    ON fb.series_id = h.series_id
-    AND fb.team IN (h.team_a, h.team_b)
-  GROUP BY fb.series_id, fb."Game Number", fb.team
+    sm.series_id,
+    s."Game Number" AS game_number,
+    TRIM(s."Team") AS team,
+    bool_or(s."Victory") AS team_won,
+    SUM(COALESCE(s."Goals_All Zones", 0)) AS team_goals,
+    MAX(s."Best of ") AS best_of
+  FROM series_meta sm
+  JOIN stats s ON s.series_id = sm.series_id
+  WHERE TRIM(s."Team") IN (sm.team_a, sm.team_b)
+  GROUP BY sm.series_id, s."Game Number", TRIM(s."Team")
 ),
 game_outcomes AS (
   SELECT
@@ -91,95 +102,116 @@ game_winners AS (
 ),
 totals AS (
   SELECT
-    h.series_id,
-    h.match_date,
-    h."Round",
-    h."Stage",
-    h."Season",
-    h."Split",
-    h."Regional",
-    h.team_a,
-    h.team_b,
-    COUNT(*) FILTER (WHERE gw.winner_team = h.team_a) AS team_a_wins,
-    COUNT(*) FILTER (WHERE gw.winner_team = h.team_b) AS team_b_wins,
-    COALESCE(MAX(gw.best_of), MAX(h.best_of)) AS best_of
-  FROM h2h_series h
-  LEFT JOIN game_winners gw
-    ON gw.series_id = h.series_id
-  GROUP BY h.series_id, h.match_date, h."Round", h."Stage", h."Season", h."Split", h."Regional", h.team_a, h.team_b
+    sm.series_id,
+    sm.match_date,
+    sm."Round",
+    sm."Stage",
+    sm."Season",
+    sm."Split",
+    sm."Regional",
+    sm.team_a,
+    sm.team_b,
+    COUNT(*) FILTER (WHERE gw.winner_team = sm.team_a) AS team_a_wins,
+    COUNT(*) FILTER (WHERE gw.winner_team = sm.team_b) AS team_b_wins,
+    COALESCE(MAX(gw.best_of), MAX(sm.best_of)) AS best_of
+  FROM series_meta sm
+  LEFT JOIN game_winners gw ON gw.series_id = sm.series_id
+  GROUP BY sm.series_id, sm.match_date, sm."Round", sm."Stage", sm."Season", sm."Split", sm."Regional", sm.team_a, sm.team_b
 ),
 series_entities AS (
   SELECT
-    fb.series_id,
-    sr.roster_id,
-    fb.team
-  FROM filtered_base fb
-  JOIN series_roster sr ON fb.series_id = sr.series_id AND fb.team = sr.team
-  JOIN h2h_series h
-    ON fb.series_id = h.series_id
-    AND fb.team IN (h.team_a, h.team_b)
-  WHERE sr.roster_id = ANY({{idsParam}})
-  GROUP BY fb.series_id, sr.roster_id, fb.team
+    sm.series_id,
+    sr.team,
+    ARRAY_AGG(sr.roster_id ORDER BY sr.roster_id) AS entity_ids
+  FROM series_meta sm
+  JOIN series_roster sr
+    ON sr.series_id = sm.series_id
+    AND sr.team IN (sm.team_a, sm.team_b)
+    AND sr.roster_id = ANY({{idsParam}})
+  GROUP BY sm.series_id, sr.team
 ),
-series_entity_arrays AS (
+roster_name_counts AS (
   SELECT
-    series_id,
-    team,
-    ARRAY_AGG(DISTINCT roster_id ORDER BY roster_id) AS entity_ids
-  FROM series_entities
-  GROUP BY series_id, team
+    sr.roster_id,
+    sr.team,
+    COUNT(*) AS series_count
+  FROM series_roster sr
+  GROUP BY sr.roster_id, sr.team
+),
+roster_names AS (
+  SELECT DISTINCT ON (rnc.roster_id)
+    rnc.roster_id,
+    rnc.team AS roster_name
+  FROM roster_name_counts rnc
+  ORDER BY rnc.roster_id, rnc.series_count DESC, rnc.team
+),
+total_count AS (
+  SELECT COUNT(*)::INT AS total_count FROM totals
+),
+paged_totals AS (
+  SELECT *
+  FROM totals t
+  ORDER BY t.match_date DESC NULLS LAST, t.series_id DESC
+  LIMIT {{limitParam}}
+  OFFSET {{offsetParam}}
 )
 SELECT
-  t.match_date AS date,
-  t."Season" AS season,
-  t."Split" AS split,
-  t."Regional" AS regional,
-  t."Stage" AS stage,
-  t."Round" AS round,
-  t.team_a,
-  t.team_b,
-  t.team_a_wins,
-  t.team_b_wins,
-  t.best_of,
-  JSON_BUILD_ARRAY(
-    JSON_BUILD_OBJECT(
-      'team', t.team_a,
-      'wins', t.team_a_wins,
-      'entities', (
-        SELECT JSON_AGG(
-          JSON_BUILD_OBJECT(
-            'id', e.entity_id,
-            'label', rn.roster_name
+  tc.total_count,
+  p.series_id,
+  p.match_date AS date,
+  p."Season" AS season,
+  p."Split" AS split,
+  p."Regional" AS regional,
+  p."Stage" AS stage,
+  p."Round" AS round,
+  p.team_a,
+  p.team_b,
+  p.team_a_wins,
+  p.team_b_wins,
+  p.best_of,
+  CASE
+    WHEN p.series_id IS NULL THEN NULL
+    ELSE JSON_BUILD_ARRAY(
+      JSON_BUILD_OBJECT(
+        'team', p.team_a,
+        'wins', p.team_a_wins,
+        'bestOf', p.best_of,
+        'entities', (
+          SELECT JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id', e.entity_id,
+              'label', rn.roster_name
+            )
+            ORDER BY rn.roster_name
           )
-          ORDER BY rn.roster_name
+          FROM series_entities se
+          JOIN UNNEST(se.entity_ids) AS e(entity_id) ON TRUE
+          LEFT JOIN roster_names rn ON rn.roster_id = e.entity_id
+          WHERE se.series_id = p.series_id
+            AND se.team = p.team_a
         )
-        FROM UNNEST(se.entity_ids) AS e(entity_id)
-        LEFT JOIN roster_names rn ON rn.roster_id = e.entity_id
-        WHERE se.team = t.team_a
-      )
-    ),
-    JSON_BUILD_OBJECT(
-      'team', t.team_b,
-      'wins', t.team_b_wins,
-      'entities', (
-        SELECT JSON_AGG(
-          JSON_BUILD_OBJECT(
-            'id', e.entity_id,
-            'label', rn.roster_name
+      ),
+      JSON_BUILD_OBJECT(
+        'team', p.team_b,
+        'wins', p.team_b_wins,
+        'bestOf', p.best_of,
+        'entities', (
+          SELECT JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id', e.entity_id,
+              'label', rn.roster_name
+            )
+            ORDER BY rn.roster_name
           )
-          ORDER BY rn.roster_name
+          FROM series_entities se2
+          JOIN UNNEST(se2.entity_ids) AS e(entity_id) ON TRUE
+          LEFT JOIN roster_names rn ON rn.roster_id = e.entity_id
+          WHERE se2.series_id = p.series_id
+            AND se2.team = p.team_b
         )
-        FROM UNNEST(se2.entity_ids) AS e(entity_id)
-        LEFT JOIN roster_names rn ON rn.roster_id = e.entity_id
-        WHERE se2.team = t.team_b
       )
     )
-  ) AS teams
-FROM totals t
-LEFT JOIN series_entity_arrays se
-  ON se.series_id = t.series_id
-  AND se.team = t.team_a
-LEFT JOIN series_entity_arrays se2
-  ON se2.series_id = t.series_id
-  AND se2.team = t.team_b
-ORDER BY t.match_date DESC NULLS LAST;
+  END AS teams
+FROM total_count tc
+LEFT JOIN paged_totals p ON TRUE
+ORDER BY p.match_date DESC NULLS LAST, p.series_id DESC;

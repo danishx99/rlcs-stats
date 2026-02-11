@@ -167,7 +167,7 @@ export default function ComparePage({
               {!searchLoading && filteredResults.length > 0 &&
                 filteredResults.slice(0, 6).map((item) => {
                   const already = compareSelection.some((s) => s.id === item.id);
-                  const imgSrc = item.type === "player" ? proxyImageUrl(item.meta?.photoUrl) : null;
+                  const imgSrc = proxyImageUrl(item.meta?.photoUrl);
                   return (
                     <div
                       key={item.id}

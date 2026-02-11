@@ -599,6 +599,31 @@ body {
   color: var(--ink-muted);
 }
 
+.result-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--panel-strong);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+
+.result-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-avatar--logo img {
+  object-fit: contain;
+}
+
 .result-actions {
   display: flex;
   gap: 6px;
@@ -1890,7 +1915,7 @@ th {
 .dash-search-avatar {
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius: 50%;
   background: var(--panel-strong);
   display: grid;
   place-items: center;
@@ -1910,6 +1935,10 @@ th {
 .dash-search-avatar img {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.dash-search-avatar--logo img {
   object-fit: contain;
 }
 

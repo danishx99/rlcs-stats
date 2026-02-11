@@ -206,7 +206,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                           className="dash-search-item"
                           onClick={() => { setSearchQuery(""); navigate(`/rosters/${r.id}`); }}
                         >
-                          <div className="dash-search-avatar">
+                          <div className="dash-search-avatar dash-search-avatar--logo">
                             {img ? <img src={img} alt="" /> : r.label.charAt(0)}
                           </div>
                           <div className="dash-search-item-info">

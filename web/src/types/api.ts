@@ -166,6 +166,9 @@ export type CompareHistoryRow = {
 
 export type CompareHistoryResponse = {
   rows: CompareHistoryRow[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type LeaderboardRow = {

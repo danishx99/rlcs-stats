@@ -45,6 +45,36 @@ export async function computeSeriesIds(client: Client): Promise<number> {
   return result.rowCount ?? 0;
 }
 
+const REFRESH_SERIES_ROSTER_SQL = `
+INSERT INTO series_roster (series_id, team, roster_id, starters)
+SELECT
+  s.series_id,
+  TRIM(s."Team") AS team,
+  md5(array_to_string(ARRAY_AGG(DISTINCT NULLIF(TRIM(s."Unique ID"), '') ORDER BY NULLIF(TRIM(s."Unique ID"), '')), '|')) AS roster_id,
+  ARRAY_AGG(DISTINCT NULLIF(TRIM(s."Unique ID"), '') ORDER BY NULLIF(TRIM(s."Unique ID"), '')) AS starters
+FROM stats s
+WHERE s.series_id IS NOT NULL
+  AND s."Team" IS NOT NULL
+  AND TRIM(s."Team") <> ''
+  AND NULLIF(TRIM(s."Unique ID"), '') IS NOT NULL
+GROUP BY s.series_id, TRIM(s."Team")
+HAVING COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) = 3;
+`;
+
+export async function refreshSeriesRoster(client: Client): Promise<number> {
+  await client.query("BEGIN");
+  try {
+    await client.query("TRUNCATE series_roster;");
+    await client.query(REFRESH_SERIES_ROSTER_SQL);
+    const countResult = await client.query("SELECT COUNT(*)::INT AS count FROM series_roster;");
+    await client.query("COMMIT");
+    return Number(countResult.rows[0]?.count ?? 0);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+}
+
 const NULL_TOKEN = "<NULL>";
 const HASH_SEPARATOR = "\u001f";
 const MAX_PARAMS = 65000;
