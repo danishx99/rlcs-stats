@@ -1,52 +1,23 @@
-import { useMemo, useState } from "react";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { useMeta } from "./hooks/useMeta";
-import { useSearch } from "./hooks/useSearch";
-import type { SearchResponse, SearchResult } from "./types/api";
-import type { Filters, SearchSection } from "./types/ui";
-import TopNav from "./components/TopNav";
+import type { SearchResult } from "./types/api";
+import type { Filters } from "./types/ui";
 import HomePage from "./pages/HomePage";
 import ComparePage from "./pages/ComparePage";
 import PlayerPage from "./pages/PlayerPage";
 import RosterPage from "./pages/RosterPage";
 import SeriesPage from "./pages/SeriesPage";
 import StatPage from "./pages/StatPage";
+import EventPage from "./pages/EventPage";
 
 export default function App() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResponse>({
-    players: [],
-    rosters: [],
-    stats: []
-  });
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({ season: "", split: "", event: "" });
   const [compareMode, setCompareMode] = useState<"players" | "rosters">("players");
   const [compareSelection, setCompareSelection] = useState<SearchResult[]>([]);
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const isHome = location.pathname === "/";
-  const hideTopNav =
-    isHome ||
-    location.pathname.startsWith("/players/") ||
-    location.pathname.startsWith("/rosters/") ||
-    location.pathname.startsWith("/compare") ||
-    location.pathname.startsWith("/series");
-
-  const { meta, metaError } = useMeta(filters);
-
-  useSearch(searchQuery, setSearchResults, setSearchLoading, setSearchError);
-
-  const searchSections: SearchSection[] = useMemo(
-    () => [
-      { key: "players", label: "Players", results: searchResults.players },
-      { key: "rosters", label: "Rosters", results: searchResults.rosters },
-      { key: "stats", label: "Stats", results: searchResults.stats }
-    ],
-    [searchResults.players, searchResults.rosters, searchResults.stats]
-  );
+  const { meta } = useMeta(filters);
 
   const addCompareSelection = (item: SearchResult) => {
     if (item.type === "stat") return;
@@ -65,48 +36,8 @@ export default function App() {
     setCompareSelection([]);
   };
 
-  const clearSearch = () => setSearchQuery("");
-
-  const handleView = (item: SearchResult) => {
-    clearSearch();
-    if (item.type === "player") {
-      navigate(`/players/${item.id}`);
-      return;
-    }
-    if (item.type === "roster") {
-      navigate(`/rosters/${item.id}`);
-      return;
-    }
-  };
-
-  const handleCompare = (item: SearchResult) => {
-    addCompareSelection(item);
-    clearSearch();
-    navigate("/compare");
-  };
-
-  const handleTopStat = (item: SearchResult) => {
-    clearSearch();
-    if (item.type !== "stat") return;
-    navigate(`/stats/${item.id}`);
-  };
-
   return (
     <div className="app-shell">
-      {!hideTopNav && (
-        <TopNav
-          meta={meta}
-          metaError={metaError}
-          filters={filters}
-          onFiltersChange={setFilters}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchSections={searchSections}
-          onView={handleView}
-          onCompare={handleCompare}
-          onTopStat={handleTopStat}
-        />
-      )}
       <div className="app-content">
         <Routes>
           <Route
@@ -138,6 +69,7 @@ export default function App() {
           <Route path="/players/:uniqueId" element={<PlayerPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
           <Route path="/rosters/:rosterId" element={<RosterPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
           <Route path="/stats/:statKey" element={<StatPage filters={filters} />} />
+          <Route path="/events/:eventName" element={<EventPage />} />
           <Route path="/series" element={<SeriesPage />} />
         </Routes>
       </div>

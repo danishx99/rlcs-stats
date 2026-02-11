@@ -19,6 +19,7 @@ import { handleSearch } from "./src/routes/search";
 import { handleSeriesDetail, handleSeriesList, handleSeriesMeta } from "./src/routes/series";
 import { handleStandings } from "./src/routes/standings";
 import { handleStatsTop } from "./src/routes/stats";
+import { handleEventDetail } from "./src/routes/events";
 
 const server = createServer(async (req, res) => {
   const url = getRequestUrl(req);
@@ -155,6 +156,18 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname === "/api/insights") {
     await handleInsights(req, res);
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/events/")) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    const eventName = parts[2];
+    if (!eventName) {
+      badRequest(res, "Event name is required");
+      return;
+    }
+
+    await handleEventDetail(req, res, eventName, url);
     return;
   }
 

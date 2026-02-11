@@ -1,6 +1,7 @@
 import type {
   CompareHistoryResponse,
   CompareResponse,
+  EventDetailResponse,
   FeaturedResponse,
   LeaderboardResponse,
   MetaColumnsResponse,
@@ -114,5 +115,8 @@ export const api = {
   },
   standings(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<StandingsResponse>("/api/standings", params);
+  },
+  eventDetail(eventName: string, params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<EventDetailResponse>(`/api/events/${encodeURIComponent(eventName)}`, params);
   }
 };

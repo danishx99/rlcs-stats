@@ -62,12 +62,14 @@ export type SeriesDetailResponse = {
 export type SearchResult = {
   id: string;
   label: string;
-  type: "player" | "roster" | "stat";
+  type: "player" | "roster" | "stat" | "event";
   meta?: {
     photoUrl?: string | null;
     country?: string | null;
     starters?: string[] | null;
     realName?: string | null;
+    season?: string | null;
+    split?: string | null;
   };
 };
 
@@ -75,6 +77,7 @@ export type SearchResponse = {
   players: SearchResult[];
   rosters: SearchResult[];
   stats: SearchResult[];
+  events: SearchResult[];
 };
 
 export type PlayerProfile = {
@@ -268,4 +271,30 @@ export type PlayerResultEvent = {
 export type PlayerResultsResponse = {
   seasons: string[];
   events: PlayerResultEvent[];
+};
+
+export type EventDetail = {
+  name: string;
+  season: string | null;
+  split: string | null;
+  minDate: string | null;
+  maxDate: string | null;
+  totalSeries: number;
+  totalPlayers: number;
+};
+
+export type EventTeam = {
+  team: string;
+  deepRound: string | null;
+  roundDepth: number;
+  wonDeepest: boolean;
+  placementStart: number;
+  placementEnd: number;
+  logoUrl: string | null;
+};
+
+export type EventDetailResponse = {
+  event: EventDetail;
+  teams: EventTeam[];
+  leaderboards: LeaderboardResponse[];
 };

@@ -128,7 +128,8 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   const players = searchResults?.players ?? [];
   const rosters = searchResults?.rosters ?? [];
   const stats = searchResults?.stats ?? [];
-  const hasResults = players.length > 0 || rosters.length > 0 || stats.length > 0;
+  const events = searchResults?.events ?? [];
+  const hasResults = players.length > 0 || rosters.length > 0 || stats.length > 0 || events.length > 0;
 
   const seasonLabel = latestSeason || "All Time";
 
@@ -151,7 +152,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
           </svg>
           <input
             type="text"
-            placeholder="Search players, teams, or stats..."
+            placeholder="Search players, teams, stats or events..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -233,6 +234,39 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                           <strong>{s.label}</strong>
                         </div>
                         <span className="dash-search-type">Leaderboard</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {events.length > 0 && (
+                  <div className="dash-search-group">
+                    <div className="dash-search-group-title">Events</div>
+                    {events.slice(0, 5).map((ev) => (
+                      <div
+                        key={`${ev.meta?.season}-${ev.meta?.split}-${ev.id}`}
+                        className="dash-search-item"
+                        onClick={() => {
+                          setSearchQuery("");
+                          const params = new URLSearchParams();
+                          if (ev.meta?.season) params.set("season", ev.meta.season);
+                          if (ev.meta?.split) params.set("split", ev.meta.split);
+                          const query = params.toString();
+                          navigate(`/events/${encodeURIComponent(ev.id)}${query ? `?${query}` : ""}`);
+                        }}
+                      >
+                        <div className="dash-search-avatar dash-search-avatar--event">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                          </svg>
+                        </div>
+                        <div className="dash-search-item-info">
+                          <strong>{ev.label}</strong>
+                          <span>{[ev.meta?.season, ev.meta?.split].filter(Boolean).join(" / ")}</span>
+                        </div>
+                        <span className="dash-search-type">Event</span>
                       </div>
                     ))}
                   </div>

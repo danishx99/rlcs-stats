@@ -1,0 +1,93 @@
+import { type IncomingMessage, type ServerResponse } from "node:http";
+import { pool } from "../db";
+import { json } from "../utils/http";
+import { formatSql, loadSql } from "../utils/sql";
+import { metricExpression, resolveStatOption } from "../utils/stats";
+import { playerKeyExpr } from "../utils/roster";
+
+const detailSql = loadSql("../../sql/events/detail.sql", import.meta.url);
+const topTeamsSql = loadSql("../../sql/events/top-teams.sql", import.meta.url);
+const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
+
+const LEADERBOARD_METRICS = ["rating", "goals", "demos", "saves", "assists"];
+
+export async function handleEventDetail(_req: IncomingMessage, res: ServerResponse, eventName: string, url: URL) {
+  const decoded = decodeURIComponent(eventName);
+  const season = url.searchParams.get("season")?.trim() || null;
+  const split = url.searchParams.get("split")?.trim() || null;
+
+  try {
+    const leaderboardQueries = LEADERBOARD_METRICS.map((key) => {
+      const option = resolveStatOption(key);
+      const where = `WHERE LOWER(TRIM(s."Regional")) = LOWER($1)
+        AND ($2::text IS NULL OR LOWER(TRIM(s."Season")) = LOWER($2))
+        AND ($3::text IS NULL OR LOWER(TRIM(s."Split")) = LOWER($3))`;
+      const valueExpr = metricExpression(option, "avg", "player_scope");
+      const sql = formatSql(statsTopSql, {
+        playerKeyExpr: playerKeyExpr("s"),
+        where,
+        valueExpr,
+        havingClause: "",
+        limitParam: "$4"
+      });
+      return { key, option, sql };
+    });
+
+    const [detailResult, teamsResult, ...leaderboardResults] = await Promise.all([
+      pool.query(
+        formatSql(detailSql, { playerKeyExpr: playerKeyExpr("s") }),
+        [decoded, season, split]
+      ),
+      pool.query(topTeamsSql, [decoded, season, split, 8]),
+      ...leaderboardQueries.map((q) => pool.query(q.sql, [decoded, season, split, 10]))
+    ]);
+
+    const detail = detailResult.rows[0];
+    if (!detail || !detail.event_name) {
+      json(res, 404, { error: "Event not found" });
+      return;
+    }
+
+    const leaderboards = leaderboardQueries.map((q, i) => ({
+      mode: "avg" as const,
+      metric: {
+        key: q.option!.key,
+        label: q.option!.label,
+        format: q.option!.format
+      },
+      rows: leaderboardResults[i].rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        teams: row.teams ?? [],
+        photoUrl: row.photo_url ?? null,
+        country: row.country ?? null,
+        value: Number(row.value ?? 0)
+      }))
+    }));
+
+    json(res, 200, {
+      event: {
+        name: detail.event_name,
+        season: detail.season,
+        split: detail.split,
+        minDate: detail.min_date,
+        maxDate: detail.max_date,
+        totalSeries: Number(detail.total_series ?? 0),
+        totalPlayers: Number(detail.total_players ?? 0)
+      },
+      teams: teamsResult.rows.map((row) => ({
+        team: row.team,
+        deepRound: row.deep_round ?? null,
+        roundDepth: Number(row.round_depth ?? 0),
+        wonDeepest: row.won_deepest === true,
+        placementStart: Number(row.placement_start ?? 0),
+        placementEnd: Number(row.placement_end ?? 0),
+        logoUrl: row.logo_url ?? null
+      })),
+      leaderboards
+    });
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: "Failed to load event detail" });
+  }
+}

@@ -7,6 +7,7 @@ WITH base_stats AS (
   SELECT
     s."Match ID" AS match_id,
     s."Game Number" AS game_number,
+    s."Date" AS match_ts,
     s."Date"::date AS match_date,
     s."Season" AS season,
     s."Split" AS split,
@@ -320,6 +321,103 @@ player_name_id_variants AS (
   WHERE NULLIF(TRIM(s."Player Name"), '') IS NOT NULL
   GROUP BY NULLIF(TRIM(s."Player Name"), '')
   HAVING COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) > 1
+),
+playoff_team_series AS (
+  SELECT
+    NULLIF(TRIM(b.season), '') AS season,
+    NULLIF(TRIM(b.split), '') AS split,
+    NULLIF(TRIM(b.regional), '') AS regional,
+    b.series_id,
+    UPPER(TRIM(b.round)) AS round_key,
+    MAX(b.match_ts) AS series_date,
+    b.team_key,
+    SUM(CASE WHEN b.victory IS TRUE THEN 1 ELSE 0 END) AS game_wins
+  FROM base_stats b
+  WHERE b.series_id IS NOT NULL
+    AND LOWER(TRIM(COALESCE(b.stage, ''))) = 'playoffs'
+    AND NULLIF(TRIM(b.team_key), '') IS NOT NULL
+  GROUP BY
+    NULLIF(TRIM(b.season), ''),
+    NULLIF(TRIM(b.split), ''),
+    NULLIF(TRIM(b.regional), ''),
+    b.series_id,
+    UPPER(TRIM(b.round)),
+    b.team_key
+),
+playoff_series_ranked AS (
+  SELECT
+    pts.*,
+    RANK() OVER (PARTITION BY pts.series_id ORDER BY pts.game_wins DESC) AS series_rank
+  FROM playoff_team_series pts
+),
+playoff_team_latest AS (
+  SELECT DISTINCT ON (season, split, regional, team_key)
+    season,
+    split,
+    regional,
+    team_key,
+    round_key,
+    series_date,
+    series_id,
+    game_wins,
+    series_rank,
+    (series_rank = 1) AS won_latest_series
+  FROM playoff_series_ranked
+  ORDER BY season, split, regional, team_key, series_date DESC NULLS LAST, series_id DESC
+),
+playoff_unresolved_winners AS (
+  SELECT
+    ptl.season,
+    ptl.split,
+    ptl.regional,
+    ptl.team_key,
+    ptl.round_key,
+    ptl.series_date,
+    ptl.series_id,
+    ptl.game_wins
+  FROM playoff_team_latest ptl
+  WHERE ptl.won_latest_series
+    AND ptl.round_key NOT LIKE 'GF%'
+),
+playoff_round_depth AS (
+  SELECT
+    pts.*,
+    CASE
+      WHEN pts.round_key LIKE 'GF%'  THEN 100
+      WHEN pts.round_key IN ('UF','LF')   THEN 90
+      WHEN pts.round_key IN ('SF','USF','LSF') THEN 80
+      WHEN pts.round_key IN ('QF','UQF','LQF') THEN 70
+      WHEN pts.round_key = 'LR3'    THEN 60
+      WHEN pts.round_key = 'LR2'    THEN 50
+      WHEN pts.round_key IN ('LR1','UR1','R1') THEN 40
+      ELSE 0
+    END AS round_depth
+  FROM playoff_team_series pts
+),
+playoff_bracket_conflicts AS (
+  SELECT
+    a.season,
+    a.split,
+    a.regional,
+    a.team_key,
+    a.round_key   AS deep_round,
+    a.round_depth  AS deep_depth,
+    a.series_date  AS deep_date,
+    a.series_id    AS deep_series_id,
+    b.round_key   AS shallow_round,
+    b.round_depth  AS shallow_depth,
+    b.series_date  AS shallow_date,
+    b.series_id    AS shallow_series_id
+  FROM playoff_round_depth a
+  JOIN playoff_round_depth b
+    ON  a.season   IS NOT DISTINCT FROM b.season
+    AND a.split    IS NOT DISTINCT FROM b.split
+    AND a.regional IS NOT DISTINCT FROM b.regional
+    AND a.team_key = b.team_key
+    AND a.series_id <> b.series_id
+  WHERE a.round_depth > b.round_depth
+    AND a.series_date < b.series_date
+    AND NOT (a.round_key LIKE 'U%' AND b.round_key LIKE 'L%')
 ),
 checks AS (
   -- C01
@@ -785,6 +883,68 @@ checks AS (
       ) x
     ), '[]'::jsonb)
   FROM series_id_integrity_failures s
+
+  UNION ALL
+
+  -- C17
+  SELECT
+    'C17_playoff_missing_followup_series_after_latest_win',
+    'critical',
+    CASE WHEN COUNT(*) = 0 THEN 'pass' ELSE 'fail' END,
+    'playoff_teams_with_latest_series_win_but_no_recorded_followup',
+    COUNT(*)::bigint,
+    '0',
+    COALESCE((
+      SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+        'season', x.season,
+        'split', x.split,
+        'regional', x.regional,
+        'team', x.team_key,
+        'latest_round', x.round_key,
+        'latest_series_id', x.series_id,
+        'latest_series_date', x.series_date,
+        'latest_series_game_wins', x.game_wins
+      ))
+      FROM (
+        SELECT puw.*
+        FROM playoff_unresolved_winners puw
+        ORDER BY puw.series_date DESC NULLS LAST, puw.season, puw.split, puw.regional, puw.team_key
+        LIMIT 20
+      ) x
+    ), '[]'::jsonb)
+  FROM playoff_unresolved_winners
+
+  UNION ALL
+
+  -- C18
+  SELECT
+    'C18_playoff_bracket_depth_date_conflict',
+    'critical',
+    CASE WHEN COUNT(*) = 0 THEN 'pass' ELSE 'fail' END,
+    'playoff_series_pairs_where_deeper_round_precedes_shallower_round',
+    COUNT(*)::bigint,
+    '0',
+    COALESCE((
+      SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+        'season', x.season,
+        'split', x.split,
+        'regional', x.regional,
+        'team', x.team_key,
+        'deep_round', x.deep_round,
+        'deep_date', x.deep_date,
+        'deep_series_id', x.deep_series_id,
+        'shallow_round', x.shallow_round,
+        'shallow_date', x.shallow_date,
+        'shallow_series_id', x.shallow_series_id
+      ))
+      FROM (
+        SELECT pbc.*
+        FROM playoff_bracket_conflicts pbc
+        ORDER BY pbc.season, pbc.split, pbc.regional, pbc.team_key
+        LIMIT 20
+      ) x
+    ), '[]'::jsonb)
+  FROM playoff_bracket_conflicts
 
   UNION ALL
 
