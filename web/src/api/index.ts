@@ -2,6 +2,8 @@ import type {
   CompareHistoryResponse,
   CompareResponse,
   EventDetailResponse,
+  FeedbackSubmitRequest,
+  FeedbackSubmitResponse,
   FeaturedResponse,
   LeaderboardResponse,
   MetaColumnsResponse,
@@ -36,6 +38,18 @@ function resolveApiPath(path: string) {
   return `${normalizedBase}${path}`;
 }
 
+async function parseApiError(response: Response): Promise<string | null> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    if (typeof payload.error === "string" && payload.error.trim()) {
+      return payload.error.trim();
+    }
+  } catch {
+    // Ignore JSON parse errors and fall back to status-only error.
+  }
+  return null;
+}
+
 export async function fetchJson<T>(
   path: string,
   params?: Record<string, string | number | boolean | null | undefined>
@@ -64,18 +78,42 @@ export async function fetchJson<T>(
     window.clearTimeout(timeout);
   }
   if (!response.ok) {
-    let apiError: string | null = null;
-    try {
-      const payload = (await response.json()) as { error?: unknown };
-      if (typeof payload.error === "string" && payload.error.trim()) {
-        apiError = payload.error.trim();
-      }
-    } catch {
-      // Ignore JSON parse errors and fall back to status message.
-    }
+    const apiError = await parseApiError(response);
     throw new Error(apiError ? `API error ${response.status}: ${apiError}` : `API error ${response.status}`);
   }
   return (await response.json()) as T;
+}
+
+export async function postJson<TResponse>(path: string, body: unknown) {
+  const url = new URL(resolveApiPath(path), window.location.origin);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "1"
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`API request timed out after ${API_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    const apiError = await parseApiError(response);
+    throw new Error(apiError ? `API error ${response.status}: ${apiError}` : `API error ${response.status}`);
+  }
+
+  return (await response.json()) as TResponse;
 }
 
 export const api = {
@@ -132,5 +170,8 @@ export const api = {
   },
   eventDetail(eventName: string, params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<EventDetailResponse>(`/api/events/${encodeURIComponent(eventName)}`, params);
+  },
+  submitFeedback(payload: FeedbackSubmitRequest) {
+    return postJson<FeedbackSubmitResponse>("/api/feedback", payload);
   }
 };

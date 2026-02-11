@@ -10,6 +10,7 @@ import {
 } from "./src/utils/http";
 import { handleCompare, handleCompareHistory } from "./src/routes/compare";
 import { handleFeatured } from "./src/routes/featured";
+import { ensureFeedbackSchema, handleFeedbackSubmit } from "./src/routes/feedback";
 import { handleImage } from "./src/routes/image";
 import { handleInsights } from "./src/routes/insights";
 import { handleMeta, handleMetaColumns } from "./src/routes/meta";
@@ -30,6 +31,15 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "OPTIONS") {
     handleOptions(res);
+    return;
+  }
+
+  if (url.pathname === "/api/feedback") {
+    if (req.method !== "POST") {
+      methodNotAllowed(res);
+      return;
+    }
+    await handleFeedbackSubmit(req, res);
     return;
   }
 
@@ -176,4 +186,8 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
+});
+
+void ensureFeedbackSchema().catch((error) => {
+  console.warn("Feedback schema init failed; feedback endpoint may be unavailable until schema is created:", error);
 });

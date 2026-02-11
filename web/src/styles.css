@@ -3016,6 +3016,161 @@ th {
   color: var(--accent);
 }
 
+.feedback-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 70;
+  border: 1px solid rgba(255, 130, 67, 0.5);
+  background: linear-gradient(135deg, rgba(255, 130, 67, 0.95), rgba(255, 98, 28, 0.9));
+  color: #0b0f16;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 10px 14px;
+  cursor: pointer;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.feedback-fab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.48);
+  filter: brightness(1.06);
+}
+
+.feedback-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(5, 8, 12, 0.72);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.feedback-modal-card {
+  width: min(520px, 100%);
+  background: linear-gradient(165deg, var(--panel) 0%, var(--panel-strong) 100%);
+  border: 1px solid rgba(255, 130, 67, 0.3);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  animation: panel-in 0.18s ease-out both;
+}
+
+.feedback-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.feedback-modal-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.feedback-modal-close {
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-muted);
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.feedback-form {
+  display: grid;
+  gap: 10px;
+}
+
+.feedback-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.feedback-form select,
+.feedback-form textarea {
+  background: #000;
+  border: 1px solid var(--panel-border);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.79rem;
+  padding: 9px 10px;
+}
+
+.feedback-form select option {
+  background: #000;
+  color: var(--ink);
+}
+
+.feedback-form textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.feedback-form-meta {
+  display: flex;
+  justify-content: flex-end;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+}
+
+.feedback-form-error {
+  margin: 0;
+  color: #ff8a8a;
+  font-size: 0.77rem;
+}
+
+.feedback-success-state p {
+  margin: 0;
+  color: var(--ink);
+}
+
+.feedback-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.feedback-modal-actions button {
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.feedback-modal-actions button:hover:not(:disabled) {
+  border-color: rgba(255, 130, 67, 0.55);
+  color: var(--accent);
+}
+
+.feedback-modal-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .series-subline {
   margin-top: 4px;
   font-size: 0.82rem;
@@ -3293,5 +3448,14 @@ th {
   .series-modal-score {
     font-size: 0.8rem;
     gap: 8px;
+  }
+
+  .feedback-fab {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .feedback-modal-card {
+    padding: 12px;
   }
 }

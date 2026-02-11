@@ -10,6 +10,7 @@ import RosterPage from "./pages/RosterPage";
 import SeriesPage from "./pages/SeriesPage";
 import StatPage from "./pages/StatPage";
 import EventPage from "./pages/EventPage";
+import FeedbackWidget from "./components/FeedbackWidget";
 
 export default function App() {
   const [filters, setFilters] = useState<Filters>({ season: "", split: "", event: "" });
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/series" element={<SeriesPage />} />
         </Routes>
       </div>
+      <FeedbackWidget />
     </div>
   );
 }

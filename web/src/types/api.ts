@@ -298,3 +298,39 @@ export type EventDetailResponse = {
   teams: EventTeam[];
   leaderboards: LeaderboardResponse[];
 };
+
+export type FeedbackType = "bug" | "idea" | "question";
+
+export type FeedbackPageContext = {
+  url: string;
+  path: string;
+  search?: string | null;
+  hash?: string | null;
+  title?: string | null;
+};
+
+export type FeedbackClientContext = {
+  viewportWidth?: number | null;
+  viewportHeight?: number | null;
+  screenWidth?: number | null;
+  screenHeight?: number | null;
+  language?: string | null;
+  timezone?: string | null;
+  userAgent?: string | null;
+  platform?: string | null;
+  referrer?: string | null;
+  submittedAt?: string | null;
+  sessionId?: string | null;
+};
+
+export type FeedbackSubmitRequest = {
+  type: FeedbackType;
+  message: string;
+  page: FeedbackPageContext;
+  client: FeedbackClientContext;
+};
+
+export type FeedbackSubmitResponse = {
+  ok: boolean;
+  id: number;
+};
