@@ -165,3 +165,15 @@ Best if you want to:
 - Analyze query performance
 - Create indexes later
 - Explore large datasets deeply
+
+## Production Deployment
+
+Dockerized production setup docs are in:
+
+- `docs/deploy.md`
+
+This uses separate containers for:
+
+- `api` (Bun runtime)
+- `web` (Nginx serving React build)
+- optional `postgres` (or use managed external Postgres)

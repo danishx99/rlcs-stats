@@ -1,0 +1,38 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - ./env/.env.api
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    depends_on:
+      - api
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+
+  postgres:
+    image: postgres:16
+    profiles: ["localdb"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-statsdb}
+      POSTGRES_USER: ${POSTGRES_USER:-stats}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stats_pw}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

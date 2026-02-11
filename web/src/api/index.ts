@@ -18,11 +18,27 @@ import type {
 
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8787";
 
+function resolveApiPath(path: string) {
+  const base = API_URL.trim();
+  if (!base) return path;
+
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    return new URL(path, base).toString();
+  }
+
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  if (normalizedBase.endsWith("/api") && path.startsWith("/api/")) {
+    return `${normalizedBase}${path.slice(4)}`;
+  }
+
+  return `${normalizedBase}${path}`;
+}
+
 export async function fetchJson<T>(
   path: string,
   params?: Record<string, string | number | boolean | null | undefined>
 ) {
-  const url = new URL(`${API_URL}${path}`);
+  const url = new URL(resolveApiPath(path), window.location.origin);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value === undefined || value === null || value === "") return;
