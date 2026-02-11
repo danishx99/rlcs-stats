@@ -40,6 +40,7 @@ export async function handleRosterProfile(
       roster: {
         id: row.roster_id,
         name: row.roster_name,
+        logoUrl: row.logo_url ?? null,
         starters: row.starters ?? [],
         alternates: row.alternates ?? [],
         debut,

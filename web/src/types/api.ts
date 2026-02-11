@@ -111,6 +111,7 @@ export type RosterAlternate = {
 export type RosterProfile = {
   id: string;
   name: string | null;
+  logoUrl?: string | null;
   starters: RosterStarter[];
   alternates: RosterAlternate[];
   debut: string | null;
@@ -217,6 +218,7 @@ export type StandingsRow = {
   rank: number;
   teamName: string;
   points: number;
+  logoUrl?: string | null;
 };
 
 export type StandingsResponse = {

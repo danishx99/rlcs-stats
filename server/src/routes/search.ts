@@ -59,6 +59,7 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
         label: row.label,
         type: "roster",
         meta: {
+          photoUrl: row.logo_url ?? null,
           starters: row.starters ?? []
         }
       })),

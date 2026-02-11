@@ -198,20 +198,25 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                 {rosters.length > 0 && (
                   <div className="dash-search-group">
                     <div className="dash-search-group-title">Teams</div>
-                    {rosters.slice(0, 5).map((r) => (
-                      <div
-                        key={r.id}
-                        className="dash-search-item"
-                        onClick={() => { setSearchQuery(""); navigate(`/rosters/${r.id}`); }}
-                      >
-                        <div className="dash-search-avatar">{r.label.charAt(0)}</div>
-                        <div className="dash-search-item-info">
-                          <strong>{r.label}</strong>
-                          {r.meta?.starters && <span>{r.meta.starters.join(", ")}</span>}
+                    {rosters.slice(0, 5).map((r) => {
+                      const img = proxyImageUrl(r.meta?.photoUrl);
+                      return (
+                        <div
+                          key={r.id}
+                          className="dash-search-item"
+                          onClick={() => { setSearchQuery(""); navigate(`/rosters/${r.id}`); }}
+                        >
+                          <div className="dash-search-avatar">
+                            {img ? <img src={img} alt="" /> : r.label.charAt(0)}
+                          </div>
+                          <div className="dash-search-item-info">
+                            <strong>{r.label}</strong>
+                            {r.meta?.starters && <span>{r.meta.starters.join(", ")}</span>}
+                          </div>
+                          <span className="dash-search-type">Team</span>
                         </div>
-                        <span className="dash-search-type">Team</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {stats.length > 0 && (
@@ -289,9 +294,13 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
               ? standings.rows.slice(0, 8).map((row) => {
                   const maxPts = standings.rows[0].points || 1;
                   const barWidth = Math.round((row.points / maxPts) * 100);
+                  const logoSrc = proxyImageUrl(row.logoUrl);
                   return (
                     <li key={row.rank}>
                       <span className="dash-standings-rank">{row.rank}</span>
+                      <div className="dash-standings-logo">
+                        {logoSrc ? <img src={logoSrc} alt="" /> : null}
+                      </div>
                       <div className="dash-standings-bar-wrap">
                         <span className="dash-standings-team">{row.teamName}</span>
                         <div
@@ -306,6 +315,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
               : Array.from({ length: 8 }).map((_, i) => (
                   <li key={`slot-${i}`}>
                     <span className="dash-standings-rank">{i + 1}</span>
+                    <div className="dash-standings-logo" />
                     <div className="dash-standings-bar-wrap">
                       <div className="dash-standings-bar" />
                     </div>

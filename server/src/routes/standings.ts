@@ -17,7 +17,11 @@ export async function handleStandings(_req: IncomingMessage, res: ServerResponse
     const season = url.searchParams.get("season") || seasons[seasons.length - 1];
 
     const result = await pool.query(
-      "SELECT rank, team_name, points FROM standings WHERE season = $1 ORDER BY rank",
+      `SELECT s.rank, s.team_name, s.points,
+        (SELECT tp."Logo Link" FROM team_profiles tp
+         WHERE UPPER(tp."Team Name") = UPPER(s.team_name)
+         LIMIT 1) AS logo_url
+       FROM standings s WHERE s.season = $1 ORDER BY s.rank`,
       [season]
     );
 
@@ -27,7 +31,8 @@ export async function handleStandings(_req: IncomingMessage, res: ServerResponse
       rows: result.rows.map((r) => ({
         rank: r.rank,
         teamName: r.team_name,
-        points: r.points
+        points: r.points,
+        logoUrl: r.logo_url ?? null
       }))
     });
   } catch (error) {

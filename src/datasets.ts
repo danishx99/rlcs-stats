@@ -5,10 +5,15 @@ import {
   addPlayersTableCommentsSql,
   addPlayersColumnsSql
 } from "./players-schema";
+import {
+  createTeamProfilesTableSql,
+  addTeamProfilesCommentsSql,
+  addTeamProfilesColumnsSql
+} from "./teams-schema";
 import { createStandingsTableSql } from "./standings-schema";
 import { loadStandingsCsv } from "./load-standings";
 
-export type DatasetKey = "matches" | "players" | "standings";
+export type DatasetKey = "matches" | "players" | "teams" | "standings";
 
 export type DatasetConfig = {
   key: DatasetKey;
@@ -71,6 +76,18 @@ export const DATASETS: DatasetConfig[] = [
     headerNormalizer: normalizePlayerHeader,
     ignoreCoercionErrors: true,
     stopAfterHeader: "Photo URL"
+  },
+  {
+    key: "teams",
+    label: "teams",
+    dataSubdir: "rosters",
+    tableName: "team_profiles",
+    schemaFile: "src/teams-schema.ts",
+    createTableSql: createTeamProfilesTableSql,
+    addColumnsSql: addTeamProfilesColumnsSql,
+    addCommentsSql: addTeamProfilesCommentsSql,
+    ignoreCoercionErrors: true,
+    stopAfterHeader: "Twitch"
   },
   {
     key: "standings",

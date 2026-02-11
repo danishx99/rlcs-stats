@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { MetaResponse, RosterProfile, SeasonResponse, SeasonRow } from "../types/api";
+import { proxyImageUrl } from "../utils/normalize";
 import SeasonTable from "../components/SeasonTable";
 import { formatRosterStarters } from "../utils/roster";
 
@@ -120,9 +121,17 @@ export default function RosterPage({
       <div className="panel roster-profile-card">
         <div className="profile-header">
           <div className="profile-media">
-            <div className="profile-avatar roster-avatar">
-              {rosterProfile.name?.[0] ?? "?"}
-            </div>
+            {rosterProfile.logoUrl ? (
+              <img
+                src={proxyImageUrl(rosterProfile.logoUrl) ?? undefined}
+                alt={rosterProfile.name ?? "Team"}
+                loading="lazy"
+              />
+            ) : (
+              <div className="profile-avatar roster-avatar">
+                {rosterProfile.name?.[0] ?? "?"}
+              </div>
+            )}
           </div>
           <div className="profile-info">
             <h1>{rosterProfile.name ?? "Roster"}</h1>

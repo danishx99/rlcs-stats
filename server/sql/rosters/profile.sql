@@ -135,6 +135,11 @@ best_result AS (
 SELECT
   {{rosterIdParam}} AS roster_id,
   (SELECT roster_name FROM roster_names WHERE roster_id = {{rosterIdParam}}) AS roster_name,
+  (SELECT tp."Logo Link" FROM team_profiles tp
+   WHERE UPPER(tp."Team Name") = UPPER(
+     (SELECT roster_name FROM roster_names WHERE roster_id = {{rosterIdParam}})
+   )
+   LIMIT 1) AS logo_url,
   (SELECT json_agg(json_build_object('id', starter_id, 'handle', handle) ORDER BY starter_id)
    FROM starter_profiles) AS starters,
   (SELECT json_agg(json_build_object('id', alt_id, 'handle', handle, 'appearances', appearances)

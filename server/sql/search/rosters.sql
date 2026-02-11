@@ -28,7 +28,10 @@ SELECT DISTINCT ON (roster_id)
   team AS label,
   (SELECT json_agg(handle ORDER BY handle)
    FROM starter_profiles sp
-   WHERE sp.roster_id = roster_match.roster_id) AS starters
+   WHERE sp.roster_id = roster_match.roster_id) AS starters,
+  (SELECT tp."Logo Link" FROM team_profiles tp
+   WHERE UPPER(tp."Team Name") = UPPER(roster_match.team)
+   LIMIT 1) AS logo_url
 FROM roster_match
 ORDER BY roster_id, series_count DESC, team
 LIMIT $2;
