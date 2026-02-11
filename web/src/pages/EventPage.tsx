@@ -248,6 +248,9 @@ export default function EventPage() {
     .join(" – ");
 
   const hasSearchResults = searchResults.length > 0;
+  const ratingLeaderboard = leaderboards.find((lb) => lb.metric?.key === "rating") ?? leaderboards[0] ?? null;
+  const goalsLeaderboard = leaderboards.find((lb) => lb.metric.key === "goals");
+  const demosLeaderboard = leaderboards.find((lb) => lb.metric.key === "demos");
 
   return (
     <div className="page page-no-nav">
@@ -373,9 +376,9 @@ export default function EventPage() {
 
       {/* Top row: Teams + Top 10 Players (rating) */}
       <div className="event-grid">
-        {teams.length > 0 && (
-          <div className="event-panel panel">
-            <h3>Top Teams</h3>
+        <div className="event-panel panel">
+          <h3>Top Teams</h3>
+          {teams.length > 0 ? (
             <ol className="event-teams-list">
               {teams.map((t, i) => {
                 const prev = i > 0 ? teams[i - 1] : null;
@@ -407,29 +410,33 @@ export default function EventPage() {
                 );
               })}
             </ol>
-          </div>
-        )}
-        {leaderboards[0] && (
-          <div className="event-panel panel">
-            <h3>{LEADERBOARD_TITLES[0]}</h3>
-            <Leaderboard data={leaderboards[0]} />
-          </div>
-        )}
+          ) : (
+            <p className="dash-search-status">No placement data for this event.</p>
+          )}
+        </div>
+        <div className="event-panel panel">
+          <h3>{LEADERBOARD_TITLES[0]}</h3>
+          {ratingLeaderboard ? (
+            <Leaderboard data={ratingLeaderboard} />
+          ) : (
+            <p className="dash-search-status">No rating data for this event.</p>
+          )}
+        </div>
       </div>
 
       {/* Bottom row: Top Scorers (goals) + Top Executioners (demos) */}
-      {(leaderboards[1] || leaderboards[2]) && (
+      {(goalsLeaderboard || demosLeaderboard) && (
         <div className="event-grid">
-          {leaderboards[1] && (
+          {goalsLeaderboard && (
             <div className="event-panel panel">
               <h3>{LEADERBOARD_TITLES[1]}</h3>
-              <Leaderboard data={leaderboards[1]} />
+              <Leaderboard data={goalsLeaderboard} />
             </div>
           )}
-          {leaderboards[2] && (
+          {demosLeaderboard && (
             <div className="event-panel panel">
               <h3>{LEADERBOARD_TITLES[2]}</h3>
-              <Leaderboard data={leaderboards[2]} />
+              <Leaderboard data={demosLeaderboard} />
             </div>
           )}
         </div>

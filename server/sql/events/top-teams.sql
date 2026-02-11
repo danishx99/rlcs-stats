@@ -4,7 +4,8 @@ WITH base_scope AS (
   WHERE LOWER(TRIM("Regional")) = LOWER($1)
     AND ($2::text IS NULL OR LOWER(TRIM("Season")) = LOWER($2))
     AND ($3::text IS NULL OR LOWER(TRIM("Split")) = LOWER($3))
-    AND series_id IS NOT NULL
+    AND "Team" IS NOT NULL
+    AND TRIM("Team") <> ''
 ),
 has_playoffs AS (
   SELECT EXISTS (
@@ -20,12 +21,12 @@ scoped AS (
   WHERE (hp.yes AND LOWER(TRIM(b."Stage")) = 'playoffs')
      OR (NOT hp.yes)
 ),
-team_series AS (
+team_rounds AS (
   SELECT
-    series_id,
-    "Team" AS team,
+    UPPER(TRIM("Team")) AS team_norm,
+    MIN(TRIM("Team")) AS team,
     UPPER(TRIM("Round")) AS rnd,
-    MAX("Date") AS series_date,
+    MAX("Date") AS round_date,
     CASE UPPER(TRIM("Round"))
       WHEN 'GF'     THEN 100
       WHEN 'UF'     THEN 90
@@ -49,27 +50,25 @@ team_series AS (
       WHEN 'GROUPS'  THEN 12
       ELSE 0
     END AS depth,
-    SUM(CASE WHEN "Victory" = true THEN 1 ELSE 0 END) AS game_wins
+    (
+      SUM(CASE WHEN "Victory" = true THEN 1 ELSE 0 END)
+      >
+      SUM(CASE WHEN COALESCE("Victory", false) = false THEN 1 ELSE 0 END)
+    ) AS won_round
   FROM scoped
-  GROUP BY series_id, "Team", UPPER(TRIM("Round"))
-),
-ranked_series AS (
-  SELECT
-    ts.*,
-    RANK() OVER (PARTITION BY ts.series_id ORDER BY ts.game_wins DESC) AS series_rank
-  FROM team_series ts
+  WHERE "Round" IS NOT NULL
+    AND TRIM("Round") <> ''
+  GROUP BY UPPER(TRIM("Team")), UPPER(TRIM("Round"))
 ),
 team_latest AS (
-  SELECT DISTINCT ON (team)
+  SELECT DISTINCT ON (team_norm)
     team,
     rnd AS deep_round,
     depth AS round_depth,
-    series_id,
-    series_date,
-    game_wins,
-    (series_rank = 1) AS won_deepest
-  FROM ranked_series
-  ORDER BY team, series_date DESC NULLS LAST, depth DESC, series_id DESC
+    round_date,
+    won_round AS won_deepest
+  FROM team_rounds
+  ORDER BY team_norm, depth DESC, round_date DESC NULLS LAST
 ),
 classified AS (
   SELECT

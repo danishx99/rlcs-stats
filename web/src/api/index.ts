@@ -18,6 +18,7 @@ import type {
 } from "../types/api";
 
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8787";
+const API_TIMEOUT_MS = Number.parseInt(import.meta.env.VITE_API_TIMEOUT_MS || "15000", 10);
 
 function resolveApiPath(path: string) {
   const base = API_URL.trim();
@@ -46,9 +47,22 @@ export async function fetchJson<T>(
       url.searchParams.set(key, String(value));
     });
   }
-  const response = await fetch(url.toString(), {
-    headers: { "ngrok-skip-browser-warning": "1" }
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      headers: { "ngrok-skip-browser-warning": "1" },
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`API request timed out after ${API_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   if (!response.ok) {
     let apiError: string | null = null;
     try {
