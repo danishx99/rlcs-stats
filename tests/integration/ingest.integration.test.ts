@@ -1,24 +1,54 @@
 import { beforeAll, afterAll, describe, expect, test } from "bun:test";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { Client } from "pg";
 import {
   addIngestionColumnsSql,
   addRowHashColumnSql,
   createFileIngestTableSql,
   createRowHashIndexSql
-} from "../src/schema-utils";
-import { createStatsTableSql } from "../src/stats-schema";
-import { loadCsvFile } from "../src/load-csv";
-import { streamCsvRows } from "../src/util/csv";
-import type { ColumnSpec, ColumnType } from "../src/util/types";
+} from "../../src/schema-utils";
+import { buildConnectionString } from "../../src/db";
+import { createStatsTableSql } from "../../src/stats-schema";
+import { loadCsvFile } from "../../src/load-csv";
+import { streamCsvRows } from "../../src/util/csv";
+import type { ColumnSpec, ColumnType } from "../../src/util/types";
 
 const DATA_DIR = "./data/matches";
 const IGNORED_COLUMNS = new Set(["id", "source_file", "ingested_at", "row_hash"]);
 
-type DbClient = { query: (sql: string, params?: any[]) => Promise<any>; end: () => Promise<void> };
-
+type DbClient = Client;
 let client: DbClient | null = null;
-let dbAvailable = true;
+
+function resolveTestConnectionString() {
+  const explicit = process.env.DATABASE_URL_TEST?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const base = buildConnectionString();
+  const url = new URL(base);
+  const dbName = url.pathname.replace(/^\//, "");
+  if (!dbName) {
+    throw new Error("Could not determine database name from connection string.");
+  }
+  url.pathname = `/${dbName.endsWith("_test") ? dbName : `${dbName}_test`}`;
+  return url.toString();
+}
+
+function assertSafeTestDatabase(connectionString: string) {
+  const url = new URL(connectionString);
+  const dbName = url.pathname.replace(/^\//, "");
+  if (!dbName.endsWith("_test")) {
+    throw new Error(
+      `Refusing to run destructive ingestion test against non-test database "${dbName}". Set DATABASE_URL_TEST to a *_test database.`
+    );
+  }
+}
+
+function getDbName(connectionString: string) {
+  return new URL(connectionString).pathname.replace(/^\//, "");
+}
 
 function mapDbType(dataType: string): ColumnType {
   const normalized = dataType.toLowerCase();
@@ -82,25 +112,25 @@ async function countNonBlankRows(filePath: string): Promise<{ rows: number; head
 
 describe("CSV ingestion", () => {
   beforeAll(async () => {
+    const connectionString = resolveTestConnectionString();
+    assertSafeTestDatabase(connectionString);
+    const testDbName = getDbName(connectionString);
+    client = new Client({ connectionString });
     try {
-      const { connectDb } = await import("../src/db");
-      client = await connectDb();
-      await client.query(createStatsTableSql);
-      await client.query(addIngestionColumnsSql("stats"));
-      await client.query(addRowHashColumnSql("stats"));
-      await client.query(createRowHashIndexSql("stats"));
-      await client.query(createFileIngestTableSql);
-      await client.query("TRUNCATE stats RESTART IDENTITY;");
-      await client.query("TRUNCATE file_ingest RESTART IDENTITY;");
+      await client.connect();
     } catch (error) {
-      dbAvailable = false;
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(`Skipping ingestion tests: ${message}`);
-      if (client) {
-        await client.end();
-        client = null;
+      if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "3D000") {
+        throw new Error(`Test database "${testDbName}" does not exist. Run "bun run db:test:init" first.`);
       }
+      throw error;
     }
+    await client.query(createStatsTableSql);
+    await client.query(addIngestionColumnsSql("stats"));
+    await client.query(addRowHashColumnSql("stats"));
+    await client.query(createRowHashIndexSql("stats"));
+    await client.query(createFileIngestTableSql);
+    await client.query("TRUNCATE stats RESTART IDENTITY;");
+    await client.query("TRUNCATE file_ingest RESTART IDENTITY;");
   });
 
   afterAll(async () => {
@@ -110,21 +140,17 @@ describe("CSV ingestion", () => {
   });
 
   test("loads CSVs with expected row counts and columns", async () => {
-    if (!dbAvailable || !client) {
-      return;
-    }
+    if (!client) throw new Error("Database client was not initialized.");
 
     const files = await listCsvFiles();
     expect(files.length).toBeGreaterThan(0);
 
     const allHeaders = new Set<string>();
-    let expectedRows = 0;
     let insertedTotal = 0;
 
     for (const filePath of files) {
       const { rows, headers } = await countNonBlankRows(filePath);
       headers.forEach((header) => allHeaders.add(header));
-      expectedRows += rows;
 
       const specs = await getColumnSpecsFromDb(client);
       const report = await loadCsvFile(client, filePath, specs, {

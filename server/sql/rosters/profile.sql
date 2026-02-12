@@ -1,91 +1,142 @@
-{{rosterCtes}},
-roster_scope AS (
-  SELECT b.*, sr.roster_id
-  FROM base b
-  JOIN series_roster sr
-    ON b.series_id = sr.series_id
-   AND b.team = sr.team
-  WHERE sr.roster_id = {{rosterIdParam}}
-),
-roster_players AS (
+WITH params AS (
   SELECT
-    roster_id,
-    player_key,
-    COUNT(*) AS appearances
-  FROM roster_scope
-  WHERE player_key IS NOT NULL
-  GROUP BY roster_id, player_key
+    CASE
+      WHEN {{rosterIdParam}} LIKE 'org:%' OR {{rosterIdParam}} LIKE 'roster:%' THEN {{rosterIdParam}}
+      ELSE 'roster:' || {{rosterIdParam}}
+    END AS team_group_id
 ),
-ranked_players AS (
+team_profiles_norm AS (
   SELECT
-    roster_id,
-    player_key,
-    appearances,
-    ROW_NUMBER() OVER (
-      PARTITION BY roster_id
-      ORDER BY appearances DESC, player_key
-    ) AS rn
-  FROM roster_players
+    UPPER(TRIM(tp."Team Name")) AS team_norm,
+    MIN(tp."Team Name") AS org_name,
+    MIN(tp."Logo Link") AS logo_url
+  FROM team_profiles tp
+  WHERE tp."Team Name" IS NOT NULL
+    AND TRIM(tp."Team Name") <> ''
+  GROUP BY UPPER(TRIM(tp."Team Name"))
 ),
-roster_starters AS (
-  SELECT roster_id, player_key AS starter_id
-  FROM ranked_players
-  WHERE rn <= 3
-),
-roster_alternates AS (
-  SELECT roster_id, player_key AS alt_id, appearances
-  FROM ranked_players
-  WHERE rn > 3
-),
-starter_profiles AS (
+series_meta AS (
   SELECT
-    rs.roster_id,
-    rs.starter_id,
-    COALESCE(MIN(p."Primary Handle"), MIN(b."Player Name")) AS handle
-  FROM roster_starters rs
-  LEFT JOIN base b ON b.player_key = rs.starter_id
-  LEFT JOIN players p ON p."Player ID" = rs.starter_id
-  GROUP BY rs.roster_id, rs.starter_id
+    s.series_id,
+    UPPER(TRIM(s."Team")) AS team_norm,
+    MIN(TRIM(s."Team")) AS team_label,
+    MAX(s."Date") AS match_date,
+    MAX(NULLIF(TRIM(s."Season"), '')) AS season,
+    MAX(NULLIF(TRIM(s."Split"), '')) AS split,
+    MAX(NULLIF(TRIM(s."Regional"), '')) AS regional,
+    MAX(NULLIF(TRIM(s."Stage"), '')) AS stage,
+    MIN(NULLIF(TRIM(s."Round"), '')) AS round,
+    MAX(COALESCE(s."Best of ", 0)) AS best_of
+  FROM stats s
+  WHERE s.series_id IS NOT NULL
+    AND s."Team" IS NOT NULL
+    AND TRIM(s."Team") <> ''
+  GROUP BY s.series_id, UPPER(TRIM(s."Team"))
 ),
-alternate_profiles AS (
+grouped_series AS (
   SELECT
-    ra.roster_id,
-    ra.alt_id,
-    ra.appearances,
-    COALESCE(MIN(p."Primary Handle"), MIN(b."Player Name")) AS handle
-  FROM roster_alternates ra
-  LEFT JOIN base b ON b.player_key = ra.alt_id
-  LEFT JOIN players p ON p."Player ID" = ra.alt_id
-  GROUP BY ra.roster_id, ra.alt_id, ra.appearances
+    sm.series_id,
+    sm.team_norm,
+    sm.team_label,
+    sm.match_date,
+    sm.season,
+    sm.split,
+    sm.regional,
+    sm.stage,
+    sm.round,
+    sm.best_of,
+    sr.roster_id,
+    sr.starters,
+    tpn.org_name,
+    tpn.logo_url,
+    CASE
+      WHEN tpn.org_name IS NOT NULL THEN 'org:' || tpn.team_norm
+      ELSE 'roster:' || sr.roster_id
+    END AS team_group_id
+  FROM series_roster sr
+  JOIN series_meta sm
+    ON sm.series_id = sr.series_id
+   AND sm.team_norm = UPPER(TRIM(sr.team))
+  LEFT JOIN team_profiles_norm tpn
+    ON tpn.team_norm = UPPER(TRIM(sr.team))
+),
+group_scope AS (
+  SELECT gs.*
+  FROM grouped_series gs
+  JOIN params p ON p.team_group_id = gs.team_group_id
+),
+scope_stats AS (
+  SELECT
+    s.*,
+    NULLIF(TRIM(s."Unique ID"), '') AS player_key,
+    gs.roster_id,
+    gs.season,
+    gs.split,
+    gs.regional,
+    gs.stage,
+    gs.round,
+    gs.best_of,
+    gs.match_date,
+    gs.team_label
+  FROM stats s
+  JOIN group_scope gs
+    ON gs.series_id = s.series_id
+   AND gs.team_norm = UPPER(TRIM(s."Team"))
+),
+group_identity AS (
+  SELECT
+    p.team_group_id,
+    COALESCE(
+      MIN(gs.org_name),
+      (
+        SELECT gs2.team_label
+        FROM group_scope gs2
+        ORDER BY gs2.match_date DESC NULLS LAST, gs2.team_label
+        LIMIT 1
+      )
+    ) AS team_name,
+    COALESCE(
+      MIN(gs.logo_url),
+      (
+        SELECT tp."Logo Link"
+        FROM group_scope gs2
+        JOIN team_profiles tp
+          ON UPPER(TRIM(tp."Team Name")) = UPPER(TRIM(gs2.team_label))
+        ORDER BY gs2.match_date DESC NULLS LAST
+        LIMIT 1
+      )
+    ) AS logo_url
+  FROM params p
+  LEFT JOIN group_scope gs ON true
+  GROUP BY p.team_group_id
 ),
 first_appearance AS (
   SELECT
-    "Season" AS debut_season,
-    "Split" AS debut_split,
-    "Regional" AS debut_event
-  FROM roster_scope
-  ORDER BY "Date" ASC NULLS LAST, "Season" ASC, "Split" ASC, "Regional" ASC
+    gs.season AS debut_season,
+    gs.split AS debut_split,
+    gs.regional AS debut_event
+  FROM group_scope gs
+  ORDER BY gs.match_date ASC NULLS LAST, gs.season ASC, gs.split ASC, gs.regional ASC
   LIMIT 1
 ),
 series_summary AS (
   SELECT
-    series_id,
-    "Season" AS season,
-    "Split" AS split,
-    "Regional" AS regional,
-    "Stage" AS stage,
-    MIN("Round") AS round,
-    "Team" AS team,
-    MAX("Best of ") AS best_of,
-    SUM(CASE WHEN "Victory" THEN 1 ELSE 0 END) AS wins
-  FROM roster_scope
-  GROUP BY series_id, "Season", "Split", "Regional", "Stage", "Team"
+    ss.series_id,
+    MAX(ss.season) AS season,
+    MAX(ss.split) AS split,
+    MAX(ss.regional) AS regional,
+    MAX(ss.stage) AS stage,
+    MIN(ss.round) AS round,
+    MAX(ss.best_of) AS best_of,
+    COUNT(DISTINCT CASE WHEN ss."Victory" = true THEN ss."Game Number" END) AS wins
+  FROM scope_stats ss
+  GROUP BY ss.series_id
 ),
 series_winners AS (
   SELECT
-    *,
-    wins >= CEIL(best_of / 2.0) AS won_series
-  FROM series_summary
+    ssum.*,
+    ssum.wins >= CEIL(COALESCE(ssum.best_of, 0) / 2.0) AS won_series
+  FROM series_summary ssum
 ),
 event_gf AS (
   SELECT
@@ -131,32 +182,265 @@ best_result AS (
       WHEN EXISTS (SELECT 1 FROM series_summary WHERE stage ILIKE '%Swiss%') THEN 'Top 16'
       ELSE NULL
     END AS placement
+),
+default_season AS (
+  SELECT gs.season
+  FROM group_scope gs
+  WHERE gs.season IS NOT NULL
+  GROUP BY gs.season
+  ORDER BY gs.season DESC
+  LIMIT 1
+),
+roster_season_meta AS (
+  SELECT
+    gs.season,
+    gs.roster_id,
+    (ARRAY_AGG(gs.team_label ORDER BY gs.match_date DESC NULLS LAST, gs.team_label))[1] AS team_label_used,
+    COUNT(DISTINCT gs.series_id)::INT AS series_played,
+    MIN(gs.match_date) AS first_seen_date,
+    MAX(gs.match_date) AS last_seen_date
+  FROM group_scope gs
+  WHERE gs.season IS NOT NULL
+  GROUP BY gs.season, gs.roster_id
+),
+roster_starter_map AS (
+  SELECT
+    gs.season,
+    gs.roster_id,
+    starter_id,
+    COUNT(DISTINCT gs.series_id)::INT AS series_appearances
+  FROM group_scope gs
+  CROSS JOIN LATERAL unnest(gs.starters) AS starter_id
+  WHERE gs.season IS NOT NULL
+  GROUP BY gs.season, gs.roster_id, starter_id
+),
+roster_starter_arrays AS (
+  SELECT
+    rsm.season,
+    rsm.roster_id,
+    ARRAY_AGG(rsm.starter_id ORDER BY rsm.starter_id) AS starter_ids
+  FROM roster_starter_map rsm
+  GROUP BY rsm.season, rsm.roster_id
+),
+roster_overlap AS (
+  SELECT
+    child.season,
+    child.roster_id AS child_roster_id,
+    anchor.roster_id AS anchor_roster_id,
+    anchor.series_played AS anchor_series_played,
+    anchor.last_seen_date AS anchor_last_seen_date,
+    (
+      SELECT COUNT(*)
+      FROM unnest(child_arr.starter_ids) AS c(id)
+      JOIN unnest(anchor_arr.starter_ids) AS a(id) ON a.id = c.id
+    )::INT AS overlap_count
+  FROM roster_season_meta child
+  JOIN roster_starter_arrays child_arr
+    ON child_arr.season = child.season
+   AND child_arr.roster_id = child.roster_id
+  JOIN roster_season_meta anchor
+    ON anchor.season = child.season
+  JOIN roster_starter_arrays anchor_arr
+    ON anchor_arr.season = anchor.season
+   AND anchor_arr.roster_id = anchor.roster_id
+),
+roster_merge_map AS (
+  SELECT
+    child.season,
+    child.roster_id,
+    COALESCE(
+      (
+        SELECT ro.anchor_roster_id
+        FROM roster_overlap ro
+        WHERE ro.season = child.season
+          AND ro.child_roster_id = child.roster_id
+          AND (
+            ro.anchor_roster_id = child.roster_id
+            OR (
+              ro.anchor_series_played > child.series_played
+              AND ro.overlap_count >= 2
+            )
+          )
+        ORDER BY
+          CASE
+            WHEN ro.anchor_series_played > child.series_played
+              AND ro.overlap_count >= 2 THEN 0
+            ELSE 1
+          END,
+          ro.anchor_series_played DESC,
+          ro.anchor_last_seen_date DESC NULLS LAST,
+          ro.anchor_roster_id
+        LIMIT 1
+      ),
+      child.roster_id
+    ) AS iteration_roster_id
+  FROM roster_season_meta child
+),
+iteration_season_meta AS (
+  SELECT
+    rm.season,
+    rm.iteration_roster_id AS roster_id,
+    (ARRAY_AGG(rsm.team_label_used ORDER BY rsm.last_seen_date DESC NULLS LAST, rsm.team_label_used))[1] AS team_label_used,
+    SUM(rsm.series_played)::INT AS series_played,
+    MIN(rsm.first_seen_date) AS first_seen_date,
+    MAX(rsm.last_seen_date) AS last_seen_date
+  FROM roster_merge_map rm
+  JOIN roster_season_meta rsm
+    ON rsm.season = rm.season
+   AND rsm.roster_id = rm.roster_id
+  GROUP BY rm.season, rm.iteration_roster_id
+),
+primary_starters AS (
+  SELECT
+    ism.season,
+    ism.roster_id AS iteration_roster_id,
+    rsm.starter_id
+  FROM iteration_season_meta ism
+  JOIN roster_starter_map rsm
+    ON rsm.season = ism.season
+   AND rsm.roster_id = ism.roster_id
+),
+player_handles AS (
+  SELECT
+    rpm.player_key,
+    COALESCE(MIN(p."Primary Handle"), MIN(ss."Player Name")) AS handle
+  FROM (
+    SELECT DISTINCT starter_id AS player_key
+    FROM roster_starter_map
+  ) rpm
+  LEFT JOIN players p ON p."Player ID" = rpm.player_key
+  LEFT JOIN scope_stats ss ON ss.player_key = rpm.player_key
+  GROUP BY rpm.player_key
+),
+starter_profiles AS (
+  SELECT
+    ism.season,
+    ism.roster_id AS iteration_roster_id,
+    ps.starter_id,
+    ph.handle
+  FROM iteration_season_meta ism
+  JOIN primary_starters ps
+    ON ps.season = ism.season
+   AND ps.iteration_roster_id = ism.roster_id
+  LEFT JOIN player_handles ph ON ph.player_key = ps.starter_id
+),
+alternate_profiles AS (
+  SELECT
+    rm.season,
+    rm.iteration_roster_id,
+    rsm.starter_id AS alt_id,
+    SUM(rsm.series_appearances)::INT AS appearances,
+    ph.handle
+  FROM roster_merge_map rm
+  JOIN roster_starter_map rsm
+    ON rsm.season = rm.season
+   AND rsm.roster_id = rm.roster_id
+  LEFT JOIN primary_starters ps
+    ON ps.season = rm.season
+   AND ps.iteration_roster_id = rm.iteration_roster_id
+   AND ps.starter_id = rsm.starter_id
+  LEFT JOIN player_handles ph ON ph.player_key = rsm.starter_id
+  WHERE ps.starter_id IS NULL
+  GROUP BY rm.season, rm.iteration_roster_id, rsm.starter_id, ph.handle
+),
+iteration_rows AS (
+  SELECT
+    ism.season,
+    ism.roster_id,
+    ism.team_label_used,
+    ism.series_played,
+    ism.first_seen_date,
+    ism.last_seen_date,
+    COALESCE((
+      SELECT json_agg(
+        json_build_object('id', sp.starter_id, 'handle', sp.handle)
+        ORDER BY COALESCE(sp.handle, sp.starter_id), sp.starter_id
+      )
+      FROM starter_profiles sp
+      WHERE sp.season = ism.season
+        AND sp.iteration_roster_id = ism.roster_id
+    ), '[]'::json) AS starters,
+    COALESCE((
+      SELECT json_agg(
+        json_build_object('id', ap.alt_id, 'handle', ap.handle, 'appearances', ap.appearances)
+        ORDER BY ap.appearances DESC, COALESCE(ap.handle, ap.alt_id), ap.alt_id
+      )
+      FROM alternate_profiles ap
+      WHERE ap.season = ism.season
+        AND ap.iteration_roster_id = ism.roster_id
+    ), '[]'::json) AS alternates
+  FROM iteration_season_meta ism
+),
+season_rosters AS (
+  SELECT
+    ir.season,
+    json_agg(
+      json_build_object(
+        'rosterId', ir.roster_id,
+        'teamLabelUsed', ir.team_label_used,
+        'seriesPlayed', ir.series_played,
+        'firstSeenDate', ir.first_seen_date,
+        'lastSeenDate', ir.last_seen_date,
+        'starters', ir.starters,
+        'alternates', ir.alternates
+      )
+      ORDER BY ir.series_played DESC, ir.last_seen_date DESC NULLS LAST, ir.roster_id
+    ) AS iterations
+  FROM iteration_rows ir
+  GROUP BY ir.season
+),
+current_iteration AS (
+  SELECT ir.*
+  FROM iteration_rows ir
+  JOIN default_season ds ON ds.season = ir.season
+  ORDER BY ir.series_played DESC, ir.last_seen_date DESC NULLS LAST, ir.roster_id
+  LIMIT 1
 )
 SELECT
-  {{rosterIdParam}} AS roster_id,
-  (SELECT roster_name FROM roster_names WHERE roster_id = {{rosterIdParam}}) AS roster_name,
-  (SELECT tp."Logo Link" FROM team_profiles tp
-   WHERE UPPER(tp."Team Name") = UPPER(
-     (SELECT roster_name FROM roster_names WHERE roster_id = {{rosterIdParam}})
-   )
-   LIMIT 1) AS logo_url,
-  (SELECT json_agg(json_build_object('id', starter_id, 'handle', handle) ORDER BY starter_id)
-   FROM starter_profiles) AS starters,
-  (SELECT json_agg(json_build_object('id', alt_id, 'handle', handle, 'appearances', appearances)
-           ORDER BY appearances DESC, alt_id)
-   FROM alternate_profiles) AS alternates,
+  gi.team_group_id AS roster_id,
+  gi.team_name AS roster_name,
+  gi.logo_url,
+  COALESCE((SELECT ci.starters FROM current_iteration ci), '[]'::json) AS starters,
+  COALESCE((SELECT ci.alternates FROM current_iteration ci), '[]'::json) AS alternates,
   (SELECT debut_season FROM first_appearance) AS debut_season,
   (SELECT debut_split FROM first_appearance) AS debut_split,
   (SELECT debut_event FROM first_appearance) AS debut_event,
   (SELECT placement FROM best_result) AS best_result,
-  COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")) AS games,
-  COUNT(DISTINCT roster_scope.series_id) AS series_played,
-  SUM(roster_scope."Goals_All Zones") AS goals_total,
-  SUM(roster_scope."Goals_All Zones")::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS goals_avg,
-  SUM(roster_scope."Assists_All Zones") AS assists_total,
-  SUM(roster_scope."Assists_All Zones")::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS assists_avg,
-  SUM(roster_scope."Saves_All Zones") AS saves_total,
-  SUM(roster_scope."Saves_All Zones")::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS saves_avg,
-  SUM(roster_scope."Kills_All Zones") AS demos_total,
-  SUM(roster_scope."Kills_All Zones")::float / NULLIF(COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game")), 0) AS demos_avg
-FROM roster_scope;
+  COALESCE((SELECT ds.season FROM default_season ds), NULL) AS default_season,
+  COALESCE((
+    SELECT array_agg(season ORDER BY season DESC)
+    FROM (
+      SELECT DISTINCT gs.season AS season
+      FROM group_scope gs
+      WHERE gs.season IS NOT NULL
+    ) seasons
+  ), ARRAY[]::text[]) AS seasons_competed,
+  COALESCE((
+    SELECT array_agg(name ORDER BY name)
+    FROM (
+      SELECT DISTINCT gs.team_label AS name
+      FROM group_scope gs
+      JOIN group_identity gi2 ON true
+      WHERE UPPER(TRIM(gs.team_label)) <> UPPER(TRIM(gi2.team_name))
+    ) aliases
+  ), ARRAY[]::text[]) AS other_team_names,
+  COALESCE((
+    SELECT json_agg(
+      json_build_object('season', sr.season, 'iterations', sr.iterations)
+      ORDER BY sr.season DESC
+    )
+    FROM season_rosters sr
+  ), '[]'::json) AS season_rosters,
+  COUNT(DISTINCT (scope_stats.series_id, scope_stats."Game")) AS games,
+  COUNT(DISTINCT scope_stats.series_id) AS series_played,
+  SUM(scope_stats."Goals_All Zones") AS goals_total,
+  SUM(scope_stats."Goals_All Zones")::float / NULLIF(COUNT(DISTINCT (scope_stats.series_id, scope_stats."Game")), 0) AS goals_avg,
+  SUM(scope_stats."Assists_All Zones") AS assists_total,
+  SUM(scope_stats."Assists_All Zones")::float / NULLIF(COUNT(DISTINCT (scope_stats.series_id, scope_stats."Game")), 0) AS assists_avg,
+  SUM(scope_stats."Saves_All Zones") AS saves_total,
+  SUM(scope_stats."Saves_All Zones")::float / NULLIF(COUNT(DISTINCT (scope_stats.series_id, scope_stats."Game")), 0) AS saves_avg,
+  SUM(scope_stats."Kills_All Zones") AS demos_total,
+  SUM(scope_stats."Kills_All Zones")::float / NULLIF(COUNT(DISTINCT (scope_stats.series_id, scope_stats."Game")), 0) AS demos_avg
+FROM group_identity gi
+LEFT JOIN scope_stats ON true
+GROUP BY gi.team_group_id, gi.team_name, gi.logo_url;

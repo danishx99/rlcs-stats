@@ -4,27 +4,39 @@ import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
-import { rosterCtes } from "../utils/roster";
 const rosterSeasonSql = loadSql("../../sql/rosters/season.sql", import.meta.url);
 const rosterProfileSql = loadSql("../../sql/rosters/profile.sql", import.meta.url);
+
+function normalizeTeamGroupId(rawId: string) {
+  let decoded = rawId;
+  try {
+    decoded = decodeURIComponent(rawId);
+  } catch {
+    decoded = rawId;
+  }
+  decoded = decoded.trim();
+  if (!decoded) return decoded;
+  if (decoded.startsWith("org:") || decoded.startsWith("roster:")) {
+    return decoded;
+  }
+  return `roster:${decoded}`;
+}
 
 export async function handleRosterProfile(
   _req: IncomingMessage,
   res: ServerResponse,
-  url: URL,
+  _url: URL,
   rosterId: string
 ) {
-  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  const rosterIndex = values.length + 1;
+  const rosterKey = normalizeTeamGroupId(rosterId);
+  const rosterIndex = 1;
 
   try {
     const result = await pool.query(
       formatSql(rosterProfileSql, {
-        rosterCtes: rosterCtes(where),
         rosterIdParam: `$${rosterIndex}`
       }),
-      [...values, rosterId]
+      [rosterKey]
     );
 
     if (!result.rows.length) {
@@ -43,6 +55,12 @@ export async function handleRosterProfile(
         logoUrl: row.logo_url ?? null,
         starters: row.starters ?? [],
         alternates: row.alternates ?? [],
+        currentRoster: row.starters ?? [],
+        currentAlternates: row.alternates ?? [],
+        defaultSeason: row.default_season ?? null,
+        seasonsCompeted: row.seasons_competed ?? [],
+        seasonRosters: row.season_rosters ?? [],
+        otherTeamNames: row.other_team_names ?? [],
         debut,
         bestResult: row.best_result,
         games: Number(row.games ?? 0),
@@ -73,6 +91,7 @@ export async function handleRosterSeason(
   url: URL,
   rosterId: string
 ) {
+  const rosterKey = normalizeTeamGroupId(rosterId);
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const mode = normalizeMode(url.searchParams.get("mode"));
@@ -87,14 +106,14 @@ export async function handleRosterSeason(
   try {
     const result = await pool.query(
       formatSql(rosterSeasonSql, {
-        rosterCtes: rosterCtes(where),
+        where,
         rosterIdParam: `$${rosterIndex}`,
         goalsExpr,
         assistsExpr,
         savesExpr,
         demosExpr
       }),
-      [...values, rosterId]
+      [...values, rosterKey]
     );
 
     json(res, 200, {

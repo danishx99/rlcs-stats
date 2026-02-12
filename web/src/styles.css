@@ -1403,6 +1403,41 @@ body {
   color: var(--accent-2);
 }
 
+.roster-iterations-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.roster-iteration-card {
+  border: 1px solid rgba(122, 180, 245, 0.16);
+  background: linear-gradient(145deg, rgba(16, 24, 32, 0.95), rgba(24, 32, 48, 0.82));
+}
+
+.roster-iteration-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.roster-iteration-header h3 {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 1.05rem;
+}
+
+.roster-iteration-header span {
+  color: var(--ink-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.roster-iteration-block {
+  margin-top: 14px;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;

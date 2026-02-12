@@ -10,6 +10,7 @@
     "series:backfill": "psql \"${DATABASE_URL:-postgres://stats:stats_pw@localhost:5432/statsdb}\" -v ON_ERROR_STOP=1 -f sql/migrate-series-id.sql",
     "db:up": "docker compose up -d postgres adminer",
     "db:reset": "docker compose down -v && docker compose up -d",
+    "db:test:init": "bun run scripts/init-test-db.ts",
     "prod:up": "docker compose -f docker-compose.prod.yml --env-file env/.env.api --profile localdb up -d --build",
     "prod:down": "docker compose -f docker-compose.prod.yml --env-file env/.env.api down",
     "prod:logs": "docker compose -f docker-compose.prod.yml --env-file env/.env.api logs -f --tail=200",
@@ -21,7 +22,9 @@
     "dev": "concurrently -n api,web -c red,blue \"bun run dev:api\" \"bun run dev:web\"",
     "build:web": "vite build --config web/vite.config.ts",
     "preview:web": "vite preview --config web/vite.config.ts",
-    "test": "bun test"
+    "test": "bun test tests/unit --timeout 30000",
+    "test:integration": "bun run db:test:init && bun test tests/integration --timeout 180000",
+    "test:all": "bun run test && bun run test:integration"
   },
   "dependencies": {
     "csv-parse": "^5.6.0",

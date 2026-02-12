@@ -6,6 +6,7 @@ import { getAllStatOptions } from "../utils/stats";
 import { playerKeyExpr, rosterCtes } from "../utils/roster";
 const playersSql = loadSql("../../sql/search/players.sql", import.meta.url);
 const rostersSql = loadSql("../../sql/search/rosters.sql", import.meta.url);
+const teamsSql = loadSql("../../sql/search/teams.sql", import.meta.url);
 const eventsSql = loadSql("../../sql/search/events.sql", import.meta.url);
 
 export async function handleSearch(_req: IncomingMessage, res: ServerResponse, url: URL) {
@@ -14,7 +15,7 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
   const trimmed = query.trim();
 
   if (!trimmed) {
-    json(res, 200, { players: [], rosters: [], stats: [], events: [] });
+    json(res, 200, { players: [], teams: [], rosters: [], stats: [], events: [] });
     return;
   }
 
@@ -45,6 +46,7 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
     );
 
     const eventsResult = await pool.query(eventsSql, [like, limit]);
+    const teamsResult = await pool.query(teamsSql, [like, limit]);
 
     json(res, 200, {
       players: playersResult.rows.map((row) => ({
@@ -55,6 +57,15 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
           photoUrl: row.photo_url,
           country: row.country,
           realName: row.real_name
+        }
+      })),
+      teams: teamsResult.rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        type: "team",
+        meta: {
+          photoUrl: row.logo_url ?? null,
+          starters: row.starters ?? []
         }
       })),
       rosters: rostersResult.rows.map((row) => ({

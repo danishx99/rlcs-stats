@@ -62,7 +62,7 @@ export type SeriesDetailResponse = {
 export type SearchResult = {
   id: string;
   label: string;
-  type: "player" | "roster" | "stat" | "event";
+  type: "player" | "roster" | "team" | "stat" | "event";
   meta?: {
     photoUrl?: string | null;
     country?: string | null;
@@ -75,6 +75,7 @@ export type SearchResult = {
 
 export type SearchResponse = {
   players: SearchResult[];
+  teams: SearchResult[];
   rosters: SearchResult[];
   stats: SearchResult[];
   events: SearchResult[];
@@ -117,6 +118,23 @@ export type RosterProfile = {
   logoUrl?: string | null;
   starters: RosterStarter[];
   alternates: RosterAlternate[];
+  currentRoster?: RosterStarter[];
+  currentAlternates?: RosterAlternate[];
+  defaultSeason?: string | null;
+  seasonsCompeted?: string[];
+  otherTeamNames?: string[];
+  seasonRosters?: {
+    season: string;
+    iterations: {
+      rosterId: string;
+      teamLabelUsed: string | null;
+      seriesPlayed: number;
+      firstSeenDate: string | null;
+      lastSeenDate: string | null;
+      starters: RosterStarter[];
+      alternates: RosterAlternate[];
+    }[];
+  }[];
   debut: string | null;
   bestResult: string | null;
   games: number;

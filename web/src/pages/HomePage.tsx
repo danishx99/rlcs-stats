@@ -126,10 +126,10 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   }, [playerQuery]);
 
   const players = searchResults?.players ?? [];
-  const rosters = searchResults?.rosters ?? [];
+  const teams = searchResults?.teams ?? [];
   const stats = searchResults?.stats ?? [];
   const events = searchResults?.events ?? [];
-  const hasResults = players.length > 0 || rosters.length > 0 || stats.length > 0 || events.length > 0;
+  const hasResults = players.length > 0 || teams.length > 0 || stats.length > 0 || events.length > 0;
 
   const seasonLabel = latestSeason || "All Time";
 
@@ -196,23 +196,23 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                     })}
                   </div>
                 )}
-                {rosters.length > 0 && (
+                {teams.length > 0 && (
                   <div className="dash-search-group">
                     <div className="dash-search-group-title">Teams</div>
-                    {rosters.slice(0, 5).map((r) => {
-                      const img = proxyImageUrl(r.meta?.photoUrl);
+                    {teams.slice(0, 5).map((team) => {
+                      const img = proxyImageUrl(team.meta?.photoUrl);
                       return (
                         <div
-                          key={r.id}
+                          key={team.id}
                           className="dash-search-item"
-                          onClick={() => { setSearchQuery(""); navigate(`/rosters/${r.id}`); }}
+                          onClick={() => { setSearchQuery(""); navigate(`/rosters/${encodeURIComponent(team.id)}`); }}
                         >
                           <div className="dash-search-avatar dash-search-avatar--logo">
-                            {img ? <img src={img} alt="" /> : r.label.charAt(0)}
+                            {img ? <img src={img} alt="" /> : team.label.charAt(0)}
                           </div>
                           <div className="dash-search-item-info">
-                            <strong>{r.label}</strong>
-                            {r.meta?.starters && <span>{r.meta.starters.join(", ")}</span>}
+                            <strong>{team.label}</strong>
+                            {team.meta?.starters && <span>{team.meta.starters.join(", ")}</span>}
                           </div>
                           <span className="dash-search-type">Team</span>
                         </div>
