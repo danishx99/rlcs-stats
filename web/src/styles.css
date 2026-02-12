@@ -2776,6 +2776,10 @@ th {
   margin-bottom: 16px;
 }
 
+.event-grid--stats {
+  grid-template-columns: repeat(4, 1fr);
+}
+
 .event-panel {
   padding: 18px 20px;
 }
@@ -3364,6 +3368,12 @@ th {
   }
 }
 
+@media (max-width: 1200px) {
+  .event-grid--stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 900px) {
   .main-grid {
     grid-template-columns: 1fr;
@@ -3385,6 +3395,10 @@ th {
   }
 
   .event-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .event-grid--stats {
     grid-template-columns: 1fr;
   }
 
