@@ -6,6 +6,8 @@
   "scripts": {
     "load": "bun run src/run.ts",
     "load:players": "bun run src/run.ts --dir ./data --dataset players",
+    "series:preflight": "psql \"${DATABASE_URL:-postgres://stats:stats_pw@localhost:5432/statsdb}\" -v ON_ERROR_STOP=1 -P pager=off -f sql/series-id-preflight.sql",
+    "series:backfill": "psql \"${DATABASE_URL:-postgres://stats:stats_pw@localhost:5432/statsdb}\" -v ON_ERROR_STOP=1 -f sql/migrate-series-id.sql",
     "db:up": "docker compose up -d postgres adminer",
     "db:reset": "docker compose down -v && docker compose up -d",
     "prod:up": "docker compose -f docker-compose.prod.yml --env-file env/.env.api --profile localdb up -d --build",

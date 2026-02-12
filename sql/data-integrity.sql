@@ -171,6 +171,24 @@ current_series_teams AS (
   WHERE s.series_id IS NOT NULL
   GROUP BY s.series_id
 ),
+match_series_id_gaps AS (
+  SELECT
+    b.match_id,
+    MIN(m.season) AS season,
+    MIN(m.split) AS split,
+    MIN(m.regional) AS regional,
+    MIN(m.stage) AS stage,
+    MIN(m.round) AS round,
+    MAX(m.team_count) AS team_count,
+    ARRAY_AGG(DISTINCT b.team_key ORDER BY b.team_key) AS teams,
+    COUNT(*) FILTER (WHERE b.series_id IS NULL OR TRIM(b.series_id) = '') AS missing_series_id_rows,
+    COUNT(*) AS total_rows,
+    MIN(m.source_file) AS source_file
+  FROM base_stats b
+  JOIN match_meta m ON m.match_id = b.match_id
+  GROUP BY b.match_id
+  HAVING COUNT(*) FILTER (WHERE b.series_id IS NULL OR TRIM(b.series_id) = '') > 0
+),
 series_from_id AS (
   SELECT
     b.series_id,
@@ -883,6 +901,39 @@ checks AS (
       ) x
     ), '[]'::jsonb)
   FROM series_id_integrity_failures s
+
+  UNION ALL
+
+  -- C19
+  SELECT
+    'C19_match_ids_with_missing_series_id_rows',
+    'critical',
+    CASE WHEN COUNT(*) = 0 THEN 'pass' ELSE 'fail' END,
+    'match_ids_with_null_or_blank_series_id_rows',
+    COUNT(*)::bigint,
+    '0',
+    COALESCE((
+      SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+        'match_id', x.match_id,
+        'season', x.season,
+        'split', x.split,
+        'regional', x.regional,
+        'stage', x.stage,
+        'round', x.round,
+        'team_count', x.team_count,
+        'teams', x.teams,
+        'missing_series_id_rows', x.missing_series_id_rows,
+        'total_rows', x.total_rows,
+        'source_file', x.source_file
+      ))
+      FROM (
+        SELECT msg.*
+        FROM match_series_id_gaps msg
+        ORDER BY msg.missing_series_id_rows DESC, msg.match_id
+        LIMIT 20
+      ) x
+    ), '[]'::jsonb)
+  FROM match_series_id_gaps
 
   UNION ALL
 

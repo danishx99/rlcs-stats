@@ -5,9 +5,12 @@ type StatPickerProps = {
   categories: StatCategory[];
   selected: string[];
   onToggle: (key: string) => void;
+  single?: boolean;
+  triggerLabel?: string;
+  dropdown?: boolean;
 };
 
-export default function StatPicker({ categories, selected, onToggle }: StatPickerProps) {
+export default function StatPicker({ categories, selected, onToggle, single, triggerLabel, dropdown }: StatPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -42,17 +45,25 @@ export default function StatPicker({ categories, selected, onToggle }: StatPicke
     }))
     .filter((cat) => cat.stats.length > 0);
 
+  const triggerText = single
+    ? triggerLabel || "Select Stat"
+    : "+ Add Stat";
+
+  const triggerClass = single
+    ? "ghost stat-picker-trigger stat-picker-trigger--select"
+    : "ghost stat-picker-trigger";
+
   return (
-    <div className="stat-picker" ref={ref}>
+    <div className={`stat-picker${dropdown ? " stat-picker--dropdown" : ""}`} ref={ref}>
       <button
         type="button"
-        className="ghost stat-picker-trigger"
+        className={triggerClass}
         onClick={() => {
           setOpen(!open);
           if (!open) setSearch("");
         }}
       >
-        + Add Stat
+        {triggerText}
       </button>
       {open && (
         <div className="stat-picker-popover">
@@ -75,9 +86,13 @@ export default function StatPicker({ categories, selected, onToggle }: StatPicke
                   {cat.stats.map((stat) => (
                     <label key={stat.key} className="stat-toggle">
                       <input
-                        type="checkbox"
+                        type={single ? "radio" : "checkbox"}
+                        name={single ? "stat-picker-single" : undefined}
                         checked={selected.includes(stat.key)}
-                        onChange={() => onToggle(stat.key)}
+                        onChange={() => {
+                          onToggle(stat.key);
+                          if (single) setOpen(false);
+                        }}
                       />
                       {stat.label}
                     </label>

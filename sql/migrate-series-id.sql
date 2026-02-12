@@ -3,6 +3,9 @@
 -- series_id = md5(Season|Split|Regional|Day|Stage|Round|Best of|team_a|team_b)
 -- where team_a/team_b are the canonical (MIN/MAX) team pair for the match.
 -- Single-team matches and >2-team collisions get series_id = NULL.
+\set ON_ERROR_STOP on
+
+BEGIN;
 
 ALTER TABLE stats ADD COLUMN IF NOT EXISTS series_id TEXT;
 
@@ -45,3 +48,19 @@ FROM match_agg ma
 WHERE s."Match ID" = ma.match_id;
 
 CREATE INDEX IF NOT EXISTS idx_stats_series_id ON stats (series_id);
+
+DO $$
+DECLARE
+  missing_series_ids INTEGER;
+BEGIN
+  SELECT COUNT(*)::INT
+  INTO missing_series_ids
+  FROM stats
+  WHERE series_id IS NULL OR TRIM(series_id) = '';
+
+  IF missing_series_ids > 0 THEN
+    RAISE EXCEPTION 'Series id backfill failed: % rows remain NULL/blank', missing_series_ids;
+  END IF;
+END $$;
+
+COMMIT;

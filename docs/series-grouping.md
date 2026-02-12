@@ -59,8 +59,18 @@ After all CSV files are ingested, `computeSeriesIds()` in `src/load-csv.ts` runs
 For databases that predate the column:
 
 ```bash
-psql postgres://stats:stats_pw@localhost:5432/statsdb -f sql/migrate-series-id.sql
+psql postgres://stats:stats_pw@localhost:5432/statsdb -v ON_ERROR_STOP=1 -P pager=off -f sql/series-id-preflight.sql
+psql postgres://stats:stats_pw@localhost:5432/statsdb -v ON_ERROR_STOP=1 -f sql/migrate-series-id.sql
 ```
+
+Shortcut scripts:
+
+```bash
+bun run series:preflight
+bun run series:backfill
+```
+
+The migration runs in one transaction (`BEGIN ... COMMIT`) and includes a hard assertion that fails if any `stats.series_id` remains NULL/blank. If that assertion fails, the whole transaction is rolled back.
 
 ### Algorithm
 
@@ -91,7 +101,8 @@ WHERE s.series_id IS NOT NULL
 - **Schema:** `src/stats-schema.ts` — column definition + comment
 - **Loader:** `src/load-csv.ts` — `computeSeriesIds()` backfill function
 - **Runner:** `src/run.ts` — calls `computeSeriesIds` after ingestion; adds column + index on startup
-- **Migration:** `sql/migrate-series-id.sql` — standalone backfill for existing databases
+- **Migration:** `sql/migrate-series-id.sql` — transactional backfill for existing databases
+- **Preflight:** `sql/series-id-preflight.sql` — current coverage/impact snapshot before and after backfill
 - **Server queries:** All SQL templates in `server/sql/` reference `s.series_id` directly
 - **Index:** `idx_stats_series_id` on `stats(series_id)`
 
@@ -119,5 +130,19 @@ SELECT COUNT(DISTINCT series_id) FROM stats WHERE series_id IS NOT NULL;
 For a consolidated check report, run:
 
 ```bash
-psql postgres://stats:stats_pw@localhost:5432/statsdb -f sql/verify-series-grouping.sql
+psql postgres://stats:stats_pw@localhost:5432/statsdb -v ON_ERROR_STOP=1 -f sql/verify-series-grouping.sql
 ```
+
+## Recovery Runbook
+
+If `series_id` unexpectedly appears cleared:
+
+1. Run preflight:
+   ```bash
+   psql postgres://stats:stats_pw@localhost:5432/statsdb -v ON_ERROR_STOP=1 -P pager=off -f sql/series-id-preflight.sql
+   ```
+2. Run atomic backfill:
+   ```bash
+   psql postgres://stats:stats_pw@localhost:5432/statsdb -v ON_ERROR_STOP=1 -f sql/migrate-series-id.sql
+   ```
+3. Re-run preflight and confirm `null_or_blank_series_id_rows = 0`.

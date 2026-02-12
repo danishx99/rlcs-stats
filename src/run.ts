@@ -170,6 +170,24 @@ async function recordFileIngest(
   );
 }
 
+async function assertSeriesIdsPresent(client: Client): Promise<void> {
+  const result = await client.query(
+    `
+    SELECT
+      COUNT(*)::INT AS total_rows,
+      COUNT(*) FILTER (WHERE series_id IS NULL OR TRIM(series_id) = '')::INT AS missing_series_ids
+    FROM stats;
+    `
+  );
+  const totalRows = Number(result.rows[0]?.total_rows ?? 0);
+  const missingSeriesIds = Number(result.rows[0]?.missing_series_ids ?? 0);
+  if (totalRows > 0 && missingSeriesIds > 0) {
+    throw new Error(
+      `Series id validation failed: ${missingSeriesIds} of ${totalRows} stats rows have NULL/blank series_id after backfill.`
+    );
+  }
+}
+
 async function listFiles(dir: string, pattern: string): Promise<string[]> {
   let entries: string[] = [];
   try {
@@ -331,6 +349,8 @@ async function main(): Promise<void> {
       console.log("Generating series ids...");
       const updated = await computeSeriesIds(client);
       console.log(`Series id backfill complete: ${updated} rows updated`);
+      await assertSeriesIdsPresent(client);
+      console.log("Series id validation complete: all stats rows have series_id");
       console.log("Refreshing series roster table...");
       const seriesRosterRows = await refreshSeriesRoster(client);
       console.log(`Series roster refresh complete: ${seriesRosterRows} rows`);

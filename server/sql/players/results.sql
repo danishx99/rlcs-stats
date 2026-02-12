@@ -166,7 +166,32 @@ series_detail AS (
     COALESCE(os.opp_wins, 0) AS opponent_wins,
     ROW_NUMBER() OVER (
       PARTITION BY sw.season, sw.split, sw.regional
-      ORDER BY sw.match_date DESC NULLS LAST, sw.series_id DESC
+      ORDER BY
+        CASE
+          WHEN UPPER(TRIM(sw.round)) LIKE 'GF%' THEN 100
+          WHEN UPPER(TRIM(sw.round)) = 'UF' THEN 90
+          WHEN UPPER(TRIM(sw.round)) = 'LF' THEN 90
+          WHEN UPPER(TRIM(sw.round)) = 'SF' THEN 80
+          WHEN UPPER(TRIM(sw.round)) = 'USF' THEN 80
+          WHEN UPPER(TRIM(sw.round)) = 'LSF' THEN 80
+          WHEN UPPER(TRIM(sw.round)) = 'QF' THEN 70
+          WHEN UPPER(TRIM(sw.round)) = 'UQF' THEN 70
+          WHEN UPPER(TRIM(sw.round)) = 'LQF' THEN 70
+          WHEN UPPER(TRIM(sw.round)) = 'LR3' THEN 60
+          WHEN UPPER(TRIM(sw.round)) = 'LR2' THEN 50
+          WHEN UPPER(TRIM(sw.round)) = 'LR1' THEN 40
+          WHEN UPPER(TRIM(sw.round)) = 'UR1' THEN 40
+          WHEN UPPER(TRIM(sw.round)) = 'R1' THEN 40
+          WHEN UPPER(TRIM(sw.round)) = 'SWISS 5' THEN 30
+          WHEN UPPER(TRIM(sw.round)) = 'SWISS 4' THEN 28
+          WHEN UPPER(TRIM(sw.round)) = 'SWISS 3' THEN 26
+          WHEN UPPER(TRIM(sw.round)) = 'SWISS 2' THEN 24
+          WHEN UPPER(TRIM(sw.round)) = 'SWISS 1' THEN 22
+          WHEN UPPER(TRIM(sw.round)) = 'GROUPS' THEN 12
+          ELSE 0
+        END DESC,
+        sw.match_date DESC NULLS LAST,
+        sw.series_id DESC
     ) AS rn
   FROM series_winners sw
   LEFT JOIN opponent_summary os ON sw.series_id = os.series_id

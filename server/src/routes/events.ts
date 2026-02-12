@@ -28,6 +28,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         where,
         valueExpr,
         havingClause: "",
+        sortDir: "DESC",
         limitParam: "$4"
       });
       return { key, option, sql };

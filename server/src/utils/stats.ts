@@ -210,6 +210,15 @@ export function resolveStatOption(key: string) {
   return STAT_OPTIONS.find((option) => option.key === key) ?? null;
 }
 
+const TEAM_PER_GAME_AVG_KEYS = new Set(["goals", "assists", "saves", "demos", "shots", "score"]);
+
+export function shouldUseGameDenominatorForTeamAvg(option: StatOption | null) {
+  if (!option || option.kind) {
+    return false;
+  }
+  return TEAM_PER_GAME_AVG_KEYS.has(option.key);
+}
+
 // Composite rating: data-driven weights from win-correlation analysis (r=0.731)
 // Goals & assists equally weighted (both ~0.38 Pearson r with victory)
 // Shooting % as decimal (0-1), demo differential (demos - deaths)
@@ -307,7 +316,9 @@ export function categorizeStatOptions(options: StatOption[]): StatCategory[] {
   );
 
   const categorized = new Set<string>();
-  const categories: StatCategory[] = [];
+  const categories: StatCategory[] = [
+    { name: "Core", stats: [...STAT_OPTIONS] }
+  ];
 
   for (const rule of STAT_CATEGORY_RULES) {
     const stats: StatOption[] = [];

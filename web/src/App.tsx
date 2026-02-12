@@ -69,7 +69,7 @@ export default function App() {
           />
           <Route path="/players/:uniqueId" element={<PlayerPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
           <Route path="/rosters/:rosterId" element={<RosterPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
-          <Route path="/stats/:statKey" element={<StatPage filters={filters} />} />
+          <Route path="/stats/:statKey" element={<StatPage />} />
           <Route path="/events/:eventName" element={<EventPage />} />
           <Route path="/series" element={<SeriesPage />} />
         </Routes>
