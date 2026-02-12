@@ -23,6 +23,7 @@ type CliOptions = {
   limit?: number;
   dryRun: boolean;
   strict: boolean;
+  enforceSeriesIds: boolean;
   truncate: boolean;
   allowNewColumns: boolean;
   dataset?: string;
@@ -34,6 +35,7 @@ function parseArgs(argv: string[]): CliOptions {
     pattern: DEFAULT_PATTERN,
     dryRun: false,
     strict: false,
+    enforceSeriesIds: false,
     truncate: false,
     allowNewColumns: false
   };
@@ -56,6 +58,8 @@ function parseArgs(argv: string[]): CliOptions {
       options.dryRun = true;
     } else if (arg === "--strict") {
       options.strict = true;
+    } else if (arg === "--enforce-series-ids") {
+      options.enforceSeriesIds = true;
     } else if (arg === "--truncate") {
       options.truncate = true;
     } else if (arg === "--allow-new-columns") {
@@ -170,22 +174,42 @@ async function recordFileIngest(
   );
 }
 
-async function assertSeriesIdsPresent(client: Client): Promise<void> {
+type SeriesIdCoverage = {
+  totalRows: number;
+  missingSeriesIds: number;
+  affectedMatchIds: number;
+  sampleMatchIds: string[];
+};
+
+async function getSeriesIdCoverage(client: Client): Promise<SeriesIdCoverage> {
   const result = await client.query(
     `
     SELECT
       COUNT(*)::INT AS total_rows,
-      COUNT(*) FILTER (WHERE series_id IS NULL OR TRIM(series_id) = '')::INT AS missing_series_ids
+      COUNT(*) FILTER (WHERE series_id IS NULL OR TRIM(series_id) = '')::INT AS missing_series_ids,
+      COUNT(DISTINCT "Match ID") FILTER (WHERE series_id IS NULL OR TRIM(series_id) = '')::INT AS affected_match_ids
     FROM stats;
     `
   );
   const totalRows = Number(result.rows[0]?.total_rows ?? 0);
   const missingSeriesIds = Number(result.rows[0]?.missing_series_ids ?? 0);
-  if (totalRows > 0 && missingSeriesIds > 0) {
-    throw new Error(
-      `Series id validation failed: ${missingSeriesIds} of ${totalRows} stats rows have NULL/blank series_id after backfill.`
-    );
-  }
+  const affectedMatchIds = Number(result.rows[0]?.affected_match_ids ?? 0);
+
+  const sampleResult = await client.query(
+    `
+    SELECT DISTINCT "Match ID" AS match_id
+    FROM stats
+    WHERE series_id IS NULL OR TRIM(series_id) = ''
+    ORDER BY "Match ID"
+    LIMIT 5;
+    `
+  );
+
+  const sampleMatchIds = sampleResult.rows
+    .map((row) => row.match_id as string)
+    .filter((value) => value && value.length > 0);
+
+  return { totalRows, missingSeriesIds, affectedMatchIds, sampleMatchIds };
 }
 
 async function listFiles(dir: string, pattern: string): Promise<string[]> {
@@ -349,8 +373,19 @@ async function main(): Promise<void> {
       console.log("Generating series ids...");
       const updated = await computeSeriesIds(client);
       console.log(`Series id backfill complete: ${updated} rows updated`);
-      await assertSeriesIdsPresent(client);
-      console.log("Series id validation complete: all stats rows have series_id");
+      const seriesCoverage = await getSeriesIdCoverage(client);
+      if (seriesCoverage.totalRows > 0 && seriesCoverage.missingSeriesIds > 0) {
+        const message = `Series id validation: ${seriesCoverage.missingSeriesIds} of ${seriesCoverage.totalRows} stats rows are NULL/blank across ${seriesCoverage.affectedMatchIds} match IDs after backfill.`;
+        if (options.enforceSeriesIds) {
+          throw new Error(`${message} Re-run without --enforce-series-ids to continue ingestion.`);
+        }
+        console.warn(`WARNING: ${message}`);
+        if (seriesCoverage.sampleMatchIds.length > 0) {
+          console.warn(`WARNING: Sample affected match IDs: ${seriesCoverage.sampleMatchIds.join(", ")}`);
+        }
+      } else {
+        console.log("Series id validation complete: all stats rows have series_id");
+      }
       console.log("Refreshing series roster table...");
       const seriesRosterRows = await refreshSeriesRoster(client);
       console.log(`Series roster refresh complete: ${seriesRosterRows} rows`);

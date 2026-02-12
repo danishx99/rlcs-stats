@@ -1,0 +1,9 @@
+database_name	total_rows	null_series_id_rows	null_or_blank_series_id_rows	affected_match_ids	matches_with_2_teams	matches_not_2_teams
+statsdb	28026	1	1	1	4671	1
+(1 row)
+source_file	missing_series_rows
+2025 Season Database - 2025 Birmingham Major (2).csv	1
+(1 row)
+match_id	missing_series_rows
+20250509-173321-2025-Raleigh Major -Open 5-GSL-LQF-G2	1
+(1 row)
