@@ -7,11 +7,7 @@ import { formatDate } from "../utils/date";
 import Leaderboard from "../components/Leaderboard";
 import StatPicker from "../components/StatPicker";
 
-const LEADERBOARD_TITLES = ["Top 10 Players (Rating)", "Top Scorers (Goals)", "Top Executioners (Demos)", "Top Saviours (Saves)", "Top Assists (Assists)"];
-
-// Pre-selected on load — matches the hardcoded leaderboards shown above
-const DEFAULT_STATS = ["rating", "goals", "demos", "saves", "assists"];
-// Shown as unchecked toggles for easy discovery
+const DEFAULT_STATS: string[] = [];
 const SUGGESTED_STATS = ["shots", "score", "avg_speed", "on_ground", "in_air"];
 
 function ordinal(n: number) {
@@ -251,12 +247,6 @@ export default function EventPage() {
     .join(" – ");
 
   const hasSearchResults = searchResults.length > 0;
-  const ratingLeaderboard = leaderboards.find((lb) => lb.metric?.key === "rating") ?? leaderboards[0] ?? null;
-  const goalsLeaderboard = leaderboards.find((lb) => lb.metric.key === "goals");
-  const demosLeaderboard = leaderboards.find((lb) => lb.metric.key === "demos");
-  const savesLeaderboard = leaderboards.find((lb) => lb.metric.key === "saves");
-  const assistsLeaderboard = leaderboards.find((lb) => lb.metric.key === "assists");
-
   return (
     <div className="page page-no-nav">
       <button className="ghost back-button" onClick={() => navigate("/")}>
@@ -447,42 +437,6 @@ export default function EventPage() {
           )}
         </div>
       </div>
-
-      {/* Bottom row: Ratings, Goals, Demos, Saves, Assists */}
-      {(ratingLeaderboard || goalsLeaderboard || demosLeaderboard || savesLeaderboard || assistsLeaderboard) && (
-        <div className="event-grid event-grid--stats">
-          {ratingLeaderboard && (
-            <div className="event-panel panel">
-              <h3>{LEADERBOARD_TITLES[0]}</h3>
-              <Leaderboard data={ratingLeaderboard} />
-            </div>
-          )}
-          {goalsLeaderboard && (
-            <div className="event-panel panel">
-              <h3>{LEADERBOARD_TITLES[1]}</h3>
-              <Leaderboard data={goalsLeaderboard} />
-            </div>
-          )}
-          {demosLeaderboard && (
-            <div className="event-panel panel">
-              <h3>{LEADERBOARD_TITLES[2]}</h3>
-              <Leaderboard data={demosLeaderboard} />
-            </div>
-          )}
-          {savesLeaderboard && (
-            <div className="event-panel panel">
-              <h3>{LEADERBOARD_TITLES[3]}</h3>
-              <Leaderboard data={savesLeaderboard} />
-            </div>
-          )}
-          {assistsLeaderboard && (
-            <div className="event-panel panel">
-              <h3>{LEADERBOARD_TITLES[4]}</h3>
-              <Leaderboard data={assistsLeaderboard} />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Pick a stat — checkboxes only */}
       <div className="event-pick-stat panel">
