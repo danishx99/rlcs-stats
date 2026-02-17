@@ -329,8 +329,13 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                   const maxPts = standings.rows[0].points || 1;
                   const barWidth = Math.round((row.points / maxPts) * 100);
                   const logoSrc = proxyImageUrl(row.logoUrl);
+                  const orgId = `org:${row.teamName.trim().toUpperCase()}`;
                   return (
-                    <li key={row.rank}>
+                    <li
+                      key={row.rank}
+                      className="dash-standings-item"
+                      onClick={() => navigate(`/rosters/${encodeURIComponent(orgId)}`)}
+                    >
                       <span className="dash-standings-rank">{row.rank}</span>
                       <div className="dash-standings-logo">
                         {logoSrc ? <img src={logoSrc} alt="" /> : null}

@@ -2162,6 +2162,15 @@ th {
 
 .dash-standings-list li:last-child { border-bottom: none; }
 
+.dash-standings-item {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dash-standings-item:hover {
+  background: rgba(255, 130, 67, 0.08);
+}
+
 .dash-standings-rank {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.75rem;
