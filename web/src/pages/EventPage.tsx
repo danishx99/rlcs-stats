@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import type { EventDetail, EventTeam, LeaderboardResponse, MetaResponse, SearchResponse, StatCategory, StatOption } from "../types/api";
+import type { EventBracket, EventDetail, EventTeam, LeaderboardResponse, MetaResponse, SearchResponse, StatCategory, StatOption } from "../types/api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatDate } from "../utils/date";
 import Leaderboard from "../components/Leaderboard";
@@ -39,6 +39,7 @@ export default function EventPage() {
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [teams, setTeams] = useState<EventTeam[]>([]);
+  const [bracket, setBracket] = useState<EventBracket | null>(null);
   const [leaderboards, setLeaderboards] = useState<LeaderboardResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +71,7 @@ export default function EventPage() {
         const response = await api.eventDetail(decodeURIComponent(eventName!), { season: urlSeason, split: urlSplit });
         setEvent(response.event);
         setTeams(response.teams);
+        setBracket(response.bracket);
         setLeaderboards(response.leaderboards);
       } catch (err) {
         console.error(err);
@@ -79,6 +81,7 @@ export default function EventPage() {
         } else {
           setError("Failed to load event details.");
         }
+        setBracket(null);
       } finally {
         setLoading(false);
       }
@@ -376,9 +379,9 @@ export default function EventPage() {
         </div>
       </div>
 
-      {/* Top row: Teams + Top 10 Players (rating) */}
+      {/* Top row: Teams + Bracket */}
       <div className="event-grid">
-        <div className="event-panel panel">
+        <div className="event-panel event-panel--bracket panel">
           <h3>Top Teams</h3>
           {teams.length > 0 ? (
             <ol className="event-teams-list">
@@ -417,18 +420,43 @@ export default function EventPage() {
           )}
         </div>
         <div className="event-panel panel">
-          <h3>{LEADERBOARD_TITLES[0]}</h3>
-          {ratingLeaderboard ? (
-            <Leaderboard data={ratingLeaderboard} />
+          <div className="event-resource-header">
+            <h3>Bracket</h3>
+            {bracket?.liquipediaUrl && (
+              <a href={bracket.liquipediaUrl} target="_blank" rel="noreferrer noopener">
+                View on Liquipedia
+              </a>
+            )}
+          </div>
+          {bracket && proxyImageUrl(bracket.imageUrl) ? (
+            <a
+              className="event-bracket-image-link"
+              href={bracket.imageUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <img
+                className="event-bracket-image"
+                src={proxyImageUrl(bracket.imageUrl)!}
+                alt={`${event.name} bracket`}
+                loading="lazy"
+              />
+            </a>
           ) : (
-            <p className="dash-search-status">No rating data for this event.</p>
+            <p className="dash-search-status">No bracket resources for this event.</p>
           )}
         </div>
       </div>
 
-      {/* Bottom row: Goals, Demos, Saves, Assists */}
-      {(goalsLeaderboard || demosLeaderboard || savesLeaderboard || assistsLeaderboard) && (
+      {/* Bottom row: Ratings, Goals, Demos, Saves, Assists */}
+      {(ratingLeaderboard || goalsLeaderboard || demosLeaderboard || savesLeaderboard || assistsLeaderboard) && (
         <div className="event-grid event-grid--stats">
+          {ratingLeaderboard && (
+            <div className="event-panel panel">
+              <h3>{LEADERBOARD_TITLES[0]}</h3>
+              <Leaderboard data={ratingLeaderboard} />
+            </div>
+          )}
           {goalsLeaderboard && (
             <div className="event-panel panel">
               <h3>{LEADERBOARD_TITLES[1]}</h3>

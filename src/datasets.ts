@@ -12,8 +12,10 @@ import {
 } from "./teams-schema";
 import { createStandingsTableSql } from "./standings-schema";
 import { loadStandingsCsv } from "./load-standings";
+import { createBracketsTableSql, addBracketsColumnsSql } from "./brackets-schema";
+import { loadBracketsCsv } from "./load-brackets";
 
-export type DatasetKey = "matches" | "players" | "teams" | "standings";
+export type DatasetKey = "matches" | "players" | "teams" | "standings" | "brackets";
 
 export type DatasetConfig = {
   key: DatasetKey;
@@ -99,6 +101,20 @@ export const DATASETS: DatasetConfig[] = [
     customLoader: async (client, filePaths, dryRun) => {
       for (const filePath of filePaths) {
         await loadStandingsCsv(client, filePath, dryRun);
+      }
+    }
+  },
+  {
+    key: "brackets",
+    label: "brackets",
+    dataSubdir: "brackets",
+    tableName: "brackets",
+    schemaFile: "src/brackets-schema.ts",
+    createTableSql: createBracketsTableSql,
+    addColumnsSql: addBracketsColumnsSql,
+    customLoader: async (client, filePaths, dryRun) => {
+      for (const filePath of filePaths) {
+        await loadBracketsCsv(client, filePath, dryRun);
       }
     }
   }

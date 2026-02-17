@@ -312,9 +312,15 @@ export type EventTeam = {
   logoUrl: string | null;
 };
 
+export type EventBracket = {
+  imageUrl: string;
+  liquipediaUrl: string;
+};
+
 export type EventDetailResponse = {
   event: EventDetail;
   teams: EventTeam[];
+  bracket: EventBracket | null;
   leaderboards: LeaderboardResponse[];
 };
 

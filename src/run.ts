@@ -242,10 +242,10 @@ async function main(): Promise<void> {
     await client.query(createFileIngestTableSql);
     for (const dataset of datasets) {
       await client.query(dataset.createTableSql);
-      if (dataset.customLoader) continue;
       if (dataset.addColumnsSql) {
         await client.query(dataset.addColumnsSql);
       }
+      if (dataset.customLoader) continue;
       await client.query(addIngestionColumnsSql(dataset.tableName));
       await client.query(addRowHashColumnSql(dataset.tableName));
       if (dataset.addCommentsSql) {

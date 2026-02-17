@@ -8,6 +8,7 @@ import { playerKeyExpr } from "../utils/roster";
 const detailSql = loadSql("../../sql/events/detail.sql", import.meta.url);
 const topTeamsSql = loadSql("../../sql/events/top-teams.sql", import.meta.url);
 const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
+const bracketSql = loadSql("../../sql/events/bracket.sql", import.meta.url);
 
 const LEADERBOARD_METRICS = ["rating", "goals", "demos", "saves", "assists"];
 
@@ -66,6 +67,14 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
       }))
     }));
 
+    const bracketSeason = (detail.season as string | null) ?? season;
+    const bracketSplit = (detail.split as string | null) ?? split;
+    let bracketRow: { bracket_image_url: string | null; liquipedia_url: string | null } | null = null;
+    if (bracketSeason && bracketSplit && detail.event_name) {
+      const bracketResult = await pool.query(bracketSql, [bracketSeason, bracketSplit, detail.event_name]);
+      bracketRow = (bracketResult.rows[0] as { bracket_image_url: string | null; liquipedia_url: string | null } | undefined) ?? null;
+    }
+
     json(res, 200, {
       event: {
         name: detail.event_name,
@@ -85,6 +94,13 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         placementEnd: Number(row.placement_end ?? 0),
         logoUrl: row.logo_url ?? null
       })),
+      bracket:
+        bracketRow?.bracket_image_url && bracketRow?.liquipedia_url
+          ? {
+              imageUrl: bracketRow.bracket_image_url,
+              liquipediaUrl: bracketRow.liquipedia_url
+            }
+          : null,
       leaderboards
     });
   } catch (error) {
