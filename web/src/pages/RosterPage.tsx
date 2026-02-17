@@ -182,6 +182,17 @@ export default function RosterPage({
                   </div>
                 </div>
               )}
+
+              {(iteration.alsoCompetedUnder?.length ?? 0) > 0 && (
+                <div className="profile-teams roster-iteration-block">
+                  <div className="section-title">Also Competed Under</div>
+                  <div className="tag-list">
+                    {(iteration.alsoCompetedUnder ?? []).map((teamName) => (
+                      <span key={teamName} className="tag">{teamName}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

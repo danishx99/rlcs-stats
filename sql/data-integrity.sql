@@ -337,6 +337,8 @@ player_name_id_variants AS (
     COUNT(*) AS row_count
   FROM stats s
   WHERE NULLIF(TRIM(s."Player Name"), '') IS NOT NULL
+    -- Known exception: "Shadow" is used by multiple real players in this dataset.
+    AND LOWER(TRIM(s."Player Name")) <> 'shadow'
   GROUP BY NULLIF(TRIM(s."Player Name"), '')
   HAVING COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) > 1
 ),
@@ -362,17 +364,68 @@ playoff_team_series AS (
     UPPER(TRIM(b.round)),
     b.team_key
 ),
+playoff_series_catalog AS (
+  SELECT DISTINCT
+    pts.season,
+    pts.split,
+    pts.regional,
+    pts.series_id,
+    pts.series_date
+  FROM playoff_team_series pts
+),
+playoff_series_instances_marked AS (
+  SELECT
+    psc.*,
+    CASE
+      WHEN LAG(psc.series_date) OVER (
+        PARTITION BY psc.season, psc.split, psc.regional
+        ORDER BY psc.series_date, psc.series_id
+      ) IS NULL THEN 1
+      WHEN psc.series_date - LAG(psc.series_date) OVER (
+        PARTITION BY psc.season, psc.split, psc.regional
+        ORDER BY psc.series_date, psc.series_id
+      ) > INTERVAL '7 days' THEN 1
+      ELSE 0
+    END AS starts_new_instance
+  FROM playoff_series_catalog psc
+),
+playoff_series_instances AS (
+  SELECT
+    psim.season,
+    psim.split,
+    psim.regional,
+    psim.series_id,
+    psim.series_date,
+    SUM(psim.starts_new_instance) OVER (
+      PARTITION BY psim.season, psim.split, psim.regional
+      ORDER BY psim.series_date, psim.series_id
+      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    )::int AS event_instance_id
+  FROM playoff_series_instances_marked psim
+),
+playoff_team_series_scoped AS (
+  SELECT
+    pts.*,
+    psi.event_instance_id
+  FROM playoff_team_series pts
+  JOIN playoff_series_instances psi
+    ON  pts.season IS NOT DISTINCT FROM psi.season
+    AND pts.split IS NOT DISTINCT FROM psi.split
+    AND pts.regional IS NOT DISTINCT FROM psi.regional
+    AND pts.series_id = psi.series_id
+),
 playoff_series_ranked AS (
   SELECT
     pts.*,
     RANK() OVER (PARTITION BY pts.series_id ORDER BY pts.game_wins DESC) AS series_rank
-  FROM playoff_team_series pts
+  FROM playoff_team_series_scoped pts
 ),
 playoff_team_latest AS (
-  SELECT DISTINCT ON (season, split, regional, team_key)
+  SELECT DISTINCT ON (season, split, regional, event_instance_id, team_key)
     season,
     split,
     regional,
+    event_instance_id,
     team_key,
     round_key,
     series_date,
@@ -381,13 +434,14 @@ playoff_team_latest AS (
     series_rank,
     (series_rank = 1) AS won_latest_series
   FROM playoff_series_ranked
-  ORDER BY season, split, regional, team_key, series_date DESC NULLS LAST, series_id DESC
+  ORDER BY season, split, regional, event_instance_id, team_key, series_date DESC NULLS LAST, series_id DESC
 ),
 playoff_unresolved_winners AS (
   SELECT
     ptl.season,
     ptl.split,
     ptl.regional,
+    ptl.event_instance_id,
     ptl.team_key,
     ptl.round_key,
     ptl.series_date,
@@ -410,13 +464,14 @@ playoff_round_depth AS (
       WHEN pts.round_key IN ('LR1','UR1','R1') THEN 40
       ELSE 0
     END AS round_depth
-  FROM playoff_team_series pts
+  FROM playoff_team_series_scoped pts
 ),
 playoff_bracket_conflicts AS (
   SELECT
     a.season,
     a.split,
     a.regional,
+    a.event_instance_id,
     a.team_key,
     a.round_key   AS deep_round,
     a.round_depth  AS deep_depth,
@@ -431,6 +486,7 @@ playoff_bracket_conflicts AS (
     ON  a.season   IS NOT DISTINCT FROM b.season
     AND a.split    IS NOT DISTINCT FROM b.split
     AND a.regional IS NOT DISTINCT FROM b.regional
+    AND a.event_instance_id = b.event_instance_id
     AND a.team_key = b.team_key
     AND a.series_id <> b.series_id
   WHERE a.round_depth > b.round_depth
@@ -950,6 +1006,7 @@ checks AS (
         'season', x.season,
         'split', x.split,
         'regional', x.regional,
+        'event_instance_id', x.event_instance_id,
         'team', x.team_key,
         'latest_round', x.round_key,
         'latest_series_id', x.series_id,
@@ -980,6 +1037,7 @@ checks AS (
         'season', x.season,
         'split', x.split,
         'regional', x.regional,
+        'event_instance_id', x.event_instance_id,
         'team', x.team_key,
         'deep_round', x.deep_round,
         'deep_date', x.deep_date,

@@ -131,6 +131,7 @@ export type RosterProfile = {
       seriesPlayed: number;
       firstSeenDate: string | null;
       lastSeenDate: string | null;
+      alsoCompetedUnder?: string[];
       starters: RosterStarter[];
       alternates: RosterAlternate[];
     }[];

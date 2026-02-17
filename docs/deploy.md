@@ -1,67 +1,171 @@
-# Production Deploy (Docker)
+# Deployment
 
-This setup runs the app with separate containers:
-- `api` (Bun + Node HTTP API)
-- `web` (Nginx serving built React app)
-- optional `postgres` (`localdb` profile)
+## Architecture
 
-## 1) Prepare env files
-
-```bash
-cp env/.env.api.example env/.env.api
+```
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│  rlesport.gg     │────▶│  Railway         │────▶│  Railway         │
+│  VPS / Apache    │     │  API Service     │     │  PostgreSQL      │
+│  Static frontend │     │  Bun + HTTP      │     │  Managed DB      │
+└──────────────────┘     └──────────────────┘     └──────────────────┘
 ```
 
-Edit `env/.env.api`:
-- `DATABASE_URL` (required, Postgres)
-- `API_PORT` (optional, default 8787)
-- `VITE_API_URL` (optional, default `/api`)
+| Layer | Host | URL |
+|-------|------|-----|
+| Frontend | VPS (Apache, `~/public_html/`) | `https://rlesport.gg` |
+| API | Railway | `https://api-production-bfd2.up.railway.app` |
+| Database | Railway PostgreSQL | Internal: `postgres.railway.internal:5432` |
 
-If hosting API behind web container proxy, keep `VITE_API_URL=/api`.
+---
 
-## 2) Build and run
+## Prerequisites
 
-```bash
-VITE_API_URL=/api docker compose -f docker-compose.prod.yml --env-file env/.env.api up -d --build
-```
+- [Railway CLI](https://docs.railway.com/reference/cli-api#install) installed and authenticated (`railway login`)
+- SSH access to VPS configured as `ssh rlcs` (see `~/.ssh/config`)
+- Bun installed locally for builds
 
-Shortcut:
+---
 
-```bash
-bun run prod:up
-```
+## Deploy API
 
-App endpoints:
-- frontend: `http://<host>:8080`
-- API health: `http://<host>:8787/api/health`
-
-## 3) Optional local Postgres container
-
-If you want DB in compose (instead of managed external DB):
+The API service runs on Railway using `Dockerfile.api`. The Railway project is linked in this repo (`.railway/` config).
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file env/.env.api --profile localdb up -d postgres
+# From the repo root — uploads code and triggers a Docker build on Railway
+railway up
 ```
 
-Then set `DATABASE_URL=postgres://stats:stats_pw@postgres:5432/statsdb` in `env/.env.api`.
+Railway auto-detects `Dockerfile.api` via the `RAILWAY_DOCKERFILE_PATH` variable. The service reads `PORT` (set by Railway) and `DATABASE_URL` (linked to the Postgres service).
 
-## 4) Initial data load
-
-Run once after DB is ready:
+To check status:
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file env/.env.api run --rm api bun run src/run.ts --dir ./data
+railway status
+railway logs
 ```
 
-Shortcut:
+To verify:
 
 ```bash
-bun run prod:load
+curl https://api-production-bfd2.up.railway.app/api/health
 ```
 
-## 5) Deploy via SSH (Git-based)
+### Environment variables (API service)
+
+| Variable | Source | Notes |
+|----------|--------|-------|
+| `PORT` | Railway (auto) | Railway assigns a port dynamically |
+| `DATABASE_URL` | Railway reference: `${{Postgres.DATABASE_URL}}` | Internal connection string |
+| `RAILWAY_DOCKERFILE_PATH` | Set manually: `Dockerfile.api` | Tells Railway which Dockerfile to use |
+
+---
+
+## Deploy Frontend
+
+The frontend is a static Vite build served by Apache on the VPS. SPA routing is handled by `.htaccess`.
+
+### Quick deploy
 
 ```bash
-scripts/deploy.sh <user@host> <remote-repo-dir> [branch]
+./scripts/deploy-frontend.sh
 ```
 
-This script fetches latest code and runs compose build/restart on the server.
+### Manual steps
+
+1. Build with the production API URL baked in:
+
+   ```bash
+   VITE_API_URL=https://api-production-bfd2.up.railway.app bun run build:web
+   ```
+
+2. Upload to VPS:
+
+   ```bash
+   scp -r web/dist/* web/dist/.htaccess rlcs:~/public_html/
+   ```
+
+3. Verify:
+   - `https://rlesport.gg` loads the app
+   - `https://rlesport.gg/player/123` works (SPA fallback, not 404)
+
+### SPA routing
+
+Apache needs `mod_rewrite` enabled. The `.htaccess` in `web/dist/` handles fallback:
+
+```apache
+RewriteEngine On
+RewriteBase /
+RewriteRule ^index\.html$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+```
+
+---
+
+## Load / Reload Data
+
+Data is loaded from local CSV files into the Railway Postgres instance via its public proxy URL.
+
+```bash
+DATABASE_URL="<railway-public-url>" bun run src/run.ts --dir ./data
+```
+
+To get the public URL:
+
+```bash
+railway variables --kv -s Postgres | grep DATABASE_PUBLIC_URL
+```
+
+The loader is idempotent — it tracks ingested files by hash and skips duplicates.
+
+---
+
+## Typical Workflows
+
+### Ship a code change (API + frontend)
+
+```bash
+# 1. Deploy API
+railway up
+
+# 2. Build and deploy frontend
+./scripts/deploy-frontend.sh
+```
+
+### Update data only (new CSV files)
+
+```bash
+DATABASE_URL="$(railway variables --kv -s Postgres | grep DATABASE_PUBLIC_URL | cut -d= -f2-)" \
+  bun run src/run.ts --dir ./data
+```
+
+### Verify everything is healthy
+
+```bash
+curl -s https://api-production-bfd2.up.railway.app/api/health | jq .
+curl -s -o /dev/null -w "%{http_code}" https://rlesport.gg/
+```
+
+---
+
+## Local Development (Docker)
+
+For local development with Docker, see `docker-compose.yml` (dev) and `docker-compose.prod.yml` (prod-like).
+
+```bash
+# Dev: start Postgres locally
+docker compose up -d
+
+# Dev: run API + frontend with hot reload
+bun run dev
+```
+
+---
+
+## Notes
+
+- **CORS**: API allows all origins (`Access-Control-Allow-Origin: *`)
+- **Image proxy**: Player photos are proxied through the API at `/api/image?url=<encoded>`
+- **No CI/CD pipeline yet**: deploys are manual via `railway up` and `./scripts/deploy-frontend.sh`
+- The server reads `PORT` (Railway), falling back to `API_PORT`, then `8787`

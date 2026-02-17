@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-export const PORT = Number.parseInt(process.env.API_PORT ?? "8787", 10);
+export const PORT = Number.parseInt(process.env.PORT ?? process.env.API_PORT ?? "8787", 10);
 export const DATABASE_URL = process.env.DATABASE_URL;
 export const DB_QUERY_TIMEOUT_MS = Number.parseInt(process.env.DB_QUERY_TIMEOUT_MS ?? "15000", 10);
 export const DB_STATEMENT_TIMEOUT_MS = Number.parseInt(process.env.DB_STATEMENT_TIMEOUT_MS ?? "15000", 10);

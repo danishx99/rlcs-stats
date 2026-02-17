@@ -3,7 +3,15 @@ WITH params AS (
     CASE
       WHEN {{rosterIdParam}} LIKE 'org:%' OR {{rosterIdParam}} LIKE 'roster:%' THEN {{rosterIdParam}}
       ELSE 'roster:' || {{rosterIdParam}}
-    END AS team_group_id
+    END AS team_group_id,
+    CASE
+      WHEN {{rosterIdParam}} LIKE 'org:%' THEN true
+      ELSE false
+    END AS is_org,
+    CASE
+      WHEN {{rosterIdParam}} LIKE 'org:%' THEN SUBSTRING({{rosterIdParam}} FROM 5)
+      ELSE NULL
+    END AS requested_org_norm
 ),
 team_profiles_norm AS (
   SELECT
@@ -60,10 +68,25 @@ grouped_series AS (
   LEFT JOIN team_profiles_norm tpn
     ON tpn.team_norm = UPPER(TRIM(sr.team))
 ),
-group_scope AS (
+group_scope_anchor AS (
   SELECT gs.*
   FROM grouped_series gs
   JOIN params p ON p.team_group_id = gs.team_group_id
+),
+group_scope_rosters AS (
+  SELECT DISTINCT gsa.roster_id
+  FROM group_scope_anchor gsa
+),
+group_scope AS (
+  SELECT gsa.*
+  FROM group_scope_anchor gsa
+  UNION ALL
+  SELECT gs.*
+  FROM grouped_series gs
+  JOIN group_scope_rosters gsr ON gsr.roster_id = gs.roster_id
+  JOIN params p ON true
+  WHERE p.team_group_id LIKE 'org:%'
+    AND gs.team_group_id <> p.team_group_id
 ),
 scope_stats AS (
   SELECT
@@ -87,6 +110,15 @@ group_identity AS (
   SELECT
     p.team_group_id,
     COALESCE(
+      CASE
+        WHEN p.is_org THEN (
+          SELECT COALESCE(tpn.org_name, p.requested_org_norm)
+          FROM team_profiles_norm tpn
+          WHERE tpn.team_norm = p.requested_org_norm
+          LIMIT 1
+        )
+        ELSE NULL
+      END,
       MIN(gs.org_name),
       (
         SELECT gs2.team_label
@@ -96,6 +128,15 @@ group_identity AS (
       )
     ) AS team_name,
     COALESCE(
+      CASE
+        WHEN p.is_org THEN (
+          SELECT tpn.logo_url
+          FROM team_profiles_norm tpn
+          WHERE tpn.team_norm = p.requested_org_norm
+          LIMIT 1
+        )
+        ELSE NULL
+      END,
       MIN(gs.logo_url),
       (
         SELECT tp."Logo Link"
@@ -108,7 +149,7 @@ group_identity AS (
     ) AS logo_url
   FROM params p
   LEFT JOIN group_scope gs ON true
-  GROUP BY p.team_group_id
+  GROUP BY p.team_group_id, p.is_org, p.requested_org_norm
 ),
 first_appearance AS (
   SELECT
@@ -280,14 +321,15 @@ iteration_season_meta AS (
   SELECT
     rm.season,
     rm.iteration_roster_id AS roster_id,
-    (ARRAY_AGG(rsm.team_label_used ORDER BY rsm.last_seen_date DESC NULLS LAST, rsm.team_label_used))[1] AS team_label_used,
-    SUM(rsm.series_played)::INT AS series_played,
-    MIN(rsm.first_seen_date) AS first_seen_date,
-    MAX(rsm.last_seen_date) AS last_seen_date
+    (ARRAY_AGG(gs.team_label ORDER BY gs.match_date DESC NULLS LAST, gs.team_label))[1] AS team_label_used,
+    ARRAY_AGG(DISTINCT gs.team_label ORDER BY gs.team_label) AS team_names,
+    COUNT(DISTINCT gs.series_id)::INT AS series_played,
+    MIN(gs.match_date) AS first_seen_date,
+    MAX(gs.match_date) AS last_seen_date
   FROM roster_merge_map rm
-  JOIN roster_season_meta rsm
-    ON rsm.season = rm.season
-   AND rsm.roster_id = rm.roster_id
+  JOIN group_scope gs
+    ON gs.season = rm.season
+   AND gs.roster_id = rm.roster_id
   GROUP BY rm.season, rm.iteration_roster_id
 ),
 primary_starters AS (
@@ -352,6 +394,11 @@ iteration_rows AS (
     ism.first_seen_date,
     ism.last_seen_date,
     COALESCE((
+      SELECT array_agg(name ORDER BY name)
+      FROM unnest(ism.team_names) AS name
+      WHERE UPPER(TRIM(name)) <> UPPER(TRIM(ism.team_label_used))
+    ), ARRAY[]::text[]) AS also_competed_under,
+    COALESCE((
       SELECT json_agg(
         json_build_object('id', sp.starter_id, 'handle', sp.handle)
         ORDER BY COALESCE(sp.handle, sp.starter_id), sp.starter_id
@@ -381,6 +428,7 @@ season_rosters AS (
         'seriesPlayed', ir.series_played,
         'firstSeenDate', ir.first_seen_date,
         'lastSeenDate', ir.last_seen_date,
+        'alsoCompetedUnder', ir.also_competed_under,
         'starters', ir.starters,
         'alternates', ir.alternates
       )
