@@ -7,6 +7,14 @@ import { formatDate } from "../utils/date";
 import Leaderboard from "../components/Leaderboard";
 import StatPicker from "../components/StatPicker";
 
+const CORE_LEADERBOARDS = [
+  { key: "rating", title: "Top 10 Players (Rating)" },
+  { key: "goals", title: "Top Scorers (Goals)" },
+  { key: "demos", title: "Top Executioners (Demos)" },
+  { key: "saves", title: "Top Saviours (Saves)" },
+  { key: "assists", title: "Top Playmakers" }
+] as const;
+const CORE_LEADERBOARD_KEYS = new Set<string>(CORE_LEADERBOARDS.map((item) => item.key));
 const DEFAULT_STATS: string[] = [];
 const SUGGESTED_STATS = ["shots", "score", "avg_speed", "on_ground", "in_air"];
 
@@ -168,7 +176,7 @@ export default function EventPage() {
 
   // Fetch leaderboards for extra selected stats (defaults are already in hardcoded cards)
   useEffect(() => {
-    const extraStats = selectedStats.filter((k) => !DEFAULT_STATS.includes(k));
+    const extraStats = selectedStats.filter((k) => !DEFAULT_STATS.includes(k) && !CORE_LEADERBOARD_KEYS.has(k));
     if (!eventName || extraStats.length === 0) {
       setLeaderboardMap(new Map());
       return;
@@ -247,6 +255,11 @@ export default function EventPage() {
     .join(" – ");
 
   const hasSearchResults = searchResults.length > 0;
+  const coreLeaderboardMap = new Map(leaderboards.map((lb) => [lb.metric.key, lb]));
+  const coreLeaderboards = CORE_LEADERBOARDS
+    .map((item) => ({ title: item.title, data: coreLeaderboardMap.get(item.key) }))
+    .filter((item): item is { title: string; data: LeaderboardResponse } => Boolean(item.data));
+  const selectedExtraStats = selectedStats.filter((k) => !CORE_LEADERBOARD_KEYS.has(k));
   return (
     <div className="page page-no-nav">
       <button className="ghost back-button" onClick={() => navigate("/")}>
@@ -438,6 +451,17 @@ export default function EventPage() {
         </div>
       </div>
 
+      {coreLeaderboards.length > 0 && (
+        <div className="event-grid event-grid--stats">
+          {coreLeaderboards.map((item) => (
+            <div key={item.data.metric.key} className="event-panel panel">
+              <h3>{item.title}</h3>
+              <Leaderboard data={item.data} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Pick a stat — checkboxes only */}
       <div className="event-pick-stat panel">
         <div className="event-pick-stat-header">
@@ -467,9 +491,9 @@ export default function EventPage() {
       </div>
 
       {/* Extra leaderboards for stats beyond the defaults */}
-      {selectedStats.filter((k) => !DEFAULT_STATS.includes(k)).length > 0 && (
+      {selectedExtraStats.length > 0 && (
         <div className="event-pick-stat-grid">
-          {selectedStats.filter((k) => !DEFAULT_STATS.includes(k)).map((key) => {
+          {selectedExtraStats.map((key) => {
             const data = leaderboardMap.get(key);
             const isLoading = loadingStats.has(key);
             const label = allCategoryStats.find((s) => s.key === key)?.label ?? key;
