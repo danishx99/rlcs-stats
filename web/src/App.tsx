@@ -10,6 +10,7 @@ import RosterPage from "./pages/RosterPage";
 import SeriesPage from "./pages/SeriesPage";
 import StatPage from "./pages/StatPage";
 import EventPage from "./pages/EventPage";
+import FeedbackPage from "./pages/FeedbackPage";
 import FeedbackWidget from "./components/FeedbackWidget";
 
 export default function App() {
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/stats/:statKey" element={<StatPage />} />
           <Route path="/events/:eventName" element={<EventPage />} />
           <Route path="/series" element={<SeriesPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
         </Routes>
       </div>
       <FeedbackWidget />

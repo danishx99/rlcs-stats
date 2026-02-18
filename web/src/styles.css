@@ -3330,6 +3330,36 @@ th {
   background: rgba(255, 255, 255, 0.02);
 }
 
+.feedback-table-wrap {
+  overflow-x: auto;
+}
+
+.feedback-table {
+  min-width: 1400px;
+}
+
+.feedback-message {
+  min-width: 260px;
+  white-space: pre-wrap;
+}
+
+.feedback-page-info {
+  display: grid;
+  gap: 4px;
+  min-width: 300px;
+}
+
+.feedback-context {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--ink-muted);
+  min-width: 280px;
+}
+
 .results-row--win {
   border-left-color: #37d67a;
 }

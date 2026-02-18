@@ -88,6 +88,13 @@ function hashValue(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
+function parseLimit(rawLimit: string | null): number {
+  if (!rawLimit) return 500;
+  const parsed = Number.parseInt(rawLimit, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 500;
+  return Math.min(parsed, 2000);
+}
+
 export async function ensureFeedbackSchema(): Promise<void> {
   if (feedbackSchemaReady) return;
   if (feedbackSchemaPromise) {
@@ -224,5 +231,61 @@ export async function handleFeedbackSubmit(req: IncomingMessage, res: ServerResp
   } catch (error) {
     console.error(error);
     json(res, 500, { error: "Failed to submit feedback" });
+  }
+}
+
+export async function handleFeedbackList(_req: IncomingMessage, res: ServerResponse, url: URL) {
+  try {
+    await ensureFeedbackSchema();
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: "Failed to initialize feedback storage" });
+    return;
+  }
+
+  const limit = parseLimit(url.searchParams.get("limit"));
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        created_at,
+        feedback_type,
+        message,
+        page_url,
+        page_path,
+        page_search,
+        page_hash,
+        page_title,
+        client_context,
+        server_context
+      FROM feedback_submissions
+      ORDER BY created_at DESC
+      LIMIT $1;
+      `,
+      [limit]
+    );
+
+    json(res, 200, {
+      rows: result.rows.map((row) => ({
+        id: Number(row.id),
+        createdAt: row.created_at,
+        type: row.feedback_type,
+        message: row.message,
+        page: {
+          url: row.page_url,
+          path: row.page_path,
+          search: row.page_search,
+          hash: row.page_hash,
+          title: row.page_title
+        },
+        client: row.client_context ?? null,
+        server: row.server_context ?? null
+      }))
+    });
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: "Failed to load feedback" });
   }
 }

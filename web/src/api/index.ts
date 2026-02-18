@@ -2,6 +2,7 @@ import type {
   CompareHistoryResponse,
   CompareResponse,
   EventDetailResponse,
+  FeedbackListResponse,
   FeedbackSubmitRequest,
   FeedbackSubmitResponse,
   FeaturedResponse,
@@ -173,5 +174,8 @@ export const api = {
   },
   submitFeedback(payload: FeedbackSubmitRequest) {
     return postJson<FeedbackSubmitResponse>("/api/feedback", payload);
+  },
+  feedback(params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<FeedbackListResponse>("/api/feedback", params);
   }
 };

@@ -359,3 +359,17 @@ export type FeedbackSubmitResponse = {
   ok: boolean;
   id: number;
 };
+
+export type FeedbackListRow = {
+  id: number;
+  createdAt: string;
+  type: FeedbackType;
+  message: string;
+  page: FeedbackPageContext;
+  client: Record<string, unknown> | null;
+  server: Record<string, unknown> | null;
+};
+
+export type FeedbackListResponse = {
+  rows: FeedbackListRow[];
+};
