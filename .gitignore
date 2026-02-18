@@ -3,3 +3,5 @@ env/.env.api
 env/.env.web
 node_modules/
 dist/
+
+out/
