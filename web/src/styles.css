@@ -2634,6 +2634,10 @@ th {
   overflow: visible;
 }
 
+.compare-metrics-card:has(.stat-picker-popover) {
+  z-index: 30;
+}
+
 .compare-metrics-card .panel-header h2 {
   background: linear-gradient(90deg, var(--ink) 30%, var(--accent-2) 100%);
   -webkit-background-clip: text;
