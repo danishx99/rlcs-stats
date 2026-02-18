@@ -5,6 +5,7 @@ import type {
   FeedbackListResponse,
   FeedbackSubmitRequest,
   FeedbackSubmitResponse,
+  FeedbackUpdateResponse,
   FeaturedResponse,
   LeaderboardResponse,
   MetaColumnsResponse,
@@ -117,6 +118,38 @@ export async function postJson<TResponse>(path: string, body: unknown) {
   return (await response.json()) as TResponse;
 }
 
+export async function patchJson<TResponse>(path: string, body: unknown) {
+  const url = new URL(resolveApiPath(path), window.location.origin);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "1"
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`API request timed out after ${API_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    const apiError = await parseApiError(response);
+    throw new Error(apiError ? `API error ${response.status}: ${apiError}` : `API error ${response.status}`);
+  }
+
+  return (await response.json()) as TResponse;
+}
+
 export const api = {
   meta(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<MetaResponse>("/api/meta", params);
@@ -177,5 +210,8 @@ export const api = {
   },
   feedback(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<FeedbackListResponse>("/api/feedback", params);
+  },
+  updateFeedback(id: number, payload: { resolved: boolean }) {
+    return patchJson<FeedbackUpdateResponse>(`/api/feedback/${id}`, payload);
   }
 };

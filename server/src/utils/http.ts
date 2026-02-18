@@ -1,6 +1,6 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 
-const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
+const CORS_ALLOW_METHODS = "GET, POST, PATCH, OPTIONS";
 const CORS_ALLOW_HEADERS = "Content-Type, ngrok-skip-browser-warning";
 
 export function json(res: ServerResponse, status: number, payload: unknown) {

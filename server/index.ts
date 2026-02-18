@@ -10,7 +10,7 @@ import {
 } from "./src/utils/http";
 import { handleCompare, handleCompareHistory } from "./src/routes/compare";
 import { handleFeatured } from "./src/routes/featured";
-import { ensureFeedbackSchema, handleFeedbackList, handleFeedbackSubmit } from "./src/routes/feedback";
+import { ensureFeedbackSchema, handleFeedbackList, handleFeedbackSubmit, handleFeedbackUpdate } from "./src/routes/feedback";
 import { handleImage } from "./src/routes/image";
 import { handleInsights } from "./src/routes/insights";
 import { handleMeta, handleMetaColumns } from "./src/routes/meta";
@@ -42,6 +42,19 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "GET") {
       await handleFeedbackList(req, res, url);
+      return;
+    }
+
+    methodNotAllowed(res);
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/feedback/")) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    const feedbackId = parts[2] ?? null;
+
+    if (req.method === "PATCH") {
+      await handleFeedbackUpdate(req, res, feedbackId);
       return;
     }
 

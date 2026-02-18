@@ -26,7 +26,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build frontend
-        run: VITE_API_URL=https://api-production-bfd2.up.railway.app bun run build:web
+        run: VITE_API_URL=https://api-production-bfd2.up.railway.app VITE_FEEDBACK_ENABLED=true bun run build:web
 
       - name: Write Apache SPA .htaccess
         run: |

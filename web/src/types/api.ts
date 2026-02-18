@@ -363,6 +363,8 @@ export type FeedbackSubmitResponse = {
 export type FeedbackListRow = {
   id: number;
   createdAt: string;
+  resolvedAt: string | null;
+  resolved: boolean;
   type: FeedbackType;
   message: string;
   page: FeedbackPageContext;
@@ -372,4 +374,11 @@ export type FeedbackListRow = {
 
 export type FeedbackListResponse = {
   rows: FeedbackListRow[];
+};
+
+export type FeedbackUpdateResponse = {
+  ok: boolean;
+  id: number;
+  resolvedAt: string | null;
+  resolved: boolean;
 };

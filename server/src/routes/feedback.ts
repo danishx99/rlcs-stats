@@ -11,6 +11,7 @@ const CREATE_FEEDBACK_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS feedback_submissions (
   id BIGSERIAL PRIMARY KEY,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at TIMESTAMPTZ,
   feedback_type TEXT NOT NULL CHECK (feedback_type IN ('bug', 'idea', 'question')),
   message TEXT NOT NULL,
   page_url TEXT NOT NULL,
@@ -31,6 +32,16 @@ ON feedback_submissions (created_at DESC);
 const CREATE_FEEDBACK_TYPE_CREATED_AT_INDEX_SQL = `
 CREATE INDEX IF NOT EXISTS idx_feedback_submissions_type_created_at
 ON feedback_submissions (feedback_type, created_at DESC);
+`;
+
+const ADD_FEEDBACK_RESOLVED_AT_COLUMN_SQL = `
+ALTER TABLE feedback_submissions
+ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+`;
+
+const CREATE_FEEDBACK_RESOLVED_AT_CREATED_AT_INDEX_SQL = `
+CREATE INDEX IF NOT EXISTS idx_feedback_submissions_resolved_at_created_at
+ON feedback_submissions (resolved_at, created_at DESC);
 `;
 
 let feedbackSchemaReady = false;
@@ -95,6 +106,24 @@ function parseLimit(rawLimit: string | null): number {
   return Math.min(parsed, 2000);
 }
 
+function parseFeedbackId(rawId: string | null): number | null {
+  if (!rawId) return null;
+  const trimmed = rawId.trim();
+  if (!/^[0-9]+$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+function parseResolvedFilter(rawValue: string | null): boolean | null {
+  if (!rawValue) return null;
+  const normalized = rawValue.trim().toLowerCase();
+  if (!normalized || normalized === "all") return null;
+  if (normalized === "resolved" || normalized === "true" || normalized === "1") return true;
+  if (normalized === "unresolved" || normalized === "false" || normalized === "0") return false;
+  return null;
+}
+
 export async function ensureFeedbackSchema(): Promise<void> {
   if (feedbackSchemaReady) return;
   if (feedbackSchemaPromise) {
@@ -104,8 +133,10 @@ export async function ensureFeedbackSchema(): Promise<void> {
 
   feedbackSchemaPromise = (async () => {
     await pool.query(CREATE_FEEDBACK_TABLE_SQL);
+    await pool.query(ADD_FEEDBACK_RESOLVED_AT_COLUMN_SQL);
     await pool.query(CREATE_FEEDBACK_CREATED_AT_INDEX_SQL);
     await pool.query(CREATE_FEEDBACK_TYPE_CREATED_AT_INDEX_SQL);
+    await pool.query(CREATE_FEEDBACK_RESOLVED_AT_CREATED_AT_INDEX_SQL);
     feedbackSchemaReady = true;
   })();
 
@@ -244,6 +275,41 @@ export async function handleFeedbackList(_req: IncomingMessage, res: ServerRespo
   }
 
   const limit = parseLimit(url.searchParams.get("limit"));
+  const filterType = normalizeFeedbackType(url.searchParams.get("type"));
+  const filterResolved = parseResolvedFilter(url.searchParams.get("resolved"));
+
+  if (url.searchParams.has("type") && !filterType) {
+    badRequest(res, "type must be one of: bug, idea, question");
+    return;
+  }
+
+  if (url.searchParams.has("resolved") && parseResolvedFilter(url.searchParams.get("resolved")) === null) {
+    const rawValue = (url.searchParams.get("resolved") ?? "").trim().toLowerCase();
+    if (rawValue && rawValue !== "all") {
+      badRequest(res, "resolved must be one of: resolved, unresolved, all");
+      return;
+    }
+  }
+
+  const whereClauses: string[] = [];
+  const values: Array<string | number> = [];
+
+  if (filterType) {
+    values.push(filterType);
+    whereClauses.push(`feedback_type = $${values.length}`);
+  }
+
+  if (filterResolved === true) {
+    whereClauses.push("resolved_at IS NOT NULL");
+  }
+
+  if (filterResolved === false) {
+    whereClauses.push("resolved_at IS NULL");
+  }
+
+  values.push(limit);
+  const limitPlaceholder = `$${values.length}`;
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
   try {
     const result = await pool.query(
@@ -251,6 +317,7 @@ export async function handleFeedbackList(_req: IncomingMessage, res: ServerRespo
       SELECT
         id,
         created_at,
+        resolved_at,
         feedback_type,
         message,
         page_url,
@@ -261,16 +328,19 @@ export async function handleFeedbackList(_req: IncomingMessage, res: ServerRespo
         client_context,
         server_context
       FROM feedback_submissions
+      ${whereSql}
       ORDER BY created_at DESC
-      LIMIT $1;
+      LIMIT ${limitPlaceholder};
       `,
-      [limit]
+      values
     );
 
     json(res, 200, {
       rows: result.rows.map((row) => ({
         id: Number(row.id),
         createdAt: row.created_at,
+        resolvedAt: row.resolved_at,
+        resolved: Boolean(row.resolved_at),
         type: row.feedback_type,
         message: row.message,
         page: {
@@ -287,5 +357,73 @@ export async function handleFeedbackList(_req: IncomingMessage, res: ServerRespo
   } catch (error) {
     console.error(error);
     json(res, 500, { error: "Failed to load feedback" });
+  }
+}
+
+export async function handleFeedbackUpdate(req: IncomingMessage, res: ServerResponse, feedbackIdRaw: string | null) {
+  try {
+    await ensureFeedbackSchema();
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: "Failed to initialize feedback storage" });
+    return;
+  }
+
+  const feedbackId = parseFeedbackId(feedbackIdRaw);
+  if (!feedbackId) {
+    badRequest(res, "Invalid feedback id");
+    return;
+  }
+
+  let body: unknown;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid JSON body";
+    if (message === "Payload too large") {
+      json(res, 413, { error: "Payload too large" });
+      return;
+    }
+    badRequest(res, "Invalid JSON body");
+    return;
+  }
+
+  const payload = getObject(body);
+  if (!payload) {
+    badRequest(res, "Request body must be a JSON object");
+    return;
+  }
+
+  if (typeof payload.resolved !== "boolean") {
+    badRequest(res, "resolved must be a boolean");
+    return;
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE feedback_submissions
+      SET resolved_at = CASE WHEN $2::boolean THEN COALESCE(resolved_at, now()) ELSE NULL END
+      WHERE id = $1
+      RETURNING id, resolved_at;
+      `,
+      [feedbackId, payload.resolved]
+    );
+
+    if (result.rowCount === 0) {
+      json(res, 404, { error: "Feedback item not found" });
+      return;
+    }
+
+    const row = result.rows[0];
+    json(res, 200, {
+      ok: true,
+      id: Number(row.id),
+      resolvedAt: row.resolved_at,
+      resolved: Boolean(row.resolved_at)
+    });
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: "Failed to update feedback" });
   }
 }

@@ -5,6 +5,7 @@ import type { MetaResponse, PlayerProfile, PlayerResultEvent, SeasonResponse, Se
 import SeasonTable from "../components/SeasonTable";
 import { computeAge, formatDate } from "../utils/date";
 import { normalizeSocialLink, proxyImageUrl } from "../utils/normalize";
+import { resolveTeamRosterId } from "../utils/team-routing";
 
 export default function PlayerPage({
   filters,
@@ -153,6 +154,10 @@ export default function PlayerPage({
   const events = meta?.events ?? [];
   const twitchLink = normalizeSocialLink(playerProfile.twitch, "twitch");
   const tiktokLink = normalizeSocialLink(playerProfile.tiktok, "tiktok");
+  const navigateToTeam = async (teamName: string) => {
+    const rosterId = await resolveTeamRosterId(teamName);
+    navigate(`/rosters/${encodeURIComponent(rosterId)}`);
+  };
 
   return (
     <div className="page page-no-nav">
@@ -334,9 +339,17 @@ export default function PlayerPage({
         <div className="section-title">Teams</div>
         <div className="tag-list">
           {playerProfile.teams.map((team, i) => (
-            <span key={team} className={`tag${i === 0 ? " tag-current" : ""}`}>
+            <button
+              key={`${team}-${i}`}
+              type="button"
+              className={`tag tag-button${i === 0 ? " tag-current" : ""}`}
+              onClick={() => {
+                void navigateToTeam(team);
+              }}
+              title={`View ${team} team page`}
+            >
               {team}
-            </span>
+            </button>
           ))}
         </div>
       </div>

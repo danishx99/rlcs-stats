@@ -4,6 +4,7 @@ import type { FeaturedResponse, SearchResponse, StatOption, StandingsResponse } 
 import { api } from "../api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatStat } from "../utils/format";
+import { toOrgRosterId } from "../utils/roster";
 
 /*
  * Preserved featured insight presets (available via api.featured):
@@ -329,7 +330,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                   const maxPts = standings.rows[0].points || 1;
                   const barWidth = Math.round((row.points / maxPts) * 100);
                   const logoSrc = proxyImageUrl(row.logoUrl);
-                  const orgId = `org:${row.teamName.trim().toUpperCase()}`;
+                  const orgId = toOrgRosterId(row.teamName);
                   return (
                     <li
                       key={row.rank}

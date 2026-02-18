@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { MetaResponse, RosterProfile } from "../types/api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatRosterStarters } from "../utils/roster";
+import { resolveTeamRosterId } from "../utils/team-routing";
 
 export default function RosterPage({
   filters: _filters,
@@ -14,6 +15,22 @@ export default function RosterPage({
   meta: MetaResponse | null;
   onFiltersChange: (f: { season: string; split: string; event: string }) => void;
 }) {
+  const normalizeTeamName = (value: string | null | undefined) => value?.trim().toUpperCase() ?? "";
+  const uniqueTeamNames = (names: string[], excludedNames: Array<string | null | undefined>) => {
+    const excluded = new Set(excludedNames.map((name) => normalizeTeamName(name)).filter(Boolean));
+    const seen = new Set<string>();
+    const output: string[] = [];
+
+    for (const name of names) {
+      const key = normalizeTeamName(name);
+      if (!key || excluded.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      output.push(name);
+    }
+
+    return output;
+  };
+
   const { rosterId } = useParams();
   const navigate = useNavigate();
   const [rosterProfile, setRosterProfile] = useState<RosterProfile | null>(null);
@@ -77,6 +94,10 @@ export default function RosterPage({
 
   const currentRoster = rosterProfile.currentRoster ?? rosterProfile.starters ?? [];
   const currentRosterLabel = formatRosterStarters(currentRoster);
+  const navigateToTeam = async (teamName: string) => {
+    const rosterId = await resolveTeamRosterId(teamName);
+    navigate(`/rosters/${encodeURIComponent(rosterId)}`);
+  };
 
   return (
     <div className="page page-no-nav">
@@ -141,60 +162,78 @@ export default function RosterPage({
         <div className="empty-state">No roster iterations found for this season.</div>
       ) : (
         <div className="roster-iterations-grid">
-          {selectedSeasonEntry.iterations.map((iteration) => (
-            <div key={`${selectedSeasonEntry.season}-${iteration.rosterId}`} className="panel roster-iteration-card">
-              <div className="roster-iteration-header">
-                <h3>{iteration.teamLabelUsed ?? rosterProfile.name ?? "Team"}</h3>
-                <span>{iteration.seriesPlayed} series</span>
-              </div>
+          {selectedSeasonEntry.iterations.map((iteration) => {
+            const iterationDisplayName = iteration.teamLabelUsed ?? rosterProfile.name ?? "Team";
+            const iterationOtherNames = uniqueTeamNames(
+              iteration.alsoCompetedUnder ?? [],
+              [iteration.teamLabelUsed, rosterProfile.name]
+            );
 
-              <div className="profile-teams roster-iteration-block">
-                <div className="section-title">Starters</div>
-                <div className="tag-list">
-                  {iteration.starters.map((starter) => (
-                    <span
-                      key={starter.id}
-                      className="tag tag-current"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => navigate(`/players/${starter.id}`)}
-                    >
-                      {starter.handle ?? starter.id}
-                    </span>
-                  ))}
+            return (
+              <div key={`${selectedSeasonEntry.season}-${iteration.rosterId}`} className="panel roster-iteration-card">
+                <div className="roster-iteration-header">
+                  <h3>{iterationDisplayName}</h3>
+                  <span>{iteration.seriesPlayed} series</span>
                 </div>
-              </div>
 
-              {iteration.alternates.length > 0 && (
                 <div className="profile-teams roster-iteration-block">
-                  <div className="section-title">Alternates</div>
+                  <div className="section-title">Starters</div>
                   <div className="tag-list">
-                    {iteration.alternates.map((alt) => (
+                    {iteration.starters.map((starter) => (
                       <span
-                        key={alt.id}
-                        className="tag"
+                        key={starter.id}
+                        className="tag tag-current"
                         style={{ cursor: "pointer" }}
-                        onClick={() => navigate(`/players/${alt.id}`)}
+                        onClick={() => navigate(`/players/${starter.id}`)}
                       >
-                        {alt.handle ?? alt.id}
-                        {alt.appearances != null ? ` (${alt.appearances})` : ""}
+                        {starter.handle ?? starter.id}
                       </span>
                     ))}
                   </div>
                 </div>
-              )}
 
-              {(iteration.alsoCompetedUnder?.length ?? 0) > 0 && (
-                <div className="profile-teams roster-iteration-block">
-                  <div className="section-title">Also Competed Under</div>
-                  <div className="tag-list">
-                    {(iteration.alsoCompetedUnder ?? []).map((teamName) => (
-                      <span key={teamName} className="tag">{teamName}</span>
-                    ))}
+                {iteration.alternates.length > 0 && (
+                  <div className="profile-teams roster-iteration-block">
+                    <div className="section-title">Alternates</div>
+                    <div className="tag-list">
+                      {iteration.alternates.map((alt) => (
+                        <span
+                          key={alt.id}
+                          className="tag"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => navigate(`/players/${alt.id}`)}
+                        >
+                          {alt.handle ?? alt.id}
+                          {alt.appearances != null ? ` (${alt.appearances})` : ""}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+
+                {iterationOtherNames.length > 0 && (
+                  <div className="profile-teams roster-iteration-block">
+                    <div className="section-title">Also Competed Under</div>
+                    <div className="tag-list">
+                      {iterationOtherNames.map((teamName) => (
+                        <button
+                          key={teamName}
+                          type="button"
+                          className="tag tag-button"
+                          onClick={() => {
+                            void navigateToTeam(teamName);
+                          }}
+                          title={`View ${teamName} team page`}
+                        >
+                          {teamName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -207,12 +246,22 @@ export default function RosterPage({
         </div>
       </div>
 
-      {(rosterProfile.otherTeamNames ?? []).length > 0 && (
+      {uniqueTeamNames(rosterProfile.otherTeamNames ?? [], [rosterProfile.name]).length > 0 && (
         <div className="profile-teams">
           <div className="section-title">Also Competed Under</div>
           <div className="tag-list">
-            {(rosterProfile.otherTeamNames ?? []).map((teamName) => (
-              <span key={teamName} className="tag">{teamName}</span>
+            {uniqueTeamNames(rosterProfile.otherTeamNames ?? [], [rosterProfile.name]).map((teamName) => (
+              <button
+                key={teamName}
+                type="button"
+                className="tag tag-button"
+                onClick={() => {
+                  void navigateToTeam(teamName);
+                }}
+                title={`View ${teamName} team page`}
+              >
+                {teamName}
+              </button>
             ))}
           </div>
         </div>
