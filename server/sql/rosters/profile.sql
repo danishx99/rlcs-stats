@@ -17,7 +17,11 @@ team_profiles_norm AS (
   SELECT
     UPPER(TRIM(tp."Team Name")) AS team_norm,
     MIN(tp."Team Name") AS org_name,
-    MIN(tp."Logo Link") AS logo_url
+    MIN(tp."Logo Link") AS logo_url,
+    MIN(tp."Twitter") AS twitter,
+    MIN(tp."TikTok") AS tiktok,
+    MIN(tp."Youtube") AS youtube,
+    MIN(tp."Twitch") AS twitch
   FROM team_profiles tp
   WHERE tp."Team Name" IS NOT NULL
     AND TRIM(tp."Team Name") <> ''
@@ -57,6 +61,10 @@ grouped_series AS (
     sr.starters,
     tpn.org_name,
     tpn.logo_url,
+    tpn.twitter,
+    tpn.tiktok,
+    tpn.youtube,
+    tpn.twitch,
     CASE
       WHEN tpn.org_name IS NOT NULL THEN 'org:' || tpn.team_norm
       ELSE 'roster:' || sr.roster_id
@@ -146,7 +154,55 @@ group_identity AS (
         ORDER BY gs2.match_date DESC NULLS LAST
         LIMIT 1
       )
-    ) AS logo_url
+    ) AS logo_url,
+    COALESCE(
+      CASE
+        WHEN p.is_org THEN (
+          SELECT tpn.twitter
+          FROM team_profiles_norm tpn
+          WHERE tpn.team_norm = p.requested_org_norm
+          LIMIT 1
+        )
+        ELSE NULL
+      END,
+      MIN(gs.twitter)
+    ) AS twitter,
+    COALESCE(
+      CASE
+        WHEN p.is_org THEN (
+          SELECT tpn.tiktok
+          FROM team_profiles_norm tpn
+          WHERE tpn.team_norm = p.requested_org_norm
+          LIMIT 1
+        )
+        ELSE NULL
+      END,
+      MIN(gs.tiktok)
+    ) AS tiktok,
+    COALESCE(
+      CASE
+        WHEN p.is_org THEN (
+          SELECT tpn.youtube
+          FROM team_profiles_norm tpn
+          WHERE tpn.team_norm = p.requested_org_norm
+          LIMIT 1
+        )
+        ELSE NULL
+      END,
+      MIN(gs.youtube)
+    ) AS youtube,
+    COALESCE(
+      CASE
+        WHEN p.is_org THEN (
+          SELECT tpn.twitch
+          FROM team_profiles_norm tpn
+          WHERE tpn.team_norm = p.requested_org_norm
+          LIMIT 1
+        )
+        ELSE NULL
+      END,
+      MIN(gs.twitch)
+    ) AS twitch
   FROM params p
   LEFT JOIN group_scope gs ON true
   GROUP BY p.team_group_id, p.is_org, p.requested_org_norm
@@ -448,6 +504,10 @@ SELECT
   gi.team_group_id AS roster_id,
   gi.team_name AS roster_name,
   gi.logo_url,
+  gi.twitter,
+  gi.tiktok,
+  gi.youtube,
+  gi.twitch,
   COALESCE((SELECT ci.starters FROM current_iteration ci), '[]'::json) AS starters,
   COALESCE((SELECT ci.alternates FROM current_iteration ci), '[]'::json) AS alternates,
   (SELECT debut_season FROM first_appearance) AS debut_season,
@@ -491,4 +551,4 @@ SELECT
   SUM(scope_stats."Kills_All Zones")::float / NULLIF(COUNT(DISTINCT (scope_stats.series_id, scope_stats."Game")), 0) AS demos_avg
 FROM group_identity gi
 LEFT JOIN scope_stats ON true
-GROUP BY gi.team_group_id, gi.team_name, gi.logo_url;
+GROUP BY gi.team_group_id, gi.team_name, gi.logo_url, gi.twitter, gi.tiktok, gi.youtube, gi.twitch;

@@ -63,3 +63,13 @@ e.g. "Fall Open" (regional) → Shows:
 
 e.g. "Fall Split" (split) → Shows:
 - List of regionals within the split (Regional 1, Regional 2, Regional 3) with links to each
+
+---
+
+## Known Bugs
+
+- **VALIANT roster page not loading** (2026-02-19): `/rosters/org%3AVALIANT` shows nothing. Needs investigation — could be a data issue or a query/routing problem.
+
+## TODO
+
+- **Add social links to org pages**: Roster/org pages should display social media links (Twitter, Liquipedia, etc.) for the organization.

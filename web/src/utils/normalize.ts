@@ -5,7 +5,7 @@ export function normalizeHandle(value?: string | null) {
   return trimmed;
 }
 
-export function normalizeSocialLink(value: string | null | undefined, type: "twitch" | "tiktok") {
+export function normalizeSocialLink(value: string | null | undefined, type: "twitch" | "tiktok" | "twitter" | "youtube") {
   const handle = normalizeHandle(value);
   if (!handle) return null;
   if (handle.startsWith("http://") || handle.startsWith("https://")) {
@@ -14,6 +14,12 @@ export function normalizeSocialLink(value: string | null | undefined, type: "twi
   const cleaned = handle.replace(/^@/, "");
   if (type === "twitch") {
     return `https://twitch.tv/${cleaned}`;
+  }
+  if (type === "twitter") {
+    return `https://x.com/${cleaned}`;
+  }
+  if (type === "youtube") {
+    return `https://youtube.com/@${cleaned}`;
   }
   return `https://tiktok.com/@${cleaned}`;
 }

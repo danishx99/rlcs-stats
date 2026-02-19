@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { MetaResponse, RosterProfile } from "../types/api";
-import { proxyImageUrl } from "../utils/normalize";
+import { proxyImageUrl, normalizeSocialLink } from "../utils/normalize";
 import { formatRosterStarters } from "../utils/roster";
 import { resolveTeamRosterId } from "../utils/team-routing";
 
@@ -94,6 +94,10 @@ export default function RosterPage({
 
   const currentRoster = rosterProfile.currentRoster ?? rosterProfile.starters ?? [];
   const currentRosterLabel = formatRosterStarters(currentRoster);
+  const twitterLink = normalizeSocialLink(rosterProfile.twitter, "twitter");
+  const tiktokLink = normalizeSocialLink(rosterProfile.tiktok, "tiktok");
+  const youtubeLink = normalizeSocialLink(rosterProfile.youtube, "youtube");
+  const twitchLink = normalizeSocialLink(rosterProfile.twitch, "twitch");
   const navigateToTeam = async (teamName: string) => {
     const rosterId = await resolveTeamRosterId(teamName);
     navigate(`/rosters/${encodeURIComponent(rosterId)}`);
@@ -140,6 +144,28 @@ export default function RosterPage({
                 <span>Games</span>
                 <strong>{rosterProfile.games}</strong>
               </div>
+            </div>
+            <div className="profile-links">
+              {twitterLink ? (
+                <a href={twitterLink} target="_blank" rel="noreferrer">
+                  Twitter
+                </a>
+              ) : null}
+              {youtubeLink ? (
+                <a href={youtubeLink} target="_blank" rel="noreferrer">
+                  YouTube
+                </a>
+              ) : null}
+              {twitchLink ? (
+                <a href={twitchLink} target="_blank" rel="noreferrer">
+                  Twitch
+                </a>
+              ) : null}
+              {tiktokLink ? (
+                <a href={tiktokLink} target="_blank" rel="noreferrer">
+                  TikTok
+                </a>
+              ) : null}
             </div>
           </div>
         </div>

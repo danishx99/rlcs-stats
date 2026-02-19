@@ -116,6 +116,10 @@ export type RosterProfile = {
   id: string;
   name: string | null;
   logoUrl?: string | null;
+  twitter?: string | null;
+  tiktok?: string | null;
+  youtube?: string | null;
+  twitch?: string | null;
   starters: RosterStarter[];
   alternates: RosterAlternate[];
   currentRoster?: RosterStarter[];
