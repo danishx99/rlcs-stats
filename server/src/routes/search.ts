@@ -21,32 +21,39 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
 
   try {
     const like = `%${trimmed}%`;
-    const statOptions = await getAllStatOptions();
+    const [
+      statOptions,
+      playersResult,
+      rostersResult,
+      eventsResult,
+      teamsResult
+    ] = await Promise.all([
+      getAllStatOptions(),
+      pool.query(
+        formatSql(playersSql, {
+          playerKeyExpr: playerKeyExpr("s")
+        }),
+        [like, limit]
+      ),
+      pool.query(
+        formatSql(rostersSql, {
+          rosterCtes: rosterCtes("")
+        }),
+        [like, limit]
+      ),
+      pool.query(eventsSql, [like, limit]),
+      pool.query(teamsSql, [like, limit])
+    ]);
+
+    const lowerTrimmed = trimmed.toLowerCase();
     const statsResults = statOptions
-      .filter((option) => `${option.label} ${option.key}`.toLowerCase().includes(trimmed.toLowerCase()))
+      .filter((option) => `${option.label} ${option.key}`.toLowerCase().includes(lowerTrimmed))
       .slice(0, limit)
       .map((option) => ({
         id: option.key,
         label: option.label,
         type: "stat"
       }));
-
-    const playersResult = await pool.query(
-      formatSql(playersSql, {
-        playerKeyExpr: playerKeyExpr("s")
-      }),
-      [like, limit]
-    );
-
-    const rostersResult = await pool.query(
-      formatSql(rostersSql, {
-        rosterCtes: rosterCtes("")
-      }),
-      [like, limit]
-    );
-
-    const eventsResult = await pool.query(eventsSql, [like, limit]);
-    const teamsResult = await pool.query(teamsSql, [like, limit]);
 
     json(res, 200, {
       players: playersResult.rows.map((row) => ({

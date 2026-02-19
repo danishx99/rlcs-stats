@@ -7,6 +7,7 @@ import ComparePanel from "../components/ComparePanel";
 import StatPicker from "../components/StatPicker";
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
+const SEARCH_DEBOUNCE_MS = 500;
 
 export type ComparePageProps = {
   filters: { season: string; split: string; event: string };
@@ -112,7 +113,7 @@ export default function ComparePage({
       } finally {
         setSearchLoading(false);
       }
-    }, 200);
+    }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
   }, [searchQuery]);
 

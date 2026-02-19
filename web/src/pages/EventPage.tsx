@@ -17,6 +17,7 @@ const CORE_LEADERBOARDS = [
 const CORE_LEADERBOARD_KEYS = new Set<string>(CORE_LEADERBOARDS.map((item) => item.key));
 const DEFAULT_STATS: string[] = [];
 const SUGGESTED_STATS = ["shots", "score", "avg_speed", "on_ground", "in_air"];
+const SEARCH_DEBOUNCE_MS = 500;
 
 function ordinal(n: number) {
   const mod100 = n % 100;
@@ -153,7 +154,7 @@ export default function EventPage() {
       } finally {
         setSearchLoading(false);
       }
-    }, 200);
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 

@@ -22,6 +22,9 @@ export type HomePageProps = {
   featuredOptions: StatOption[];
 };
 
+const SEARCH_DEBOUNCE_MS = 500;
+const PLAYER_SEARCH_DEBOUNCE_MS = 500;
+
 export default function HomePage({ filters, latestSeason, featuredOptions }: HomePageProps) {
   const navigate = useNavigate();
   const [topScorers, setTopScorers] = useState<FeaturedResponse | null>(null);
@@ -29,9 +32,11 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [playerQuery, setPlayerQuery] = useState("");
   const [playerResults, setPlayerResults] = useState<SearchResponse["players"]>([]);
   const [playerSearchLoading, setPlayerSearchLoading] = useState(false);
+  const [playerSearchError, setPlayerSearchError] = useState<string | null>(null);
   const [standings, setStandings] = useState<StandingsResponse | null>(null);
   const [standingsSeason, setStandingsSeason] = useState<string>("");
   const searchRef = useRef<HTMLDivElement>(null);
@@ -79,20 +84,33 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults(null);
+      setSearchError(null);
+      setSearchLoading(false);
       return;
     }
+    let isActive = true;
     const timeout = setTimeout(async () => {
+      if (!isActive) return;
       setSearchLoading(true);
+      setSearchError(null);
       try {
         const response = await api.search({ q: searchQuery });
+        if (!isActive) return;
         setSearchResults(response);
       } catch (error) {
+        if (!isActive) return;
         console.error(error);
+        setSearchResults(null);
+        setSearchError("Search failed. Please try again.");
       } finally {
+        if (!isActive) return;
         setSearchLoading(false);
       }
-    }, 200);
-    return () => clearTimeout(timeout);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      isActive = false;
+      clearTimeout(timeout);
+    };
   }, [searchQuery]);
 
   useEffect(() => {
@@ -110,20 +128,33 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   useEffect(() => {
     if (!playerQuery.trim()) {
       setPlayerResults([]);
+      setPlayerSearchError(null);
+      setPlayerSearchLoading(false);
       return;
     }
+    let isActive = true;
     const timeout = setTimeout(async () => {
+      if (!isActive) return;
       setPlayerSearchLoading(true);
+      setPlayerSearchError(null);
       try {
         const response = await api.search({ q: playerQuery });
+        if (!isActive) return;
         setPlayerResults(response.players ?? []);
       } catch (error) {
+        if (!isActive) return;
         console.error(error);
+        setPlayerResults([]);
+        setPlayerSearchError("Search failed. Please try again.");
       } finally {
+        if (!isActive) return;
         setPlayerSearchLoading(false);
       }
-    }, 250);
-    return () => clearTimeout(timeout);
+    }, PLAYER_SEARCH_DEBOUNCE_MS);
+    return () => {
+      isActive = false;
+      clearTimeout(timeout);
+    };
   }, [playerQuery]);
 
   const players = searchResults?.players ?? [];
@@ -170,8 +201,9 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
         {searchQuery.trim() && (
           <div className="dash-search-dropdown">
             {searchLoading && <p className="dash-search-status">Searching...</p>}
-            {!searchLoading && !hasResults && <p className="dash-search-status">No results found</p>}
-            {!searchLoading && hasResults && (
+            {!searchLoading && searchError && <p className="dash-search-status">{searchError}</p>}
+            {!searchLoading && !searchError && !hasResults && <p className="dash-search-status">No results found</p>}
+            {!searchLoading && !searchError && hasResults && (
               <>
                 {players.length > 0 && (
                   <div className="dash-search-group">
@@ -426,6 +458,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
           {playerQuery.trim() && (
             <div className="dash-player-results">
               {playerSearchLoading && <p className="dash-empty">Searching...</p>}
+              {!playerSearchLoading && playerSearchError && <p className="dash-empty">{playerSearchError}</p>}
               {!playerSearchLoading && playerResults.length > 0 &&
                 playerResults.slice(0, 6).map((player) => {
                   const imgSrc = proxyImageUrl(player.meta?.photoUrl);
@@ -445,7 +478,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                     </div>
                   );
                 })}
-              {!playerSearchLoading && playerResults.length === 0 && (
+              {!playerSearchLoading && !playerSearchError && playerResults.length === 0 && (
                 <p className="dash-empty">No players found.</p>
               )}
             </div>
