@@ -27,6 +27,7 @@ export default function PlayerPage({
   const [results, setResults] = useState<PlayerResultEvent[]>([]);
   const [resultSeasons, setResultSeasons] = useState<string[]>([]);
   const [resultSeason, setResultSeason] = useState("");
+  const [resultSeasonsLoading, setResultSeasonsLoading] = useState(false);
   const [resultsLoading, setResultsLoading] = useState(false);
 
   const seasonTableRows = useMemo(() => {
@@ -111,27 +112,77 @@ export default function PlayerPage({
   useEffect(() => {
     if (!uniqueId) return;
     const playerId = uniqueId;
-    async function loadResults() {
+    let isActive = true;
+    async function loadResultSeasons() {
+      setResultSeasonsLoading(true);
+      try {
+        const response: SeasonResponse = await api.playerSeason(playerId, {
+          mode: "avg"
+        });
+        if (!isActive) return;
+        const seasons = response.rows
+          .map((row) => row.season)
+          .filter((season): season is string => Boolean(season))
+          .reverse();
+        setResultSeasons(seasons);
+        setResultSeason((current) => {
+          if (current && seasons.includes(current)) return current;
+          return seasons[0] ?? "";
+        });
+      } catch (error) {
+        if (!isActive) return;
+        console.error(error);
+        setResultSeasons([]);
+        setResultSeason("");
+      } finally {
+        if (!isActive) return;
+        setResultSeasonsLoading(false);
+      }
+    }
+
+    loadResultSeasons();
+
+    return () => {
+      isActive = false;
+    };
+  }, [uniqueId]);
+
+  useEffect(() => {
+    if (!uniqueId || !resultSeason) {
+      setResults([]);
+      if (!resultSeasonsLoading) {
+        setResultsLoading(false);
+      }
+      return;
+    }
+    const playerId = uniqueId;
+    let isActive = true;
+    async function loadResultsForSeason() {
       setResultsLoading(true);
       try {
         const response = await api.playerResults(playerId, {
-          season: resultSeason || undefined
+          season: resultSeason
         });
-        if (!resultSeason && response.seasons.length) {
-          setResultSeasons(response.seasons);
-          setResultSeason(response.seasons[0]);
-        } else {
-          setResults(response.events);
-        }
+        if (!isActive) return;
+        setResults(response.events);
       } catch (error) {
+        if (!isActive) return;
         console.error(error);
+        setResults([]);
       } finally {
+        if (!isActive) return;
         setResultsLoading(false);
       }
     }
 
-    loadResults();
-  }, [uniqueId, resultSeason]);
+    loadResultsForSeason();
+
+    return () => {
+      isActive = false;
+    };
+  }, [uniqueId, resultSeason, resultSeasonsLoading]);
+
+  const showResultsLoading = resultSeasonsLoading || resultsLoading;
 
   if (playerProfileLoading) {
     return <div className="page page-no-nav">Loading player profile...</div>;
@@ -288,8 +339,8 @@ export default function PlayerPage({
         )}
       </div>
 
-      {resultsLoading ? (
-        <div className="loading">Loading results...</div>
+      {showResultsLoading ? (
+        <div className="loading">Loading event results...</div>
       ) : results.length === 0 ? (
         <div className="empty-state">No event results found.</div>
       ) : (
