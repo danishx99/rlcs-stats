@@ -2,6 +2,7 @@ import type {
   CompareHistoryResponse,
   CompareResponse,
   EventDetailResponse,
+  InsightsResponse,
   FeedbackListResponse,
   FeedbackSubmitRequest,
   FeedbackSubmitResponse,
@@ -204,6 +205,9 @@ export const api = {
   },
   eventDetail(eventName: string, params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<EventDetailResponse>(`/api/events/${encodeURIComponent(eventName)}`, params);
+  },
+  insights(params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<InsightsResponse>("/api/insights", params);
   },
   submitFeedback(payload: FeedbackSubmitRequest) {
     return postJson<FeedbackSubmitResponse>("/api/feedback", payload);

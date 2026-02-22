@@ -184,7 +184,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/insights") {
-    await handleInsights(req, res);
+    await handleInsights(req, res, url);
     return;
   }
 

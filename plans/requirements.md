@@ -22,6 +22,9 @@
 - ✅ Season selector to view past standings
 - ✅ Link/button to **Top Performing Teams & Players**
 - ✅ Link/button to **Head-to-Head** compare tool
+- ✅ Fast Insights panel with prebuilt top-query cards
+- ✅ Fast Insights queries run across **all seasons** (not season-filtered)
+- ✅ Fast Insights expanded rows show metric-specific context details
 - ✅ Featured players section shows **6** players
 - ✅ Featured player cards are clickable and open player profiles
 - ✅ Secondary player-focused search bar for profile lookup
@@ -93,14 +96,20 @@
 
 ### Home Additions
 - ✅ Rotating featured players from common stats (rating, goals, saves, demos, shots, assists)
-- [ ] Add prebuilt query cards:
+- ✅ Add prebuilt query cards:
   - Highest in-game score
   - Most goals in a series
   - Most demos in a season
   - Longest overtimes
   - Most RLCS games played
   - Most goals in a single game
-- [ ] Add acknowledgements section at the bottom of the page
+- ✅ Fast Insights detail formatting rules:
+  - Highest in-game score, Most goals in a series, Longest overtimes, Most goals in a single game:
+    show `season / split / event` and matchup teams on a separate line in expanded rows
+  - Most demos in a season: show season only in expanded rows
+  - Most RLCS games played: show first event in expanded rows
+- ✅ Fast Insights expanded rows do not render player photos
+- ✅ Add acknowledgements section at the bottom of the page
 
 ### Player Profile Improvements
 - ✅ Show current team with clickable link

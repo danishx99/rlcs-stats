@@ -328,6 +328,30 @@ export type EventDetailResponse = {
   leaderboards: LeaderboardResponse[];
 };
 
+export type TopQueryRow = {
+  id: string;
+  label: string;
+  entityType: "player" | "match";
+  team: string | null;
+  value: number;
+  valueDisplay: string;
+  context: string | null;
+  photoUrl: string | null;
+};
+
+export type TopQueryCategory = {
+  key: string;
+  title: string;
+  subtitle: string;
+  valueLabel: string;
+  rows: TopQueryRow[];
+};
+
+export type InsightsResponse = {
+  generatedAt: string;
+  categories: TopQueryCategory[];
+};
+
 export type FeedbackType = "bug" | "idea" | "question";
 
 export type FeedbackPageContext = {
