@@ -92,7 +92,7 @@
 - [ ] Ensure player aliases are listed (new column needed)
 
 ### Home Additions
-- [ ] Rotating featured players from common stats (goals, saves, demos, shots, assists)
+- ✅ Rotating featured players from common stats (rating, goals, saves, demos, shots, assists)
 - [ ] Add prebuilt query cards:
   - Highest in-game score
   - Most goals in a series

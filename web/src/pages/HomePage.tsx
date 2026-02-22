@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { FeaturedResponse, SearchResponse, StatOption, StandingsResponse } from "../types/api";
+import type { LeaderboardResponse, SearchResponse, StatOption, StandingsResponse } from "../types/api";
 import { api } from "../api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatStat } from "../utils/format";
@@ -25,11 +25,16 @@ export type HomePageProps = {
 
 const SEARCH_DEBOUNCE_MS = 500;
 const PLAYER_SEARCH_DEBOUNCE_MS = 500;
+const ROTATING_FEATURED_METRICS = ["rating", "goals", "saves", "demos", "shots", "assists"] as const;
 
 export default function HomePage({ filters, latestSeason, featuredOptions }: HomePageProps) {
   const navigate = useNavigate();
-  const [topScorers, setTopScorers] = useState<FeaturedResponse | null>(null);
-  const [topLoading, setTopLoading] = useState(false);
+  const [featuredMetricKey] = useState<string>(() => {
+    const index = Math.floor(Math.random() * ROTATING_FEATURED_METRICS.length);
+    return ROTATING_FEATURED_METRICS[index];
+  });
+  const [featuredLeaderboard, setFeaturedLeaderboard] = useState<LeaderboardResponse | null>(null);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -42,26 +47,28 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   const [standingsSeason, setStandingsSeason] = useState<string>("");
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Load top rated players for the latest season
+  // Load rotating featured leaderboard for the latest season
   useEffect(() => {
     if (!latestSeason) return;
-    async function loadTopScorers() {
-      setTopLoading(true);
+    async function loadFeaturedLeaderboard() {
+      setFeaturedLoading(true);
       try {
-        const response = await api.featured({
-          metric: "top_rated",
+        const response = await api.statsTop({
+          metric: featuredMetricKey,
+          type: "player",
+          mode: "avg",
           season: latestSeason,
           limit: 6
         });
-        setTopScorers(response);
+        setFeaturedLeaderboard(response);
       } catch (error) {
         console.error(error);
       } finally {
-        setTopLoading(false);
+        setFeaturedLoading(false);
       }
     }
-    loadTopScorers();
-  }, [latestSeason]);
+    loadFeaturedLeaderboard();
+  }, [latestSeason, featuredMetricKey]);
 
   // Load standings
   useEffect(() => {
@@ -165,6 +172,9 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   const hasResults = players.length > 0 || teams.length > 0 || stats.length > 0 || events.length > 0;
 
   const seasonLabel = latestSeason || "All Time";
+  const featuredTitle = featuredLeaderboard?.metric?.label
+    ?? featuredOptions.find((option) => option.key === featuredMetricKey)?.label
+    ?? "Featured";
 
   return (
     <div className="dash">
@@ -404,13 +414,13 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
         <div className="dash-featured-header">
           <div>
             <span className="dash-label">Featured &middot; {seasonLabel}</span>
-            <h2>Top Rated</h2>
+            <h2>{featuredTitle}</h2>
           </div>
         </div>
-        {topLoading && <p className="dash-empty">Loading...</p>}
-        {!topLoading && topScorers?.rows?.length ? (
+        {featuredLoading && <p className="dash-empty">Loading...</p>}
+        {!featuredLoading && featuredLeaderboard?.rows?.length ? (
           <div className="featured-cards">
-            {topScorers.rows.slice(0, 6).map((row, index) => {
+            {featuredLeaderboard.rows.slice(0, 6).map((row, index) => {
               const imgSrc = proxyImageUrl(row.photoUrl);
               return (
                 <div
@@ -432,7 +442,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                       {row.teams[0] ? <TeamNameWithLogo team={row.teams[0]} /> : "—"}
                     </span>
                     <span className="card-value">
-                      {formatStat(row.value, topScorers.metric.format, topScorers.mode)}
+                      {formatStat(row.value, featuredLeaderboard.metric.format, featuredLeaderboard.mode)}
                     </span>
                   </div>
                 </div>
@@ -440,7 +450,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
             })}
           </div>
         ) : (
-          !topLoading && <p className="dash-empty">No data available.</p>
+          !featuredLoading && <p className="dash-empty">No data available.</p>
         )}
 
         {/* Player search inside featured panel */}
