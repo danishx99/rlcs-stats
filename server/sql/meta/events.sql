@@ -1,6 +1,6 @@
-SELECT MIN(TRIM("Regional")) AS value
+SELECT MIN(TRIM("Event")) AS value
 FROM stats
-WHERE "Regional" IS NOT NULL AND TRIM("Regional") <> ''
+WHERE "Event" IS NOT NULL AND TRIM("Event") <> ''
 {{where}}
-GROUP BY LOWER(TRIM("Regional"))
+GROUP BY LOWER(TRIM("Event"))
 ORDER BY value;

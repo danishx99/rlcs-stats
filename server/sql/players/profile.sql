@@ -33,9 +33,9 @@ first_appearance AS (
   SELECT
     "Season" AS debut_season,
     "Split" AS debut_split,
-    "Regional" AS debut_event
+    "Event" AS debut_event
   FROM player_stats
-  ORDER BY "Date" ASC NULLS LAST, "Season" ASC, "Split" ASC, "Regional" ASC
+  ORDER BY "Date" ASC NULLS LAST, "Season" ASC, "Split" ASC, "Event" ASC
   LIMIT 1
 ),
 series_summary AS (
@@ -43,14 +43,14 @@ series_summary AS (
     series_id,
     "Season" AS season,
     "Split" AS split,
-    "Regional" AS regional,
+    "Event" AS event,
     "Stage" AS stage,
     MIN("Round") AS round,
     "Team" AS team,
     MAX("Best of ") AS best_of,
     SUM(CASE WHEN "Victory" THEN 1 ELSE 0 END) AS wins
   FROM player_stats
-  GROUP BY series_id, "Season", "Split", "Regional", "Stage", "Team"
+  GROUP BY series_id, "Season", "Split", "Event", "Stage", "Team"
 ),
 series_winners AS (
   SELECT
@@ -62,7 +62,7 @@ event_gf AS (
   SELECT
     season,
     split,
-    regional,
+    event,
     stage,
     MAX(
       CASE
@@ -73,7 +73,7 @@ event_gf AS (
       END
     ) AS gf_tier
   FROM series_summary
-  GROUP BY season, split, regional, stage
+  GROUP BY season, split, event, stage
 ),
 gf_champs AS (
   SELECT s.*
@@ -81,7 +81,7 @@ gf_champs AS (
   JOIN event_gf e
     ON s.season IS NOT DISTINCT FROM e.season
    AND s.split IS NOT DISTINCT FROM e.split
-   AND s.regional IS NOT DISTINCT FROM e.regional
+   AND s.event IS NOT DISTINCT FROM e.event
    AND s.stage IS NOT DISTINCT FROM e.stage
   WHERE s.won_series = true
     AND (

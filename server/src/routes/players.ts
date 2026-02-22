@@ -139,7 +139,7 @@ export async function handlePlayerResults(
     const events = result.rows.map((row) => ({
       season: row.season,
       split: row.split,
-      regional: row.regional,
+      event: row.event,
       placement: row.placement ?? null,
       series: (row.series ?? []).map((s: Record<string, unknown>) => ({
         seriesId: s.series_id ?? "",

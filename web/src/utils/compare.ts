@@ -1,7 +1,7 @@
 import type { CompareHistoryRow, CompareHistoryTeam } from "../types/api";
 
 export function formatSeriesLabel(row: CompareHistoryRow) {
-  const parts = [row.season, row.split, row.regional, row.stage, row.round].filter(Boolean);
+  const parts = [row.season, row.split, row.event, row.stage, row.round].filter(Boolean);
   return parts.length ? parts.join(" · ") : "Series";
 }
 

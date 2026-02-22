@@ -59,7 +59,7 @@ function buildSeriesFilterClauses(filters: SeriesFilters, alias: string, flags: 
     values.push(filters.split);
   }
   if (flags.event && filters.event) {
-    clauses.push(`LOWER(TRIM(${columnRef(alias, "Regional")})) = LOWER($${values.length + 1})`);
+    clauses.push(`LOWER(TRIM(${columnRef(alias, "Event")})) = LOWER($${values.length + 1})`);
     values.push(filters.event);
   }
   if (flags.stage && filters.stage) {
@@ -237,7 +237,7 @@ export async function handleSeriesList(_req: IncomingMessage, res: ServerRespons
           date: mapDate(row.date),
           season: mapNullableString(row.season),
           split: mapNullableString(row.split),
-          event: mapNullableString(row.regional),
+          event: mapNullableString(row.event),
           stage: mapNullableString(row.stage),
           round: mapNullableString(row.round),
           day: mapNullableNumber(row.day),
@@ -310,7 +310,7 @@ export async function handleSeriesDetail(
         date: mapDate(row.date),
         season: mapNullableString(row.season),
         split: mapNullableString(row.split),
-        event: mapNullableString(row.regional),
+        event: mapNullableString(row.event),
         stage: mapNullableString(row.stage),
         round: mapNullableString(row.round),
         day: mapNullableNumber(row.day),

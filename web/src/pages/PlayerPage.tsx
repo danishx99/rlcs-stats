@@ -7,6 +7,29 @@ import { computeAge, formatDate } from "../utils/date";
 import { normalizeSocialLink, proxyImageUrl } from "../utils/normalize";
 import { resolveTeamRosterId } from "../utils/team-routing";
 
+function ordinal(n: number) {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+}
+
+function formatPlacement(placement: string | null) {
+  if (!placement) return "—";
+  const match = placement.match(/^Top\s+(\d+)$/i);
+  if (!match) return placement;
+  const top = Number(match[1]);
+  if (!Number.isFinite(top) || top <= 0) return placement;
+  if (top === 1) return "1st";
+  if (top === 2) return "2nd";
+  const start = Math.floor(top / 2) + 1;
+  return `${ordinal(start)}-${ordinal(top)}`;
+}
+
 export default function PlayerPage({
   filters,
   meta,
@@ -349,7 +372,7 @@ export default function PlayerPage({
             <thead>
               <tr>
                 <th>Event</th>
-                <th>Round</th>
+                <th>Placement</th>
                 <th>Opponent</th>
                 <th>Score</th>
               </tr>
@@ -358,14 +381,20 @@ export default function PlayerPage({
               {results.map((event) => {
                 const s = event.series[0];
                 const won = s?.wonSeries ?? false;
-                const eventLabel = [event.split, event.regional].filter(Boolean).join(" / ");
+                const eventLabel = [event.split, event.event].filter(Boolean).join(" / ");
+                const placement = formatPlacement(event.placement);
+                const isChampion = placement === "1st";
                 return (
                   <tr
-                    key={`${event.season}-${event.split}-${event.regional}`}
+                    key={`${event.season}-${event.split}-${event.event}`}
                     className={won ? "results-row--win" : "results-row--loss"}
                   >
                     <td className="results-cell-event">{eventLabel}</td>
-                    <td className="results-cell-round">{s?.round || s?.stage || "—"}</td>
+                    <td>
+                      <span className={`results-placement${isChampion ? " results-placement--gold" : ""}`}>
+                        {placement}
+                      </span>
+                    </td>
                     <td className="results-cell-opponent">{s?.opponent || "—"}</td>
                     <td className="results-cell-score">
                       {s ? (

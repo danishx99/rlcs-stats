@@ -7,7 +7,7 @@ How individual game rows in the `stats` table are grouped into series (best-of-N
 A **series** is a set of games sharing canonical match metadata and canonical team pair:
 
 ```
-series_id = md5(season | split | regional | day | stage | round | best_of | team_a | team_b)
+series_id = md5(season | split | event | day | stage | round | best_of | team_a | team_b)
 ```
 
 Where:
@@ -77,8 +77,8 @@ The migration runs in one transaction (`BEGIN ... COMMIT`) and includes a hard a
 1. Build a base set with normalized teams (`UPPER(TRIM("Team"))`) and metadata.
 2. Find distinct `(Match ID, team_norm)` pairs and keep only Match IDs with exactly 2 canonical teams.
 3. Compute canonical pair `team_a/team_b` via `LEAST/GREATEST(team_norm)`.
-4. Canonicalize metadata per Match ID (`MIN` for season/split/regional/day/stage/round and `MAX` for `Best of`).
-5. Build the key: `season|split|regional|day|stage|round|best_of|team_a|team_b`.
+4. Canonicalize metadata per Match ID (`MIN` for season/split/event/day/stage/round and `MAX` for `Best of`).
+5. Build the key: `season|split|event|day|stage|round|best_of|team_a|team_b`.
 6. Hash with `md5()` and write to `stats.series_id`.
 
 ## Usage in queries

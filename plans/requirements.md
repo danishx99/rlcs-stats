@@ -1,95 +1,97 @@
 # RLCS Stats — Product Requirements
 
-## Global
+## Document Status
+- This file consolidates requirements added over time into one coherent source.
+- Status legend:
+  - `✅` implemented
+  - `[ ]` not yet implemented
 
-### Search Bar
-- ✅ Searchable across: **Players**, **Teams**, **Stats**, **Events**
+## Product Scope
 
----
+### Global
+- ✅ Primary search supports: **Players**, **Teams**, **Stats**, **Events**
 
-## Landing Page (Home)
+### Core Pages
 
-### Current RLCS Standings
-- ✅ Default view shows current season standings
-- ✅ Dropdown to select and view past seasons
+#### Home (Landing Page)
+- ✅ Current RLCS standings shown by default
+- ✅ Season selector to view past standings
+- ✅ Link/button to **Top Performing Teams & Players**
+- ✅ Link/button to **Head to Head** compare tool
+- ✅ Compare supports up to **6** players/teams across one or more stats
+- ✅ Featured players section shows **6** players
+- ✅ Featured player cards are clickable and open player profiles
+- ✅ Secondary player-focused search bar for profile lookup
 
-### Top Performing Teams & Players
-- ✅ Button/link that navigates to a dedicated page (see below)
+#### Top Performing Teams & Players
+- ✅ Dedicated leaderboard page
+- ✅ Supports selecting one or more stats
+- ✅ Shows top 10 performers for chosen stat(s)
+- ✅ Supports both player and team leaderboards
+- ✅ Supports season / split / event filters
 
-### Head to Head
-- ✅ Button/link to the compare tool
-- ✅ Compare up to **6 players** (or teams) on single or multiple stats
+#### Team Page (example: "Pioneers")
+- ✅ Team logo and team name in header
+- ✅ Current roster shown under team header
+- ✅ Team info:
+  - Seasons competed in (example: SSA RLCS)
+  - Best result
+  - Debut season
 
-### Featured Players
-- ✅ Display **6 featured players** (category-based, e.g. top scorer, most saves)
-- ✅ Each card is clickable and navigates to that player's profile
+#### Player Profile Page
+- ✅ Player image and player name in header
+- ✅ Existing profile data retained (country, age, aliases, debut, key stats, career breakdown, etc.)
+- ✅ Results history shows tournament placements (for example: `3rd–4th — 2024 Open 5`, `1st — 2025 Boston Major`)
+- ✅ Results history ordered most recent first
 
-### Player Profile Search
-- ✅ Secondary search bar specifically for finding and viewing player profiles
+#### Event Page (examples: "Boston Major", "Open 1")
+- ✅ Event name in header
+- ✅ Event date range in header
+- ✅ Top 8 placements for the event/regional
+- ✅ Event top-10 leaderboards:
+  - Top Players (rating)
+  - Top Scorers (goals)
+  - Top Executioners (demos)
+  - Top Saviours (saves)
+  - Top Assists (assists)
 
----
+### Feedback Collection
+- ✅ Persistent floating feedback button across pages
+- ✅ Intended for initial release tester feedback collection
+- ✅ Submits via `POST /api/feedback`
 
-## Top Performing Teams & Players Page
+## V0.1 Remaining Requirements
 
-- ✅ Dedicated page for viewing leaderboards
-- ✅ User can select **any stat** (or multiple stats) to view the **top 10** performers
-- ✅ Supports both **player** and **team** leaderboards
-- ✅ Filterable by season / split / event
+### Visual & UX
+- [ ] Make overall UI more compact
 
----
+### Data & Content
+- [ ] Add 1v1 and Majors data to the database
+- [ ] Ensure player aliases are listed (new column needed)
 
-## Team Page (e.g. searching "Pioneers")
+### Home Page Additions
+- [ ] Rotating featured players
+  - Source from common stats (goals, saves, demos, shots, assists)
+  - Show top 6, rotating weekly or randomly
+- [ ] Add prebuilt query cards:
+  - Highest in-game score
+  - Most goals in a series
+  - Most demos in a season
+  - Longest overtimes
+  - Most RLCS games played
+  - Most goals in a single game
+- [ ] Add acknowledgements section at bottom of page
 
-### Header
--  Team logo & team name
+### Player Profile Improvements
+- [ ] Show current team with clickable link
+- [ ] Results view should support season-specific or all-time mode
 
-### Roster
--  Current roster listed under the team name
+### Presentation Consistency Across App
+- [ ] Show player pictures wherever players are listed
+- [ ] Show org logos wherever teams are listed
 
-### Info
--  Seasons competed in (e.g. "SSA RLCS")
--  Best result
--  Debut season
+### Admin
+- [ ] Admin option to update player/team info
 
----
-
-## Player Profile Page
-
-### Header
-- ✅ Player picture & player name
-
-### Stats & Info
-- ✅ All existing profile content (country, age, aliases, debut, key stats, career breakdown, etc.)
-
-### Results History
-- ✅ List of tournament placements, e.g.:
-  - "3rd–4th — 2024 Open 5"
-  - "1st — 2025 Boston Major"
-- ✅ Ordered chronologically (most recent first)
-
----
-
-## Event Page (e.g. "Boston Major", "Open 1")
-
-### Header
-- ✅ Event name (e.g. "Boston Major — Open 1")
-- ✅ Event dates (e.g. "27–29 November 2025")
-
-### Placements
-- ✅ **Top 8** teams for that event/regional
-
-### Stat Leaderboards
-- Top 10 lists for the event:
-  - ✅ **Top Players** (player rating)
-  - ✅ **Top Scorers** (goals)
-  - ✅ **Top Executioners** (demos)
-  - ✅ **Top Saviours** (saves)
-  - ✅ **Top Assists** (assists)
-
----
-
-## Floating Feedback Button
-
-- ✅ Persistent floating button on all pages
-- ✅ For the initial release only — used to collect feedback and ideas from the first group of testers
-- ✅ Submits feedback via `POST /api/feedback`
+### Infrastructure
+- [ ] Universal linking

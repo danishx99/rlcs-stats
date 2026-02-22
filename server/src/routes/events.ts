@@ -20,7 +20,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
   try {
     const leaderboardQueries = LEADERBOARD_METRICS.map((key) => {
       const option = resolveStatOption(key);
-      const where = `WHERE LOWER(TRIM(s."Regional")) = LOWER($1)
+      const where = `WHERE LOWER(TRIM(s."Event")) = LOWER($1)
         AND ($2::text IS NULL OR LOWER(TRIM(s."Season")) = LOWER($2))
         AND ($3::text IS NULL OR LOWER(TRIM(s."Split")) = LOWER($3))`;
       const valueExpr = metricExpression(option, "avg", "player_scope");

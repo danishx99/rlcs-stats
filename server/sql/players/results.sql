@@ -23,7 +23,7 @@ series_summary AS (
     series_id,
     "Season" AS season,
     "Split" AS split,
-    "Regional" AS regional,
+    "Event" AS event,
     "Stage" AS stage,
     MIN("Round") AS round,
     "Team" AS team,
@@ -31,7 +31,7 @@ series_summary AS (
     SUM(CASE WHEN "Victory" THEN 1 ELSE 0 END) AS wins,
     MIN("Date") AS match_date
   FROM player_stats
-  GROUP BY series_id, "Season", "Split", "Regional", "Stage", "Team"
+  GROUP BY series_id, "Season", "Split", "Event", "Stage", "Team"
 ),
 series_winners AS (
   SELECT
@@ -53,7 +53,7 @@ event_gf AS (
   SELECT
     season,
     split,
-    regional,
+    event,
     stage,
     MAX(
       CASE
@@ -64,7 +64,7 @@ event_gf AS (
       END
     ) AS gf_tier
   FROM series_summary
-  GROUP BY season, split, regional, stage
+  GROUP BY season, split, event, stage
 ),
 gf_champs AS (
   SELECT s.*
@@ -72,7 +72,7 @@ gf_champs AS (
   JOIN event_gf e
     ON s.season IS NOT DISTINCT FROM e.season
    AND s.split IS NOT DISTINCT FROM e.split
-   AND s.regional IS NOT DISTINCT FROM e.regional
+   AND s.event IS NOT DISTINCT FROM e.event
    AND s.stage IS NOT DISTINCT FROM e.stage
   WHERE s.won_series = true
     AND (
@@ -81,68 +81,68 @@ gf_champs AS (
     )
 ),
 distinct_events AS (
-  SELECT DISTINCT season, split, regional
+  SELECT DISTINCT season, split, event
   FROM series_summary
 ),
 event_placement AS (
   SELECT
     de.season,
     de.split,
-    de.regional,
+    de.event,
     CASE
       WHEN EXISTS (
         SELECT 1 FROM gf_champs gc
         WHERE gc.season IS NOT DISTINCT FROM de.season
           AND gc.split IS NOT DISTINCT FROM de.split
-          AND gc.regional IS NOT DISTINCT FROM de.regional
+          AND gc.event IS NOT DISTINCT FROM de.event
       ) THEN 'Top 1'
       WHEN EXISTS (
         SELECT 1 FROM series_summary s2
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
-          AND s2.regional IS NOT DISTINCT FROM de.regional
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND s2.round ILIKE '%GF%'
       ) THEN 'Top 2'
       WHEN EXISTS (
         SELECT 1 FROM series_summary s2
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
-          AND s2.regional IS NOT DISTINCT FROM de.regional
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND s2.round ILIKE '%SF%'
       ) THEN 'Top 4'
       WHEN EXISTS (
         SELECT 1 FROM series_summary s2
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
-          AND s2.regional IS NOT DISTINCT FROM de.regional
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND (s2.round ILIKE '%QF%')
       ) THEN 'Top 8'
       WHEN EXISTS (
         SELECT 1 FROM series_summary s2
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
-          AND s2.regional IS NOT DISTINCT FROM de.regional
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND (s2.round ILIKE '%R16%' OR s2.round ILIKE '%16%')
       ) THEN 'Top 16'
       WHEN EXISTS (
         SELECT 1 FROM series_summary s2
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
-          AND s2.regional IS NOT DISTINCT FROM de.regional
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND (s2.round ILIKE '%R32%' OR s2.round ILIKE '%32%')
       ) THEN 'Top 32'
       WHEN EXISTS (
         SELECT 1 FROM series_summary s2
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
-          AND s2.regional IS NOT DISTINCT FROM de.regional
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND s2.stage ILIKE '%Playoff%'
       ) THEN 'Top 8'
       WHEN EXISTS (
         SELECT 1 FROM series_summary s2
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
-          AND s2.regional IS NOT DISTINCT FROM de.regional
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND s2.stage ILIKE '%Swiss%'
       ) THEN 'Top 16'
       ELSE NULL
@@ -154,7 +154,7 @@ series_detail AS (
     sw.series_id,
     sw.season,
     sw.split,
-    sw.regional,
+    sw.event,
     sw.stage,
     sw.round,
     sw.team,
@@ -165,7 +165,7 @@ series_detail AS (
     os.opp_team AS opponent,
     COALESCE(os.opp_wins, 0) AS opponent_wins,
     ROW_NUMBER() OVER (
-      PARTITION BY sw.season, sw.split, sw.regional
+      PARTITION BY sw.season, sw.split, sw.event
       ORDER BY
         CASE
           WHEN UPPER(TRIM(sw.round)) LIKE 'GF%' THEN 100
@@ -199,7 +199,7 @@ series_detail AS (
 SELECT
   ep.season,
   ep.split,
-  ep.regional,
+  ep.event,
   ep.placement,
   (
     SELECT JSON_AGG(sub ORDER BY sub.date ASC NULLS LAST)
@@ -217,17 +217,17 @@ SELECT
       FROM series_detail sd
       WHERE sd.season IS NOT DISTINCT FROM ep.season
         AND sd.split IS NOT DISTINCT FROM ep.split
-        AND sd.regional IS NOT DISTINCT FROM ep.regional
+        AND sd.event IS NOT DISTINCT FROM ep.event
         AND sd.rn = 1
     ) sub
   ) AS series,
   (SELECT JSON_AGG(a.season) FROM available_seasons a) AS available_seasons
 FROM event_placement ep
 LEFT JOIN (
-  SELECT season, split, regional, MAX(match_date) AS latest_date
+  SELECT season, split, event, MAX(match_date) AS latest_date
   FROM series_summary
-  GROUP BY season, split, regional
+  GROUP BY season, split, event
 ) ed ON ep.season IS NOT DISTINCT FROM ed.season
    AND ep.split IS NOT DISTINCT FROM ed.split
-   AND ep.regional IS NOT DISTINCT FROM ed.regional
+   AND ep.event IS NOT DISTINCT FROM ed.event
 ORDER BY ed.latest_date DESC NULLS LAST;

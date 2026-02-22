@@ -12,7 +12,7 @@ WITH match_agg AS (
     MAX("Team") AS team_b,
     MIN("Season") AS season,
     MIN(NULLIF("Split", '')) AS split,
-    MIN(NULLIF("Regional", '')) AS regional,
+    MIN(NULLIF("Event", '')) AS event,
     MIN("Day")::text AS day,
     MIN(NULLIF("Stage", '')) AS stage,
     MIN(NULLIF("Round", '')) AS round,
@@ -28,7 +28,7 @@ UPDATE stats s
 SET series_id = md5(
   COALESCE(ma.season,'') || '|' ||
   COALESCE(ma.split,'') || '|' ||
-  COALESCE(ma.regional,'') || '|' ||
+  COALESCE(ma.event,'') || '|' ||
   COALESCE(ma.day,'') || '|' ||
   COALESCE(ma.stage,'') || '|' ||
   COALESCE(ma.round,'') || '|' ||
@@ -108,7 +108,7 @@ const DENORM_COLUMNS = new Set(
   DENORM_BASE_STATS.flatMap((stat) => ZONE_SUFFIXES.map((zone) => stat + zone))
 );
 
-const STATS_TRIM_COLUMNS = new Set(["Split", "Regional", "Stage", "Round"]);
+const STATS_TRIM_COLUMNS = new Set(["Split", "Event", "Stage", "Round"]);
 const STATS_UPPERCASE_COLUMNS = new Set(["Team"]);
 
 function normalizeStatsTextValue(column: string, value: unknown): unknown {

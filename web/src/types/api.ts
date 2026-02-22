@@ -184,7 +184,7 @@ export type CompareHistoryRow = {
   date: string | null;
   season: string | null;
   split: string | null;
-  regional: string | null;
+  event: string | null;
   stage: string | null;
   round: string | null;
   teams: CompareHistoryTeam[] | null;
@@ -286,7 +286,7 @@ export type PlayerResultSeries = {
 export type PlayerResultEvent = {
   season: string;
   split: string;
-  regional: string;
+  event: string;
   placement: string | null;
   series: PlayerResultSeries[];
 };

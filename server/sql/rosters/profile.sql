@@ -35,7 +35,7 @@ series_meta AS (
     MAX(s."Date") AS match_date,
     MAX(NULLIF(TRIM(s."Season"), '')) AS season,
     MAX(NULLIF(TRIM(s."Split"), '')) AS split,
-    MAX(NULLIF(TRIM(s."Regional"), '')) AS regional,
+    MAX(NULLIF(TRIM(s."Event"), '')) AS event,
     MAX(NULLIF(TRIM(s."Stage"), '')) AS stage,
     MIN(NULLIF(TRIM(s."Round"), '')) AS round,
     MAX(COALESCE(s."Best of ", 0)) AS best_of
@@ -53,7 +53,7 @@ grouped_series AS (
     sm.match_date,
     sm.season,
     sm.split,
-    sm.regional,
+    sm.event,
     sm.stage,
     sm.round,
     sm.best_of,
@@ -103,7 +103,7 @@ scope_stats AS (
     gs.roster_id,
     gs.season,
     gs.split,
-    gs.regional,
+    gs.event,
     gs.stage,
     gs.round,
     gs.best_of,
@@ -211,9 +211,9 @@ first_appearance AS (
   SELECT
     gs.season AS debut_season,
     gs.split AS debut_split,
-    gs.regional AS debut_event
+    gs.event AS debut_event
   FROM group_scope gs
-  ORDER BY gs.match_date ASC NULLS LAST, gs.season ASC, gs.split ASC, gs.regional ASC
+  ORDER BY gs.match_date ASC NULLS LAST, gs.season ASC, gs.split ASC, gs.event ASC
   LIMIT 1
 ),
 series_summary AS (
@@ -221,7 +221,7 @@ series_summary AS (
     ss.series_id,
     MAX(ss.season) AS season,
     MAX(ss.split) AS split,
-    MAX(ss.regional) AS regional,
+    MAX(ss.event) AS event,
     MAX(ss.stage) AS stage,
     MIN(ss.round) AS round,
     MAX(ss.best_of) AS best_of,
@@ -239,7 +239,7 @@ event_gf AS (
   SELECT
     season,
     split,
-    regional,
+    event,
     stage,
     MAX(
       CASE
@@ -250,7 +250,7 @@ event_gf AS (
       END
     ) AS gf_tier
   FROM series_summary
-  GROUP BY season, split, regional, stage
+  GROUP BY season, split, event, stage
 ),
 gf_champs AS (
   SELECT s.*
@@ -258,7 +258,7 @@ gf_champs AS (
   JOIN event_gf e
     ON s.season IS NOT DISTINCT FROM e.season
    AND s.split IS NOT DISTINCT FROM e.split
-   AND s.regional IS NOT DISTINCT FROM e.regional
+   AND s.event IS NOT DISTINCT FROM e.event
    AND s.stage IS NOT DISTINCT FROM e.stage
   WHERE s.won_series = true
     AND (

@@ -8,7 +8,7 @@ FROM (
   SELECT
     MIN("Season") AS season,
     MIN("Split") AS split,
-    MIN("Regional") AS regional,
+    MIN("Event") AS event,
     MIN("Stage") AS stage,
     MIN("Best of ") AS best_of,
     MIN("Team") AS team_a,

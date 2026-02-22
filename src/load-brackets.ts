@@ -4,7 +4,7 @@ import type { Client } from "pg";
 type BracketRow = {
   season: string;
   split: string;
-  regional: string;
+  event: string;
   bracketImageUrl: string;
   liquipediaUrl: string;
 };
@@ -24,23 +24,23 @@ function parseBracketRows(raw: string): BracketRow[] {
     const cells = line.split(",");
     const season = cells[0]?.trim() ?? "";
     const split = cells[1]?.trim() ?? "";
-    const regional = cells[2]?.trim() ?? "";
+    const event = cells[2]?.trim() ?? "";
     const bracketImageUrl = cells[3]?.trim() ?? "";
     const liquipediaUrl = cells[4]?.trim() ?? "";
 
     // Separator rows appear as ",,,,"
-    if (!season && !split && !regional && !bracketImageUrl && !liquipediaUrl) {
+    if (!season && !split && !event && !bracketImageUrl && !liquipediaUrl) {
       continue;
     }
 
-    if (!season || !split || !regional || !bracketImageUrl || !liquipediaUrl) {
+    if (!season || !split || !event || !bracketImageUrl || !liquipediaUrl) {
       continue;
     }
 
     rows.push({
       season,
       split,
-      regional,
+      event,
       bracketImageUrl,
       liquipediaUrl
     });
@@ -58,7 +58,7 @@ export async function loadBracketsCsv(client: Client, filePath: string, dryRun: 
   if (dryRun) {
     console.log("[dry-run] Would insert bracket rows:");
     for (const row of rows.slice(0, 5)) {
-      console.log(`  ${row.season} / ${row.split} / ${row.regional}`);
+      console.log(`  ${row.season} / ${row.split} / ${row.event}`);
     }
     if (rows.length > 5) {
       console.log(`  ... and ${rows.length - 5} more`);
@@ -76,15 +76,15 @@ export async function loadBracketsCsv(client: Client, filePath: string, dryRun: 
   let parameter = 1;
   for (const row of rows) {
     placeholders.push(`($${parameter}, $${parameter + 1}, $${parameter + 2}, $${parameter + 3}, $${parameter + 4})`);
-    values.push(row.season, row.split, row.regional, row.bracketImageUrl, row.liquipediaUrl);
+    values.push(row.season, row.split, row.event, row.bracketImageUrl, row.liquipediaUrl);
     parameter += 5;
   }
 
   await client.query(
     `
-    INSERT INTO brackets (season, split, regional, bracket_image_url, liquipedia_url)
+    INSERT INTO brackets (season, split, event, bracket_image_url, liquipedia_url)
     VALUES ${placeholders.join(", ")}
-    ON CONFLICT (season, split, regional)
+    ON CONFLICT (season, split, event)
     DO UPDATE SET
       bracket_image_url = EXCLUDED.bracket_image_url,
       liquipedia_url = EXCLUDED.liquipedia_url;

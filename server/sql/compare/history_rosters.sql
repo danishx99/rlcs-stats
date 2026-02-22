@@ -36,7 +36,7 @@ series_meta AS (
     MIN(s."Stage") AS "Stage",
     MIN(s."Season") AS "Season",
     MIN(s."Split") AS "Split",
-    MIN(s."Regional") AS "Regional",
+    MIN(s."Event") AS "Event",
     MAX(s."Best of ") AS best_of,
     h.team_a,
     h.team_b
@@ -108,7 +108,7 @@ totals AS (
     sm."Stage",
     sm."Season",
     sm."Split",
-    sm."Regional",
+    sm."Event",
     sm.team_a,
     sm.team_b,
     COUNT(*) FILTER (WHERE gw.winner_team = sm.team_a) AS team_a_wins,
@@ -116,7 +116,7 @@ totals AS (
     COALESCE(MAX(gw.best_of), MAX(sm.best_of)) AS best_of
   FROM series_meta sm
   LEFT JOIN game_winners gw ON gw.series_id = sm.series_id
-  GROUP BY sm.series_id, sm.match_date, sm."Round", sm."Stage", sm."Season", sm."Split", sm."Regional", sm.team_a, sm.team_b
+  GROUP BY sm.series_id, sm.match_date, sm."Round", sm."Stage", sm."Season", sm."Split", sm."Event", sm.team_a, sm.team_b
 ),
 series_entities AS (
   SELECT
@@ -161,7 +161,7 @@ SELECT
   p.match_date AS date,
   p."Season" AS season,
   p."Split" AS split,
-  p."Regional" AS regional,
+  p."Event" AS event,
   p."Stage" AS stage,
   p."Round" AS round,
   p.team_a,

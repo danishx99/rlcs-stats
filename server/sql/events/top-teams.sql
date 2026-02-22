@@ -1,7 +1,7 @@
 WITH base_scope AS (
   SELECT *
   FROM stats
-  WHERE LOWER(TRIM("Regional")) = LOWER($1)
+  WHERE LOWER(TRIM("Event")) = LOWER($1)
     AND ($2::text IS NULL OR LOWER(TRIM("Season")) = LOWER($2))
     AND ($3::text IS NULL OR LOWER(TRIM("Split")) = LOWER($3))
     AND "Team" IS NOT NULL

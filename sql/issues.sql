@@ -126,7 +126,7 @@ ORDER BY best_of, max_games_won;
 -- the same round, they get identical Match IDs, merging 4 teams into one game.
 --
 -- Scale: 6 Match IDs affected (all with 4 teams instead of 2).
---   - 2021-22 Fall, Regional Event 2, Swiss Round 2: 1 collision
+--   - 2021-22 Fall, Event 2, Swiss Round 2: 1 collision
 --   - 2022-23 Winter, Open, Groups Round 1: 2 collisions
 --   - 2022-23 Winter, Open, Groups Round 2: 2 collisions
 --   - 2022-23 Winter, Open, Playoffs Round 1: 1 collision
@@ -206,7 +206,7 @@ ORDER BY team_count DESC;
 -- 178 games (169 in 2021-22, 9 in 2022-23) where neither team has Victory=true.
 -- Causes series win undercounts (no winner recorded for that game).
 --
--- Example: 2021-11-12, Season 2021-22, Fall, Regional Event 2, Swiss, Round 3,
+-- Example: 2021-11-12, Season 2021-22, Fall, Event 2, Swiss, Round 3,
 --          Game 2 — BRAVADO GAMING vs EXOTIC ESPORTS.
 --          BVD scored 2 goals, EXO scored 1, but Victory=false for both teams.
 
@@ -250,14 +250,14 @@ WITH game_victories AS (
     "Date"::date AS date,
     "Season",
     "Split",
-    "Regional",
+    "Event",
     "Stage",
     "Round",
     "Game Number",
     "Team",
     bool_or("Victory") AS team_won
   FROM stats
-  GROUP BY "Match ID", "Date"::date, "Season", "Split", "Regional",
+  GROUP BY "Match ID", "Date"::date, "Season", "Split", "Event",
            "Stage", "Round", "Game Number", "Team"
 ),
 double_wins AS (
@@ -267,7 +267,7 @@ double_wins AS (
   GROUP BY "Match ID", "Game Number"
   HAVING COUNT(*) > 1
 )
-SELECT g.date, g."Season", g."Split", g."Regional", g."Stage", g."Round",
+SELECT g.date, g."Season", g."Split", g."Event", g."Stage", g."Round",
        g."Game Number", g."Team", g.team_won
 FROM game_victories g
 JOIN double_wins d ON g."Match ID" = d."Match ID" AND g."Game Number" = d."Game Number"
