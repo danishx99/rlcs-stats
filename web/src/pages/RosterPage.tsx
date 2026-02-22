@@ -5,6 +5,7 @@ import type { MetaResponse, RosterProfile } from "../types/api";
 import { proxyImageUrl, normalizeSocialLink } from "../utils/normalize";
 import { formatRosterStarters } from "../utils/roster";
 import { resolveTeamRosterId } from "../utils/team-routing";
+import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
 export default function RosterPage({
   filters: _filters,
@@ -251,7 +252,7 @@ export default function RosterPage({
                           }}
                           title={`View ${teamName} team page`}
                         >
-                          {teamName}
+                          <TeamNameWithLogo team={teamName} />
                         </button>
                       ))}
                     </div>
@@ -286,7 +287,7 @@ export default function RosterPage({
                 }}
                 title={`View ${teamName} team page`}
               >
-                {teamName}
+                <TeamNameWithLogo team={teamName} />
               </button>
             ))}
           </div>

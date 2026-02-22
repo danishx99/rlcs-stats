@@ -5,6 +5,7 @@ import { api } from "../api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatStat } from "../utils/format";
 import { toOrgRosterId } from "../utils/roster";
+import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
 /*
  * Preserved featured insight presets (available via api.featured):
@@ -427,7 +428,9 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                   </div>
                   <div className="featured-card-info">
                     <strong>{row.label}</strong>
-                    <span className="card-team">{row.teams[0] || "—"}</span>
+                    <span className="card-team">
+                      {row.teams[0] ? <TeamNameWithLogo team={row.teams[0]} /> : "—"}
+                    </span>
                     <span className="card-value">
                       {formatStat(row.value, topScorers.metric.format, topScorers.mode)}
                     </span>

@@ -60,6 +60,10 @@
 - ✅ Intended for initial release tester feedback collection
 - ✅ Submits via `POST /api/feedback`
 
+### Presentation Consistency Across App
+- ✅ Show player pictures wherever players are listed
+- ✅ Show org logos wherever teams are listed
+
 ## V0.1 Remaining Requirements
 
 ### Visual & UX
@@ -85,10 +89,6 @@
 ### Player Profile Improvements
 - [ ] Show current team with clickable link
 - [ ] Results view should support season-specific or all-time mode
-
-### Presentation Consistency Across App
-- [ ] Show player pictures wherever players are listed
-- [ ] Show org logos wherever teams are listed
 
 ### Admin
 - [ ] Admin option to update player/team info

@@ -10,6 +10,7 @@ import { api } from "../api";
 import { formatStat, formatValue } from "../utils/format";
 import { formatSeriesLabel } from "../utils/compare";
 import { formatDate } from "../utils/date";
+import PlayerNameWithPhoto from "./PlayerNameWithPhoto";
 
 export type ComparePanelProps = {
   compareMode: "players" | "rosters";
@@ -159,8 +160,12 @@ export default function ComparePanel({
                   <div key={row.id}>
                     <div className={`sg-entry${isBest ? " sg-best" : ""}`}>
                       <span className="sg-rank">{rank + 1}</span>
-                      <span className="sg-name">{row.label}</span>
-                      <span className="sg-team">{row.teams?.[0] ?? ""}</span>
+                      <span className="sg-name">
+                        <PlayerNameWithPhoto
+                          name={row.label}
+                          photoUrl={compareSelection.find((entry) => entry.id === row.id)?.meta?.photoUrl ?? null}
+                        />
+                      </span>
                       <span className="sg-val">{formatValue(row.games)}</span>
                     </div>
                     <div className="sg-bar">
@@ -193,8 +198,12 @@ export default function ComparePanel({
                     <div key={row.id}>
                       <div className={`sg-entry${isBest ? " sg-best" : ""}`}>
                         <span className="sg-rank">{rank + 1}</span>
-                        <span className="sg-name">{row.label}</span>
-                        <span className="sg-team">{row.teams?.[0] ?? ""}</span>
+                        <span className="sg-name">
+                          <PlayerNameWithPhoto
+                            name={row.label}
+                            photoUrl={compareSelection.find((entry) => entry.id === row.id)?.meta?.photoUrl ?? null}
+                          />
+                        </span>
                         <span className="sg-val">
                           {formatStat(val, format, compareResults.mode)}
                         </span>
@@ -240,7 +249,6 @@ export default function ComparePanel({
                     const teams = row.teams ?? [];
                     const teamA = teams[0];
                     const teamB = teams[1];
-                    const teamLabel = (team?: CompareHistoryTeam) => team?.team ?? "—";
                     const entityLabel = (team?: CompareHistoryTeam) =>
                       team?.entities?.map((entity) => entity.label ?? entity.id).join(" / ") ?? "—";
                     const scoreParts = (team?: CompareHistoryTeam, other?: CompareHistoryTeam) => {
@@ -262,23 +270,21 @@ export default function ComparePanel({
                         <td>{formatSeriesLabel(row)}</td>
                         <td>
                           <div className="cell-title">
-                            <strong className={scoreClass(teamA, teamB)}>{teamLabel(teamA)}</strong>
+                            <strong className={scoreClass(teamA, teamB)}>
+                              {scoreParts(teamA, teamB).text}
+                            </strong>
                             <span>
-                              {entityLabel(teamA)} ·{" "}
-                              <span className={scoreClass(teamA, teamB)}>
-                                {scoreParts(teamA, teamB).text}
-                              </span>
+                              {entityLabel(teamA)}
                             </span>
                           </div>
                         </td>
                         <td>
                           <div className="cell-title">
-                            <strong className={scoreClass(teamB, teamA)}>{teamLabel(teamB)}</strong>
+                            <strong className={scoreClass(teamB, teamA)}>
+                              {scoreParts(teamB, teamA).text}
+                            </strong>
                             <span>
-                              {entityLabel(teamB)} ·{" "}
-                              <span className={scoreClass(teamB, teamA)}>
-                                {scoreParts(teamB, teamA).text}
-                              </span>
+                              {entityLabel(teamB)}
                             </span>
                           </div>
                         </td>

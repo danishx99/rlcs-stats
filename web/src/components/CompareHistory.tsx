@@ -1,5 +1,6 @@
 import type { CompareHistoryRow } from "../types/api";
 import { entityLabel, formatSeriesLabel, scoreClass, scoreParts, teamLabel } from "../utils/compare";
+import TeamNameWithLogo from "./TeamNameWithLogo";
 
 const compareHistoryPageSize = 5;
 
@@ -31,14 +32,18 @@ export default function CompareHistory({ rows, page, totalPages, onPageChange }:
               <div className="history-meta">{formatSeriesLabel(row)}</div>
               <div className="history-teams">
                 <div className="history-team">
-                  <div className={`history-team-name ${scoreClass(teamA, teamB)}`}>{teamLabel(teamA)}</div>
+                  <div className={`history-team-name ${scoreClass(teamA, teamB)}`}>
+                    <TeamNameWithLogo team={teamLabel(teamA)} />
+                  </div>
                   <div className="history-players">{entityLabel(teamA)}</div>
                 </div>
                 <div className="history-score">
                   <div className={`score ${scoreClass(teamA, teamB)}`}>{scoreParts(teamA, teamB)}</div>
                 </div>
                 <div className="history-team">
-                  <div className={`history-team-name ${scoreClass(teamB, teamA)}`}>{teamLabel(teamB)}</div>
+                  <div className={`history-team-name ${scoreClass(teamB, teamA)}`}>
+                    <TeamNameWithLogo team={teamLabel(teamB)} />
+                  </div>
                   <div className="history-players">{entityLabel(teamB)}</div>
                 </div>
                 <div className="history-score">

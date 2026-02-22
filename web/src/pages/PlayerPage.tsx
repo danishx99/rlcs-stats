@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { MetaResponse, PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
 import SeasonTable from "../components/SeasonTable";
+import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import { computeAge, formatDate } from "../utils/date";
 import { normalizeSocialLink, proxyImageUrl } from "../utils/normalize";
 import { resolveTeamRosterId } from "../utils/team-routing";
@@ -395,7 +396,9 @@ export default function PlayerPage({
                         {placement}
                       </span>
                     </td>
-                    <td className="results-cell-opponent">{s?.opponent || "—"}</td>
+                    <td className="results-cell-opponent">
+                      {s?.opponent ? <TeamNameWithLogo team={s.opponent} /> : "—"}
+                    </td>
                     <td className="results-cell-score">
                       {s ? (
                         <>
@@ -428,7 +431,7 @@ export default function PlayerPage({
               }}
               title={`View ${team} team page`}
             >
-              {team}
+              <TeamNameWithLogo team={team} />
             </button>
           ))}
         </div>

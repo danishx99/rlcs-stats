@@ -457,7 +457,7 @@ export default function EventPage() {
           {coreLeaderboards.map((item) => (
             <div key={item.data.metric.key} className="event-panel panel">
               <h3>{item.title}</h3>
-              <Leaderboard data={item.data} />
+              <Leaderboard data={item.data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
             </div>
           ))}
         </div>
@@ -502,7 +502,9 @@ export default function EventPage() {
               <div key={key} className="event-pick-stat-card panel">
                 <h4>{label}</h4>
                 {isLoading && <p className="dash-search-status">Loading...</p>}
-                {!isLoading && data && data.rows.length > 0 && <Leaderboard data={data} />}
+                {!isLoading && data && data.rows.length > 0 && (
+                  <Leaderboard data={data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
+                )}
                 {!isLoading && data && data.rows.length === 0 && (
                   <p className="dash-search-status">No data for this stat.</p>
                 )}
