@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { MetaResponse, RosterProfile } from "../types/api";
+import { buildEventPath, parseDebutEvent } from "../utils/event-routing";
 import { proxyImageUrl, normalizeSocialLink } from "../utils/normalize";
 import { formatRosterStarters } from "../utils/roster";
 import { resolveTeamRosterId } from "../utils/team-routing";
@@ -99,6 +100,7 @@ export default function RosterPage({
   const tiktokLink = normalizeSocialLink(rosterProfile.tiktok, "tiktok");
   const youtubeLink = normalizeSocialLink(rosterProfile.youtube, "youtube");
   const twitchLink = normalizeSocialLink(rosterProfile.twitch, "twitch");
+  const debutEvent = parseDebutEvent(rosterProfile.debut);
   const navigateToTeam = async (teamName: string) => {
     const rosterId = await resolveTeamRosterId(teamName);
     navigate(`/rosters/${encodeURIComponent(rosterId)}`);
@@ -131,7 +133,18 @@ export default function RosterPage({
             <div className="profile-meta">
               <div>
                 <span>RLCS Debut</span>
-                <strong>{rosterProfile.debut ?? "—"}</strong>
+                <strong>
+                  {rosterProfile.debut && debutEvent ? (
+                    <Link
+                      className="inline-link"
+                      to={buildEventPath(debutEvent.event, { season: debutEvent.season, split: debutEvent.split })}
+                    >
+                      {rosterProfile.debut}
+                    </Link>
+                  ) : (
+                    rosterProfile.debut ?? "—"
+                  )}
+                </strong>
               </div>
               <div>
                 <span>Best Result</span>

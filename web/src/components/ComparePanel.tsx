@@ -9,9 +9,11 @@ import type {
 } from "../types/api";
 import { api } from "../api";
 import { formatStat, formatValue } from "../utils/format";
-import { formatSeriesLabel } from "../utils/compare";
+import { seriesLabelParts } from "../utils/compare";
 import { formatDate } from "../utils/date";
+import { buildEventPath } from "../utils/event-routing";
 import PlayerNameWithPhoto from "./PlayerNameWithPhoto";
+import TeamNameWithLogo from "./TeamNameWithLogo";
 
 export type ComparePanelProps = {
   compareMode: "players" | "rosters";
@@ -46,6 +48,25 @@ export default function ComparePanel({
     1,
     Math.ceil(compareHistoryTotal / compareHistoryPageSize)
   );
+  const identityNode = (rowId: string, rowLabel: string) => {
+    const selectedEntry = compareSelection.find((entry) => entry.id === rowId);
+    if (compareMode === "rosters") {
+      return (
+        <TeamNameWithLogo
+          team={rowLabel}
+          logoUrl={selectedEntry?.meta?.photoUrl ?? null}
+          rosterId={rowId}
+        />
+      );
+    }
+    return (
+      <PlayerNameWithPhoto
+        name={rowLabel}
+        playerId={rowId}
+        photoUrl={selectedEntry?.meta?.photoUrl ?? null}
+      />
+    );
+  };
 
   useEffect(() => {
     setCompareHistoryPage(1);
@@ -162,11 +183,7 @@ export default function ComparePanel({
                     <div className={`sg-entry${isBest ? " sg-best" : ""}`}>
                       <span className="sg-rank">{rank + 1}</span>
                       <span className="sg-name">
-                        <PlayerNameWithPhoto
-                          name={row.label}
-                          playerId={row.id}
-                          photoUrl={compareSelection.find((entry) => entry.id === row.id)?.meta?.photoUrl ?? null}
-                        />
+                        {identityNode(row.id, row.label)}
                       </span>
                       <span className="sg-val">{formatValue(row.games)}</span>
                     </div>
@@ -201,11 +218,7 @@ export default function ComparePanel({
                       <div className={`sg-entry${isBest ? " sg-best" : ""}`}>
                         <span className="sg-rank">{rank + 1}</span>
                         <span className="sg-name">
-                          <PlayerNameWithPhoto
-                            name={row.label}
-                            playerId={row.id}
-                            photoUrl={compareSelection.find((entry) => entry.id === row.id)?.meta?.photoUrl ?? null}
-                          />
+                          {identityNode(row.id, row.label)}
                         </span>
                         <span className="sg-val">
                           {formatStat(val, format, compareResults.mode)}
@@ -252,6 +265,9 @@ export default function ComparePanel({
                     const teams = row.teams ?? [];
                     const teamA = teams[0];
                     const teamB = teams[1];
+                    const eventHref = row.event ? buildEventPath(row.event, { season: row.season, split: row.split }) : null;
+                    const { prefix, event, suffix } = seriesLabelParts(row);
+                    const eventMetaLabel = [row.season, row.split, row.event].filter(Boolean).join(" · ");
                     const entityLabel = (team?: CompareHistoryTeam) => {
                       const entities = team?.entities ?? [];
                       if (!entities.length) return "—";
@@ -285,19 +301,32 @@ export default function ComparePanel({
                       if (team.wins < other.wins) return "score-loss";
                       return "";
                     };
+                    const teamLabel = (team?: CompareHistoryTeam) => team?.team ?? "—";
 
                     return (
                       <tr key={row.series_id}>
                         <td>{formatDate(row.date)}</td>
-                        <td>{formatSeriesLabel(row)}</td>
+                        <td>
+                          {eventHref && eventMetaLabel ? (
+                            <Link className="inline-link" to={eventHref}>{eventMetaLabel}</Link>
+                          ) : (
+                            [prefix, event].filter(Boolean).join(" · ") || "Series"
+                          )}
+                          {suffix ? <> · {suffix}</> : null}
+                        </td>
                         <td>
                           <div className="cell-title">
                             <strong className={scoreClass(teamA, teamB)}>
                               {scoreParts(teamA, teamB).text}
                             </strong>
-                            <span>
-                              {entityLabel(teamA)}
+                            <span className="cell-team-name">
+                              <TeamNameWithLogo team={teamLabel(teamA)} />
                             </span>
+                            {compareMode === "players" ? (
+                              <span className="cell-entity-list">
+                                {entityLabel(teamA)}
+                              </span>
+                            ) : null}
                           </div>
                         </td>
                         <td>
@@ -305,9 +334,14 @@ export default function ComparePanel({
                             <strong className={scoreClass(teamB, teamA)}>
                               {scoreParts(teamB, teamA).text}
                             </strong>
-                            <span>
-                              {entityLabel(teamB)}
+                            <span className="cell-team-name">
+                              <TeamNameWithLogo team={teamLabel(teamB)} />
                             </span>
+                            {compareMode === "players" ? (
+                              <span className="cell-entity-list">
+                                {entityLabel(teamB)}
+                              </span>
+                            ) : null}
                           </div>
                         </td>
                       </tr>

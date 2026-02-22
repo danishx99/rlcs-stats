@@ -1392,6 +1392,111 @@ body {
   letter-spacing: 0.05em;
 }
 
+.player-page-title {
+  margin: 0 0 18px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 1.55rem;
+}
+
+.player-top-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.95fr) minmax(420px, 1.35fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.player-overview-card,
+.player-season-card,
+.player-results-card {
+  padding: 16px;
+}
+
+.player-overview-head {
+  display: grid;
+  grid-template-columns: 156px 1fr;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.player-overview-card .profile-media {
+  width: 156px;
+  height: 156px;
+  border-radius: 8px;
+  border-width: 1px;
+}
+
+.player-overview-card .profile-media::after {
+  display: none;
+}
+
+.player-overview-name h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.player-overview-name p {
+  margin: 2px 0 0;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+.player-overview-list {
+  display: grid;
+  gap: 8px;
+}
+
+.player-overview-list div {
+  display: grid;
+  gap: 2px;
+}
+
+.player-overview-list span {
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.player-overview-list strong {
+  font-size: 0.9rem;
+}
+
+.player-season-header {
+  margin-bottom: 10px;
+}
+
+.player-season-header h2 {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 1rem;
+}
+
+.player-season-card .profile-filter-row {
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.player-season-card .profile-filter-row select,
+.player-season-card .profile-filter-row button {
+  height: 34px;
+}
+
+.player-season-card .season-table {
+  margin-top: 6px;
+}
+
+.player-results-card {
+  margin-top: 18px;
+}
+
 .profile-subtitle {
   font-size: 1rem;
   color: var(--ink-muted);
@@ -1676,6 +1781,18 @@ th {
 .cell-title span {
   font-size: 0.75rem;
   color: var(--ink-muted);
+}
+
+.cell-title .cell-team-name {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+.cell-title .cell-entity-list {
+  display: block;
+  font-size: 0.72rem;
 }
 
 .empty {
@@ -3879,6 +3996,10 @@ th {
 
 @media (max-width: 900px) {
   .main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .player-top-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { MetaResponse, PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
 import SeasonTable from "../components/SeasonTable";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import { computeAge, formatDate } from "../utils/date";
+import { buildEventPath, parseDebutEvent } from "../utils/event-routing";
 import { normalizeSocialLink, proxyImageUrl } from "../utils/normalize";
 import { resolveTeamRosterId } from "../utils/team-routing";
 
@@ -33,8 +34,8 @@ function formatPlacement(placement: string | null) {
 
 export default function PlayerPage({
   filters,
-  meta,
-  onFiltersChange
+  meta: _meta,
+  onFiltersChange: _onFiltersChange
 }: {
   filters: { season: string; split: string; event: string };
   meta: MetaResponse | null;
@@ -47,39 +48,12 @@ export default function PlayerPage({
   const [playerProfileError, setPlayerProfileError] = useState<string | null>(null);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
-  const [showAllSeasons, setShowAllSeasons] = useState(false);
   const [results, setResults] = useState<PlayerResultEvent[]>([]);
   const [resultSeasons, setResultSeasons] = useState<string[]>([]);
   const [resultSeason, setResultSeason] = useState("");
   const [resultsViewMode, setResultsViewMode] = useState<"season" | "all">("season");
   const [resultSeasonsLoading, setResultSeasonsLoading] = useState(false);
   const [resultsLoading, setResultsLoading] = useState(false);
-
-  const seasonTableRows = useMemo(() => {
-    if (!playerProfile) return [];
-    
-    // When filtering by season, show filtered results
-    const hasSeasonFilter = Boolean(filters.season);
-    if (hasSeasonFilter) {
-      return seasonRows;
-    }
-    
-    // No season filter: show career totals, optionally with breakdown
-    const allSeasonsRow = {
-      season: "All seasons",
-      games: playerProfile.games,
-      seriesPlayed: playerProfile.seriesPlayed,
-      goals: playerProfile.averages.goals,
-      assists: playerProfile.averages.assists,
-      saves: playerProfile.averages.saves,
-      demos: playerProfile.averages.demos
-    };
-    
-    if (!showAllSeasons) {
-      return [allSeasonsRow];
-    }
-    return [allSeasonsRow, ...seasonRows];
-  }, [playerProfile, seasonRows, showAllSeasons, filters.season]);
 
   useEffect(() => {
     if (!uniqueId) return;
@@ -88,11 +62,7 @@ export default function PlayerPage({
       setPlayerProfileLoading(true);
       setPlayerProfileError(null);
       try {
-        const response = await api.playerProfile(playerId, {
-          season: filters.season || undefined,
-          split: filters.split || undefined,
-          event: filters.event || undefined
-        });
+        const response = await api.playerProfile(playerId);
         setPlayerProfile(response.player);
       } catch (error) {
         console.error(error);
@@ -109,7 +79,7 @@ export default function PlayerPage({
     }
 
     loadProfile();
-  }, [filters.event, filters.season, filters.split, uniqueId]);
+  }, [uniqueId]);
 
   useEffect(() => {
     if (!uniqueId) return;
@@ -118,10 +88,7 @@ export default function PlayerPage({
       setSeasonLoading(true);
       try {
         const response: SeasonResponse = await api.playerSeason(playerId, {
-          mode: "avg",
-          season: filters.season || undefined,
-          split: filters.split || undefined,
-          event: filters.event || undefined
+          mode: "avg"
         });
         setSeasonRows(response.rows);
       } catch (error) {
@@ -132,7 +99,7 @@ export default function PlayerPage({
     }
 
     loadSeason();
-  }, [filters.event, filters.season, filters.split, uniqueId]);
+  }, [uniqueId]);
 
   useEffect(() => {
     if (!uniqueId) return;
@@ -228,219 +195,195 @@ export default function PlayerPage({
   }
 
   const age = computeAge(playerProfile.dateOfBirth);
-  const seasons = meta?.seasons ?? [];
-  const splits = meta?.splits ?? [];
-  const events = meta?.events ?? [];
   const twitchLink = normalizeSocialLink(playerProfile.twitch, "twitch");
   const tiktokLink = normalizeSocialLink(playerProfile.tiktok, "tiktok");
+  const debutEvent = parseDebutEvent(playerProfile.debut);
+  const currentTeam = playerProfile.teams[0] ?? null;
   const navigateToTeam = async (teamName: string) => {
     const rosterId = await resolveTeamRosterId(teamName);
     navigate(`/rosters/${encodeURIComponent(rosterId)}`);
   };
 
   return (
-    <div className="page page-no-nav">
+    <div className="page page-no-nav player-page">
       <button className="ghost back-button" onClick={() => navigate("/")}>
         ← Back to Dashboard
       </button>
 
-      <div className="panel player-profile-card">
-        <div className="profile-header">
-          <div className="profile-media">
-            {playerProfile.photoUrl ? (
-              <img
-                src={proxyImageUrl(playerProfile.photoUrl) ?? undefined}
-                alt={playerProfile.handle ?? playerProfile.playerName ?? "Player"}
-                loading="lazy"
-              />
-            ) : (
-              <div className="profile-avatar">{playerProfile.handle?.[0] ?? "?"}</div>
+      <h1 className="player-page-title">Player Profile</h1>
+
+      <div className="player-top-grid">
+        <section className="panel player-overview-card">
+          <div className="player-overview-head">
+            <div className="profile-media">
+              {playerProfile.photoUrl ? (
+                <img
+                  src={proxyImageUrl(playerProfile.photoUrl) ?? undefined}
+                  alt={playerProfile.handle ?? playerProfile.playerName ?? "Player"}
+                  loading="lazy"
+                />
+              ) : (
+                <div className="profile-avatar">{playerProfile.handle?.[0] ?? "?"}</div>
+              )}
+            </div>
+            <div className="player-overview-name">
+              <h2>{playerProfile.handle ?? playerProfile.playerName ?? "Player"}</h2>
+              <p>{playerProfile.playerName ?? "—"}</p>
+            </div>
+          </div>
+          <div className="player-overview-list">
+            <div><span>Name</span><strong>{playerProfile.realName ?? "—"}</strong></div>
+            <div><span>Country</span><strong>{playerProfile.country ?? "—"}</strong></div>
+            <div>
+              <span>Current Team</span>
+              <strong>
+                {currentTeam ? <TeamNameWithLogo team={currentTeam} /> : "—"}
+              </strong>
+            </div>
+            <div>
+              <span>Birthday</span>
+              <strong>{playerProfile.dateOfBirth ? formatDate(playerProfile.dateOfBirth) : "—"}{age ? ` (Age ${age})` : ""}</strong>
+            </div>
+            <div>
+              <span>Debut</span>
+              <strong>
+                {playerProfile.debut && debutEvent ? (
+                  <Link
+                    className="inline-link"
+                    to={buildEventPath(debutEvent.event, { season: debutEvent.season, split: debutEvent.split })}
+                  >
+                    {playerProfile.debut}
+                  </Link>
+                ) : (
+                  playerProfile.debut ?? "—"
+                )}
+              </strong>
+            </div>
+            <div><span>Best Result</span><strong>{playerProfile.bestResult ?? "—"}</strong></div>
+          </div>
+          <div className="profile-links">
+            {twitchLink ? (
+              <a href={twitchLink} target="_blank" rel="noreferrer">
+                Twitch
+              </a>
+            ) : null}
+            {tiktokLink ? (
+              <a href={tiktokLink} target="_blank" rel="noreferrer">
+                TikTok
+              </a>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="panel player-season-card">
+          <div className="section-header player-season-header">
+            <h2>Perf by Season</h2>
+          </div>
+          {seasonLoading ? <div className="loading">Loading seasons...</div> : null}
+          <SeasonTable rows={[...seasonRows].reverse()} />
+        </section>
+      </div>
+
+      <section className="panel player-results-card">
+        <div className="section-header">
+          <h2>Results</h2>
+          <div className="section-controls">
+            <div className="toggle">
+              <button
+                type="button"
+                className={resultsViewMode === "season" ? "active" : ""}
+                onClick={() => setResultsViewMode("season")}
+              >
+                Season
+              </button>
+              <button
+                type="button"
+                className={resultsViewMode === "all" ? "active" : ""}
+                onClick={() => setResultsViewMode("all")}
+              >
+                All-Time
+              </button>
+            </div>
+            {resultsViewMode === "season" && resultSeasons.length > 0 && (
+              <select
+                className="results-season-select"
+                value={resultSeason}
+                onChange={(e) => setResultSeason(e.target.value)}
+              >
+                {resultSeasons.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             )}
           </div>
-          <div className="profile-info">
-            <h1>{playerProfile.handle ?? playerProfile.playerName ?? "Player"}</h1>
-            <div className="profile-subtitle">{playerProfile.playerName}</div>
-            <div className="profile-meta">
-              <div>
-                <span>Real Name</span>
-                <strong>{playerProfile.realName ?? "—"}</strong>
-              </div>
-              <div>
-                <span>Country</span>
-                <strong>{playerProfile.country ?? "—"}</strong>
-              </div>
-              <div>
-                <span>Date of Birth</span>
-                <strong>{playerProfile.dateOfBirth ? formatDate(playerProfile.dateOfBirth) : "—"}{age ? ` (Age ${age})` : ""}</strong>
-              </div>
-              <div className="meta-accent">
-                <span>RLCS Debut</span>
-                <strong>{playerProfile.debut ?? "—"}</strong>
-              </div>
-              <div className="meta-accent">
-                <span>Best Result</span>
-                <strong>{playerProfile.bestResult ?? "—"}</strong>
-              </div>
-            </div>
-            <div className="profile-links">
-              {twitchLink ? (
-                <a href={twitchLink} target="_blank" rel="noreferrer">
-                  Twitch
-                </a>
-              ) : null}
-              {tiktokLink ? (
-                <a href={tiktokLink} target="_blank" rel="noreferrer">
-                  TikTok
-                </a>
-              ) : null}
-            </div>
+        </div>
+
+        {showResultsLoading ? (
+          <div className="loading">Loading event results...</div>
+        ) : results.length === 0 ? (
+          <div className="empty-state">
+            {resultsViewMode === "season" ? "No event results found for this season." : "No event results found."}
           </div>
-        </div>
-      </div>
-
-      <div className="section-header">
-        <h2>Performance by season</h2>
-        <div className="profile-filter-row">
-          <select
-            value={filters.season}
-            onChange={(e) =>
-              onFiltersChange({ season: e.target.value, split: "", event: "" })
-            }
-          >
-            <option value="">All Seasons</option>
-            {seasons.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          <select
-            value={filters.split}
-            onChange={(e) =>
-              onFiltersChange({ season: filters.season, split: e.target.value, event: "" })
-            }
-            disabled={!filters.season}
-          >
-            <option value="">All Splits</option>
-            {splits.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          <select
-            value={filters.event}
-            onChange={(e) =>
-              onFiltersChange({ season: filters.season, split: filters.split, event: e.target.value })
-            }
-            disabled={!filters.season || !filters.split}
-          >
-            <option value="">All Events</option>
-            {events.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          {!filters.season && seasonRows.length > 0 && (
-            <button
-              className="ghost"
-              onClick={() => setShowAllSeasons(!showAllSeasons)}
-            >
-              {showAllSeasons ? "Show less" : "Show all seasons"}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {seasonLoading ? <div className="loading">Loading seasons...</div> : null}
-      <SeasonTable rows={seasonTableRows} />
-
-      <div className="section-divider" />
-
-      <div className="section-header">
-        <h2>Results</h2>
-        <div className="section-controls">
-          <div className="toggle">
-            <button
-              type="button"
-              className={resultsViewMode === "season" ? "active" : ""}
-              onClick={() => setResultsViewMode("season")}
-            >
-              Season
-            </button>
-            <button
-              type="button"
-              className={resultsViewMode === "all" ? "active" : ""}
-              onClick={() => setResultsViewMode("all")}
-            >
-              All-Time
-            </button>
+        ) : (
+          <div className="results-table-wrap">
+            <table className="results-table">
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Placement</th>
+                  <th>Opponent</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((event) => {
+                  const s = event.series[0];
+                  const won = s?.wonSeries ?? false;
+                  const eventLabel = [event.split, event.event].filter(Boolean).join(" / ");
+                  const eventHref = event.event
+                    ? buildEventPath(event.event, { season: event.season, split: event.split })
+                    : null;
+                  const placement = formatPlacement(event.placement);
+                  const isChampion = placement === "1st";
+                  return (
+                    <tr
+                      key={`${event.season}-${event.split}-${event.event}`}
+                      className={won ? "results-row--win" : "results-row--loss"}
+                    >
+                      <td className="results-cell-event">
+                        {eventHref ? (
+                          <Link className="inline-link" to={eventHref}>
+                            {eventLabel || event.event}
+                          </Link>
+                        ) : (
+                          eventLabel || "—"
+                        )}
+                      </td>
+                      <td>
+                        <span className={`results-placement${isChampion ? " results-placement--gold" : ""}`}>
+                          {placement}
+                        </span>
+                      </td>
+                      <td className="results-cell-opponent">
+                        {s?.opponent ? <TeamNameWithLogo team={s.opponent} /> : "—"}
+                      </td>
+                      <td className="results-cell-score">
+                        {s ? (
+                          <>
+                            <span className={won ? "score-win" : "score-loss"}>{s.playerWins}</span>
+                            <span className="score-dash"> - </span>
+                            <span className={won ? "score-loss" : "score-win"}>{s.opponentWins}</span>
+                          </>
+                        ) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          {resultsViewMode === "season" && resultSeasons.length > 0 && (
-            <select
-              className="results-season-select"
-              value={resultSeason}
-              onChange={(e) => setResultSeason(e.target.value)}
-            >
-              {resultSeasons.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
-
-      {showResultsLoading ? (
-        <div className="loading">Loading event results...</div>
-      ) : results.length === 0 ? (
-        <div className="empty-state">
-          {resultsViewMode === "season" ? "No event results found for this season." : "No event results found."}
-        </div>
-      ) : (
-        <div className="results-table-wrap">
-          <table className="results-table">
-            <thead>
-              <tr>
-                <th>Event</th>
-                <th>Placement</th>
-                <th>Opponent</th>
-                <th>Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((event) => {
-                const s = event.series[0];
-                const won = s?.wonSeries ?? false;
-                const eventLabel = [event.split, event.event].filter(Boolean).join(" / ");
-                const placement = formatPlacement(event.placement);
-                const isChampion = placement === "1st";
-                return (
-                  <tr
-                    key={`${event.season}-${event.split}-${event.event}`}
-                    className={won ? "results-row--win" : "results-row--loss"}
-                  >
-                    <td className="results-cell-event">{eventLabel}</td>
-                    <td>
-                      <span className={`results-placement${isChampion ? " results-placement--gold" : ""}`}>
-                        {placement}
-                      </span>
-                    </td>
-                    <td className="results-cell-opponent">
-                      {s?.opponent ? <TeamNameWithLogo team={s.opponent} /> : "—"}
-                    </td>
-                    <td className="results-cell-score">
-                      {s ? (
-                        <>
-                          <span className={won ? "score-win" : "score-loss"}>{s.playerWins}</span>
-                          <span className="score-dash"> - </span>
-                          <span className={won ? "score-loss" : "score-win"}>{s.opponentWins}</span>
-                        </>
-                      ) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div className="section-divider" />
+        )}
+      </section>
 
       <div className="profile-teams">
         <div className="section-title">Teams</div>

@@ -1,5 +1,7 @@
+import { Link } from "react-router-dom";
 import type { CompareHistoryRow } from "../types/api";
-import { entityLabel, formatSeriesLabel, scoreClass, scoreParts, teamLabel } from "../utils/compare";
+import { buildEventPath } from "../utils/event-routing";
+import { entityLabel, scoreClass, scoreParts, seriesLabelParts, teamLabel } from "../utils/compare";
 import TeamNameWithLogo from "./TeamNameWithLogo";
 
 const compareHistoryPageSize = 5;
@@ -27,9 +29,19 @@ export default function CompareHistory({ rows, page, totalPages, onPageChange }:
           const teams = row.teams ?? [];
           const teamA = teams[0];
           const teamB = teams[1];
+          const eventHref = row.event ? buildEventPath(row.event, { season: row.season, split: row.split }) : null;
+          const { prefix, event, suffix } = seriesLabelParts(row);
           return (
             <div key={row.series_id} className="history-card">
-              <div className="history-meta">{formatSeriesLabel(row)}</div>
+              <div className="history-meta">
+                {prefix ? <>{prefix} · </> : null}
+                {eventHref && event ? (
+                  <Link className="inline-link" to={eventHref}>{event}</Link>
+                ) : (
+                  event ?? "Series"
+                )}
+                {suffix ? <> · {suffix}</> : null}
+              </div>
               <div className="history-teams">
                 <div className="history-team">
                   <div className={`history-team-name ${scoreClass(teamA, teamB)}`}>

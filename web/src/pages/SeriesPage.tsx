@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { SeriesDetail, SeriesListRow, SeriesMetaResponse } from "../types/api";
 import { formatDate } from "../utils/date";
+import { buildEventPath } from "../utils/event-routing";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
 type SeriesFilters = {
@@ -401,6 +402,8 @@ export default function SeriesPage() {
               <tbody>
                 {seriesRows.map((row) => {
                   const rowContext = seriesContext(row);
+                  const titlePrefix = [row.season, row.split].filter(Boolean).join(" · ");
+                  const eventHref = row.event ? buildEventPath(row.event, { season: row.season, split: row.split }) : null;
                   return (
                     <tr
                       key={row.seriesId}
@@ -413,7 +416,20 @@ export default function SeriesPage() {
                       <td>{formatDate(row.date)}</td>
                       <td>
                         <div className="cell-title">
-                          <strong>{rowContext.title}</strong>
+                          <strong>
+                            {titlePrefix ? <>{titlePrefix} · </> : null}
+                            {eventHref && row.event ? (
+                              <Link
+                                className="inline-link"
+                                to={eventHref}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {row.event}
+                              </Link>
+                            ) : (
+                              row.event ?? rowContext.title
+                            )}
+                          </strong>
                           <span>{rowContext.subtitle || "—"}</span>
                         </div>
                       </td>
@@ -450,7 +466,24 @@ export default function SeriesPage() {
                   <TeamNameWithLogo team={selectedSeries?.teamA ?? "Team A"} /> vs{" "}
                   <TeamNameWithLogo team={selectedSeries?.teamB ?? "Team B"} />
                 </h3>
-                <div className="section-note">{context.title}</div>
+                <div className="section-note">
+                  {[selectedSeries?.season, selectedSeries?.split].filter(Boolean).join(" · ")}
+                  {selectedSeries?.event ? (
+                    <>
+                      {[selectedSeries?.season, selectedSeries?.split].filter(Boolean).length ? " · " : ""}
+                      <Link
+                        className="inline-link"
+                        to={buildEventPath(selectedSeries.event, {
+                          season: selectedSeries.season,
+                          split: selectedSeries.split
+                        })}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {selectedSeries.event}
+                      </Link>
+                    </>
+                  ) : null}
+                </div>
                 {context.subtitle ? <div className="series-subline">{context.subtitle}</div> : null}
               </div>
               <button

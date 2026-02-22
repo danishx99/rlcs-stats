@@ -44,6 +44,7 @@
 - ✅ Compare add-search dropdown uses global-search style rows (image left, text right)
 - ✅ Head-to-head stat cards (player compare view) do **not** show org/team name or team logo inline
 - ✅ Head-to-head series table does **not** show team logos
+- [ ] Improve head-to-head series Team A/Team B team-logo UI treatment (defer polish for later pass)
 
 ### Team / Roster Page
 - ✅ Team logo and team name in header
@@ -64,6 +65,7 @@
 - ✅ Event name in header
 - ✅ Event date range in header
 - ✅ Top 8 placements for the event
+- ✅ Event placements correctly handle bracket-reset grand finals labels (`GF 1` / `GF 2`) for Top 1/2/3-4/5-8 ordering
 - ✅ Event top leaderboards (rating/goals/demos/saves/assists)
 - ✅ Event leaderboard rows show larger player photo with top-focused crop
 - ✅ Event leaderboard rows do **not** show team name or team logo inline
@@ -84,11 +86,15 @@
 ## Data Integrity & Ingestion
 - ✅ Full data reload approach accepted for `Event` migration (no legacy backfill requirement for production)
 - [ ] Zero-out known series completeness anomalies in source data before final production publish
+- [ ] Fix incorrect placement calculations on player profile page (event placement and best result are currently wrong)
+- [ ] Fix event page result placements (e.g. `/events/Regional%20Event%201?season=2021-22&split=Fall` shows incorrect placements)
+- [ ] Fix top 8–16 placement labels not displaying correctly on player profile page
 
 ## V0.1 Remaining Requirements
 
 ### Visual & UX
 - [ ] Make overall UI more compact
+- [ ] Add better placeholder icons for missing team logos and player photos
 
 ### Data & Content
 - [ ] Add 1v1 and Majors data to the database
@@ -114,6 +120,7 @@
 ### Player Profile Improvements
 - ✅ Show current team with clickable link
 - ✅ Results view should support season-specific and all-time mode
+- ✅ Player results and best result placement now use event-team placement logic (aligned with Event page placements)
 
 ### Admin
 - [ ] Admin option to update player/team info
