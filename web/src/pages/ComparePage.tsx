@@ -214,9 +214,18 @@ export default function ComparePage({
                   onClick={() => onRemoveCompare(entry.id)}
                 >
                   {entry.type === "player" ? (
-                    <PlayerNameWithPhoto name={entry.label} photoUrl={entry.meta?.photoUrl ?? null} />
+                    <PlayerNameWithPhoto
+                      name={entry.label}
+                      playerId={entry.id}
+                      photoUrl={entry.meta?.photoUrl ?? null}
+                      link={false}
+                    />
                   ) : (
-                    <TeamNameWithLogo team={entry.label} logoUrl={entry.meta?.photoUrl ?? null} />
+                    <TeamNameWithLogo
+                      team={entry.label}
+                      logoUrl={entry.meta?.photoUrl ?? null}
+                      link={false}
+                    />
                   )}
                   <span>&times;</span>
                 </button>

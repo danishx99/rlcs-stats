@@ -1359,7 +1359,12 @@ body {
 
 .roster-profile-card .profile-media img {
   object-fit: contain;
+  object-position: center;
   padding: 8px;
+}
+
+.roster-profile-card .profile-media::after {
+  display: none;
 }
 
 .profile-avatar {
@@ -2875,11 +2880,10 @@ th {
 
 .event-teams-list li {
   display: grid;
-  grid-template-columns: 32px 40px 1fr auto;
+  grid-template-columns: 32px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   padding: 8px 10px;
-  cursor: pointer;
   transition: background 0.15s;
 }
 
@@ -2939,6 +2943,8 @@ th {
 }
 
 .event-teams-list strong {
+  display: block;
+  min-width: 0;
   text-transform: uppercase;
   font-size: 0.85rem;
   letter-spacing: 0.03em;
@@ -3455,6 +3461,30 @@ th {
   min-width: 0;
 }
 
+.identity-inline-link {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.identity-inline-link:hover {
+  text-decoration: underline;
+  text-decoration-color: rgba(122, 180, 245, 0.7);
+  text-underline-offset: 2px;
+}
+
+.inline-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.inline-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .identity-inline--lg {
   gap: 10px;
 }
@@ -3513,6 +3543,10 @@ th {
 
 .identity-avatar--player {
   border-color: rgba(255, 130, 67, 0.35);
+}
+
+.identity-avatar--player img {
+  object-position: top center;
 }
 
 .team-inline-list {

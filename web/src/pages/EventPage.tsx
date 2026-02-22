@@ -6,6 +6,7 @@ import { proxyImageUrl } from "../utils/normalize";
 import { formatDate } from "../utils/date";
 import Leaderboard from "../components/Leaderboard";
 import StatPicker from "../components/StatPicker";
+import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
 const CORE_LEADERBOARDS = [
   { key: "rating", title: "Top 10 Players (Rating)" },
@@ -399,21 +400,11 @@ export default function EventPage() {
                         {placementLabel(t.placementStart, t.placementEnd)}
                       </li>
                     )}
-                    <li onClick={() => navigate(`/rosters/${t.team}`)}>
+                    <li>
                       <span className="event-team-rank">{i + 1}</span>
-                      <div className="event-team-logo">
-                        {proxyImageUrl(t.logoUrl) ? (
-                          <img src={proxyImageUrl(t.logoUrl)!} alt={t.team} loading="lazy" />
-                        ) : (
-                          <span>{t.team.charAt(0)}</span>
-                        )}
-                      </div>
-                      <strong>{t.team}</strong>
-                      {t.deepRound && (
-                        <span className="event-team-round">
-                          {t.deepRound}{t.wonDeepest ? " W" : " L"}
-                        </span>
-                      )}
+                      <strong>
+                        <TeamNameWithLogo team={t.team} logoUrl={t.logoUrl} />
+                      </strong>
                     </li>
                   </Fragment>
                 );

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type {
   CompareHistoryRow,
   CompareHistoryTeam,
@@ -163,6 +164,7 @@ export default function ComparePanel({
                       <span className="sg-name">
                         <PlayerNameWithPhoto
                           name={row.label}
+                          playerId={row.id}
                           photoUrl={compareSelection.find((entry) => entry.id === row.id)?.meta?.photoUrl ?? null}
                         />
                       </span>
@@ -201,6 +203,7 @@ export default function ComparePanel({
                         <span className="sg-name">
                           <PlayerNameWithPhoto
                             name={row.label}
+                            playerId={row.id}
                             photoUrl={compareSelection.find((entry) => entry.id === row.id)?.meta?.photoUrl ?? null}
                           />
                         </span>
@@ -249,8 +252,27 @@ export default function ComparePanel({
                     const teams = row.teams ?? [];
                     const teamA = teams[0];
                     const teamB = teams[1];
-                    const entityLabel = (team?: CompareHistoryTeam) =>
-                      team?.entities?.map((entity) => entity.label ?? entity.id).join(" / ") ?? "—";
+                    const entityLabel = (team?: CompareHistoryTeam) => {
+                      const entities = team?.entities ?? [];
+                      if (!entities.length) return "—";
+                      return entities.map((entity, index) => {
+                        const label = entity.label ?? entity.id;
+                        if (!entity.id) {
+                          return <span key={`${label}-${index}`}>{label}</span>;
+                        }
+                        const href = compareMode === "players"
+                          ? `/players/${encodeURIComponent(entity.id)}`
+                          : `/rosters/${encodeURIComponent(entity.id)}`;
+                        return (
+                          <span key={`${entity.id}-${index}`}>
+                            <Link className="inline-link" to={href} onClick={(event) => event.stopPropagation()}>
+                              {label}
+                            </Link>
+                            {index < entities.length - 1 ? " / " : ""}
+                          </span>
+                        );
+                      });
+                    };
                     const scoreParts = (team?: CompareHistoryTeam, other?: CompareHistoryTeam) => {
                       if (team?.wins === undefined || other?.wins === undefined) {
                         return { text: "—" };

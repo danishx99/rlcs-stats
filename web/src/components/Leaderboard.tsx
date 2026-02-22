@@ -32,6 +32,7 @@ export default function Leaderboard({
               <strong>
                 <PlayerNameWithPhoto
                   name={row.label}
+                  playerId={row.id}
                   photoUrl={row.photoUrl ?? null}
                   className={playerClassName || "identity-inline--lg"}
                 />
@@ -49,6 +50,7 @@ export default function Leaderboard({
                 <strong>
                   <PlayerNameWithPhoto
                     name={row.label}
+                    playerId={row.id}
                     photoUrl={row.photoUrl ?? null}
                     className={playerClassName}
                   />

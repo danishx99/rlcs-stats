@@ -252,7 +252,7 @@ export default function RosterPage({
                           }}
                           title={`View ${teamName} team page`}
                         >
-                          <TeamNameWithLogo team={teamName} />
+                          <TeamNameWithLogo team={teamName} link={false} />
                         </button>
                       ))}
                     </div>
@@ -287,7 +287,7 @@ export default function RosterPage({
                 }}
                 title={`View ${teamName} team page`}
               >
-                <TeamNameWithLogo team={teamName} />
+                <TeamNameWithLogo team={teamName} link={false} />
               </button>
             ))}
           </div>

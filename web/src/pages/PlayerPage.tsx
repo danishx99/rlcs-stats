@@ -455,7 +455,7 @@ export default function PlayerPage({
               }}
               title={`View ${team} team page`}
             >
-              <TeamNameWithLogo team={team} />
+              <TeamNameWithLogo team={team} link={false} />
             </button>
           ))}
         </div>

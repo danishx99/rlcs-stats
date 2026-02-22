@@ -47,6 +47,7 @@
 - ✅ Current roster shown under team header
 - ✅ Team info includes seasons competed, best result, debut season
 - ✅ Player photos removed from roster starters/alternates list (team-focused layout)
+- [ ] When navigating from a player profile to a team page (via the Teams list), auto-select the season where that player was on that team
 
 ### Player Profile Page
 - ✅ Player image and player name in header
@@ -67,6 +68,7 @@
 ## Cross-App Presentation Rules
 - ✅ Show player photos where player identity is primary (search/player lists/cards)
 - ✅ Show org/team logos where team identity is primary
+- ✅ Player photo crop should default to top-focused framing (avoid center torso crop)
 - ✅ Explicit exceptions:
   - Compare head-to-head stat rows: no team/org identity
   - Event leaderboard rows: no team/org identity
@@ -108,4 +110,7 @@
 - [ ] Admin option to update player/team info
 
 ### Infrastructure
-- [ ] Universal linking
+- ✅ Universal linking across app content:
+  - Any displayed team name should link to that team/roster page
+  - Any displayed player name should link to that player profile page
+  - Exception: removal chips/buttons can keep link disabled to preserve button click behavior
