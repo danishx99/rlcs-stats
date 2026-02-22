@@ -51,6 +51,7 @@ export default function PlayerPage({
   const [results, setResults] = useState<PlayerResultEvent[]>([]);
   const [resultSeasons, setResultSeasons] = useState<string[]>([]);
   const [resultSeason, setResultSeason] = useState("");
+  const [resultsViewMode, setResultsViewMode] = useState<"season" | "all">("season");
   const [resultSeasonsLoading, setResultSeasonsLoading] = useState(false);
   const [resultsLoading, setResultsLoading] = useState(false);
 
@@ -172,7 +173,7 @@ export default function PlayerPage({
   }, [uniqueId]);
 
   useEffect(() => {
-    if (!uniqueId || !resultSeason) {
+    if (!uniqueId || (resultsViewMode === "season" && !resultSeason)) {
       setResults([]);
       if (!resultSeasonsLoading) {
         setResultsLoading(false);
@@ -184,9 +185,12 @@ export default function PlayerPage({
     async function loadResultsForSeason() {
       setResultsLoading(true);
       try {
-        const response = await api.playerResults(playerId, {
-          season: resultSeason
-        });
+        const response = await api.playerResults(
+          playerId,
+          resultsViewMode === "season"
+            ? { season: resultSeason }
+            : undefined
+        );
         if (!isActive) return;
         setResults(response.events);
       } catch (error) {
@@ -204,7 +208,7 @@ export default function PlayerPage({
     return () => {
       isActive = false;
     };
-  }, [uniqueId, resultSeason, resultSeasonsLoading]);
+  }, [uniqueId, resultSeason, resultSeasonsLoading, resultsViewMode]);
 
   const showResultsLoading = resultSeasonsLoading || resultsLoading;
 
@@ -350,23 +354,43 @@ export default function PlayerPage({
 
       <div className="section-header">
         <h2>Results</h2>
-        {resultSeasons.length > 0 && (
-          <select
-            className="results-season-select"
-            value={resultSeason}
-            onChange={(e) => setResultSeason(e.target.value)}
-          >
-            {resultSeasons.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        )}
+        <div className="section-controls">
+          <div className="toggle">
+            <button
+              type="button"
+              className={resultsViewMode === "season" ? "active" : ""}
+              onClick={() => setResultsViewMode("season")}
+            >
+              Season
+            </button>
+            <button
+              type="button"
+              className={resultsViewMode === "all" ? "active" : ""}
+              onClick={() => setResultsViewMode("all")}
+            >
+              All-Time
+            </button>
+          </div>
+          {resultsViewMode === "season" && resultSeasons.length > 0 && (
+            <select
+              className="results-season-select"
+              value={resultSeason}
+              onChange={(e) => setResultSeason(e.target.value)}
+            >
+              {resultSeasons.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {showResultsLoading ? (
         <div className="loading">Loading event results...</div>
       ) : results.length === 0 ? (
-        <div className="empty-state">No event results found.</div>
+        <div className="empty-state">
+          {resultsViewMode === "season" ? "No event results found for this season." : "No event results found."}
+        </div>
       ) : (
         <div className="results-table-wrap">
           <table className="results-table">

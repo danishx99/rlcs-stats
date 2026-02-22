@@ -122,6 +122,20 @@ event_placement AS (
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
           AND s2.event IS NOT DISTINCT FROM de.event
+          AND UPPER(TRIM(s2.round)) = 'LR3'
+      ) THEN 'Top 8'
+      WHEN EXISTS (
+        SELECT 1 FROM series_summary s2
+        WHERE s2.season IS NOT DISTINCT FROM de.season
+          AND s2.split IS NOT DISTINCT FROM de.split
+          AND s2.event IS NOT DISTINCT FROM de.event
+          AND UPPER(TRIM(s2.round)) = 'LR2'
+      ) THEN 'Top 12'
+      WHEN EXISTS (
+        SELECT 1 FROM series_summary s2
+        WHERE s2.season IS NOT DISTINCT FROM de.season
+          AND s2.split IS NOT DISTINCT FROM de.split
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND (s2.round ILIKE '%R16%' OR s2.round ILIKE '%16%')
       ) THEN 'Top 16'
       WHEN EXISTS (
@@ -136,6 +150,13 @@ event_placement AS (
         WHERE s2.season IS NOT DISTINCT FROM de.season
           AND s2.split IS NOT DISTINCT FROM de.split
           AND s2.event IS NOT DISTINCT FROM de.event
+          AND UPPER(TRIM(s2.round)) IN ('UR1', 'LR1', 'R1')
+      ) THEN 'Top 16'
+      WHEN EXISTS (
+        SELECT 1 FROM series_summary s2
+        WHERE s2.season IS NOT DISTINCT FROM de.season
+          AND s2.split IS NOT DISTINCT FROM de.split
+          AND s2.event IS NOT DISTINCT FROM de.event
           AND s2.stage ILIKE '%Playoff%'
       ) THEN 'Top 8'
       WHEN EXISTS (
@@ -144,6 +165,13 @@ event_placement AS (
           AND s2.split IS NOT DISTINCT FROM de.split
           AND s2.event IS NOT DISTINCT FROM de.event
           AND s2.stage ILIKE '%Swiss%'
+      ) THEN 'Top 16'
+      WHEN EXISTS (
+        SELECT 1 FROM series_summary s2
+        WHERE s2.season IS NOT DISTINCT FROM de.season
+          AND s2.split IS NOT DISTINCT FROM de.split
+          AND s2.event IS NOT DISTINCT FROM de.event
+          AND s2.stage ILIKE '%Group%'
       ) THEN 'Top 16'
       ELSE NULL
     END AS placement

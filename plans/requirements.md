@@ -1,68 +1,84 @@
 # RLCS Stats — Product Requirements
 
-## Document Status
-- This file consolidates requirements added over time into one coherent source.
+## Status
+- This document is the single source of truth for product requirements and current behavior.
 - Status legend:
   - `✅` implemented
   - `[ ]` not yet implemented
 
 ## Product Scope
 
-### Global
+### Terminology
+- ✅ Use `Event` consistently in product/UI/data flows (no `Regional` labels in user-facing UI).
+
+### Global Search
 - ✅ Primary search supports: **Players**, **Teams**, **Stats**, **Events**
+- ✅ Search results use consistent left-media/right-text row layout
 
-### Core Pages
+## Core Pages
 
-#### Home (Landing Page)
+### Home (Landing)
 - ✅ Current RLCS standings shown by default
 - ✅ Season selector to view past standings
 - ✅ Link/button to **Top Performing Teams & Players**
-- ✅ Link/button to **Head to Head** compare tool
-- ✅ Compare supports up to **6** players/teams across one or more stats
+- ✅ Link/button to **Head-to-Head** compare tool
 - ✅ Featured players section shows **6** players
 - ✅ Featured player cards are clickable and open player profiles
 - ✅ Secondary player-focused search bar for profile lookup
 
-#### Top Performing Teams & Players
+### Stats / Leaderboards
 - ✅ Dedicated leaderboard page
 - ✅ Supports selecting one or more stats
 - ✅ Shows top 10 performers for chosen stat(s)
 - ✅ Supports both player and team leaderboards
 - ✅ Supports season / split / event filters
+- ✅ Stat page display mode rules:
+  - Player leaderboard rows: show player photo only (no team text/logo inline)
+  - Team leaderboard rows: show team logo only
 
-#### Team Page (example: "Pioneers")
+### Compare
+- ✅ Compare supports up to **6** players/teams across one or more stats
+- ✅ Compare add-search dropdown uses global-search style rows (image left, text right)
+- ✅ Head-to-head stat cards (player compare view) do **not** show org/team name or team logo inline
+- ✅ Head-to-head series table does **not** show team logos
+
+### Team / Roster Page
 - ✅ Team logo and team name in header
 - ✅ Current roster shown under team header
-- ✅ Team info:
-  - Seasons competed in (example: SSA RLCS)
-  - Best result
-  - Debut season
+- ✅ Team info includes seasons competed, best result, debut season
+- ✅ Player photos removed from roster starters/alternates list (team-focused layout)
 
-#### Player Profile Page
+### Player Profile Page
 - ✅ Player image and player name in header
-- ✅ Existing profile data retained (country, age, aliases, debut, key stats, career breakdown, etc.)
-- ✅ Results history shows tournament placements (for example: `3rd–4th — 2024 Open 5`, `1st — 2025 Boston Major`)
+- ✅ Existing profile data retained (country, age, aliases, debut, key stats, career breakdown)
+- ✅ Results history shows placement (for example: `3rd-4th`, `1st`) instead of round
+- ✅ Results history retains opponent and score columns
 - ✅ Results history ordered most recent first
+- ✅ Opponent team logos shown in results table
 
-#### Event Page (examples: "Boston Major", "Open 1")
+### Event Page
 - ✅ Event name in header
 - ✅ Event date range in header
-- ✅ Top 8 placements for the event/regional
-- ✅ Event top-10 leaderboards:
-  - Top Players (rating)
-  - Top Scorers (goals)
-  - Top Executioners (demos)
-  - Top Saviours (saves)
-  - Top Assists (assists)
+- ✅ Top 8 placements for the event
+- ✅ Event top leaderboards (rating/goals/demos/saves/assists)
+- ✅ Event leaderboard rows show larger player photo with top-focused crop
+- ✅ Event leaderboard rows do **not** show team name or team logo inline
 
-### Feedback Collection
+## Cross-App Presentation Rules
+- ✅ Show player photos where player identity is primary (search/player lists/cards)
+- ✅ Show org/team logos where team identity is primary
+- ✅ Explicit exceptions:
+  - Compare head-to-head stat rows: no team/org identity
+  - Event leaderboard rows: no team/org identity
+  - Roster player list: no player photos
+
+## Feedback Collection
 - ✅ Persistent floating feedback button across pages
-- ✅ Intended for initial release tester feedback collection
 - ✅ Submits via `POST /api/feedback`
 
-### Presentation Consistency Across App
-- ✅ Show player pictures wherever players are listed
-- ✅ Show org logos wherever teams are listed
+## Data Integrity & Ingestion
+- ✅ Full data reload approach accepted for `Event` migration (no legacy backfill requirement for production)
+- [ ] Zero-out known series completeness anomalies in source data before final production publish
 
 ## V0.1 Remaining Requirements
 
@@ -73,10 +89,8 @@
 - [ ] Add 1v1 and Majors data to the database
 - [ ] Ensure player aliases are listed (new column needed)
 
-### Home Page Additions
-- [ ] Rotating featured players
-  - Source from common stats (goals, saves, demos, shots, assists)
-  - Show top 6, rotating weekly or randomly
+### Home Additions
+- [ ] Rotating featured players from common stats (goals, saves, demos, shots, assists)
 - [ ] Add prebuilt query cards:
   - Highest in-game score
   - Most goals in a series
@@ -84,11 +98,11 @@
   - Longest overtimes
   - Most RLCS games played
   - Most goals in a single game
-- [ ] Add acknowledgements section at bottom of page
+- [ ] Add acknowledgements section at the bottom of the page
 
 ### Player Profile Improvements
-- [ ] Show current team with clickable link
-- [ ] Results view should support season-specific or all-time mode
+- ✅ Show current team with clickable link
+- ✅ Results view should support season-specific and all-time mode
 
 ### Admin
 - [ ] Admin option to update player/team info
