@@ -214,7 +214,7 @@ export default function StatPage() {
 
       {loading && <div className="loading">Loading leaderboard...</div>}
       {error && <div className="error">{error}</div>}
-      {!loading && !error && leaderboard && <Leaderboard data={leaderboard} />}
+      {!loading && !error && leaderboard && <Leaderboard data={leaderboard} entityType={type} />}
       {!loading && !error && !leaderboard && (
         <div className="empty-state">No leaderboard data.</div>
       )}

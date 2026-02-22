@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { FeaturedResponse, SearchResponse, StatOption, StandingsResponse } from "../types/api";
+import type { LeaderboardResponse, SearchResponse, StatOption, StandingsResponse, TopQueryCategory } from "../types/api";
 import { api } from "../api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatStat } from "../utils/format";
 import { toOrgRosterId } from "../utils/roster";
+import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
 /*
  * Preserved featured insight presets (available via api.featured):
@@ -24,11 +25,19 @@ export type HomePageProps = {
 
 const SEARCH_DEBOUNCE_MS = 500;
 const PLAYER_SEARCH_DEBOUNCE_MS = 500;
+const ROTATING_FEATURED_METRICS = ["rating", "goals", "saves", "demos", "shots", "assists"] as const;
 
 export default function HomePage({ filters, latestSeason, featuredOptions }: HomePageProps) {
   const navigate = useNavigate();
-  const [topScorers, setTopScorers] = useState<FeaturedResponse | null>(null);
-  const [topLoading, setTopLoading] = useState(false);
+  const [featuredMetricKey] = useState<string>(() => {
+    const index = Math.floor(Math.random() * ROTATING_FEATURED_METRICS.length);
+    return ROTATING_FEATURED_METRICS[index];
+  });
+  const [featuredLeaderboard, setFeaturedLeaderboard] = useState<LeaderboardResponse | null>(null);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
+  const [topQueries, setTopQueries] = useState<TopQueryCategory[]>([]);
+  const [topQueriesLoading, setTopQueriesLoading] = useState(false);
+  const [expandedTopQueryKey, setExpandedTopQueryKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -41,34 +50,36 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   const [standingsSeason, setStandingsSeason] = useState<string>("");
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Load top rated players for the latest season
+  // Load rotating featured leaderboard for the latest season
   useEffect(() => {
     if (!latestSeason) return;
-    async function loadTopScorers() {
-      setTopLoading(true);
+    async function loadFeaturedLeaderboard() {
+      setFeaturedLoading(true);
       try {
-        const response = await api.featured({
-          metric: "top_rated",
+        const response = await api.statsTop({
+          metric: featuredMetricKey,
+          type: "player",
+          mode: "avg",
           season: latestSeason,
           limit: 6
         });
-        setTopScorers(response);
+        setFeaturedLeaderboard(response);
       } catch (error) {
         console.error(error);
       } finally {
-        setTopLoading(false);
+        setFeaturedLoading(false);
       }
     }
-    loadTopScorers();
-  }, [latestSeason]);
+    loadFeaturedLeaderboard();
+  }, [latestSeason, featuredMetricKey]);
 
   // Load standings
   useEffect(() => {
+    const season = standingsSeason || latestSeason;
+    if (!season) return;
     async function loadStandings() {
       try {
-        const params: Record<string, string> = {};
-        if (standingsSeason) params.season = standingsSeason;
-        const response = await api.standings(params);
+        const response = await api.standings({ season });
         setStandings(response);
         if (!standingsSeason && response.season) {
           setStandingsSeason(response.season);
@@ -78,7 +89,25 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
       }
     }
     loadStandings();
-  }, [standingsSeason]);
+  }, [latestSeason, standingsSeason]);
+
+  useEffect(() => {
+    async function loadTopQueries() {
+      setTopQueriesLoading(true);
+      try {
+        const response = await api.insights({
+          limit: 6
+        });
+        setTopQueries(response.categories ?? []);
+      } catch (error) {
+        console.error(error);
+        setTopQueries([]);
+      } finally {
+        setTopQueriesLoading(false);
+      }
+    }
+    loadTopQueries();
+  }, []);
 
   // Global search (search bar under hero)
   useEffect(() => {
@@ -164,6 +193,9 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   const hasResults = players.length > 0 || teams.length > 0 || stats.length > 0 || events.length > 0;
 
   const seasonLabel = latestSeason || "All Time";
+  const featuredTitle = featuredLeaderboard?.metric?.label
+    ?? featuredOptions.find((option) => option.key === featuredMetricKey)?.label
+    ?? "Featured";
 
   return (
     <div className="dash">
@@ -344,16 +376,18 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
         <div className="dash-standings">
           <div className="dash-standings-header">
             <span className="dash-label">Standings</span>
-            {standings && standings.seasons.length > 0 && (
+            {standings && standings.seasons.length > 0 ? (
               <select
                 className="dash-standings-select"
-                value={standingsSeason}
+                value={standingsSeason || standings.season}
                 onChange={(e) => setStandingsSeason(e.target.value)}
               >
-                {standings.seasons.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                {standings.seasons.map((season) => (
+                  <option key={season} value={season}>{season}</option>
                 ))}
               </select>
+            ) : (
+              <span className="dash-standings-season">{latestSeason ?? standings?.season ?? "Latest"}</span>
             )}
           </div>
           <ol className="dash-standings-list">
@@ -398,92 +432,209 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
         </div>
       </div>
 
-      {/* 4. Featured — highest avg score, current season */}
-      <section className="dash-featured">
-        <div className="dash-featured-header">
-          <div>
-            <span className="dash-label">Featured &middot; {seasonLabel}</span>
-            <h2>Top Rated</h2>
+      <section className="dash-insights-grid">
+        <div className="dash-insights-panel dash-queries-panel">
+          <div className="dash-featured-header">
+            <div>
+              <span className="dash-label">Top Queries &middot; All Seasons</span>
+              <h2>Fast Insights</h2>
+            </div>
           </div>
-        </div>
-        {topLoading && <p className="dash-empty">Loading...</p>}
-        {!topLoading && topScorers?.rows?.length ? (
-          <div className="featured-cards">
-            {topScorers.rows.slice(0, 6).map((row, index) => {
-              const imgSrc = proxyImageUrl(row.photoUrl);
-              return (
-                <div
-                  key={row.id}
-                  className="featured-card"
-                  style={{ animationDelay: `${index * 60}ms` }}
-                  onClick={() => navigate(`/players/${row.id}`)}
-                >
-                  <div className="featured-card-photo">
-                    {imgSrc ? (
-                      <img src={imgSrc} alt={row.label} loading="lazy" />
-                    ) : (
-                      <span className="card-avatar">{row.label.charAt(0)}</span>
-                    )}
-                  </div>
-                  <div className="featured-card-info">
-                    <strong>{row.label}</strong>
-                    <span className="card-team">{row.teams[0] || "—"}</span>
-                    <span className="card-value">
-                      {formatStat(row.value, topScorers.metric.format, topScorers.mode)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          !topLoading && <p className="dash-empty">No data available.</p>
-        )}
-
-        {/* Player search inside featured panel */}
-        <div className="dash-player-search">
-          <h3>Find a Player Profile</h3>
-          <div className="dash-search-bar dash-player-bar">
-            <svg className="dash-search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="8.5" cy="8.5" r="5.5" />
-              <path d="M13 13l4 4" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search players..."
-              value={playerQuery}
-              onChange={(e) => setPlayerQuery(e.target.value)}
-            />
-          </div>
-          {playerQuery.trim() && (
-            <div className="dash-player-results">
-              {playerSearchLoading && <p className="dash-empty">Searching...</p>}
-              {!playerSearchLoading && playerSearchError && <p className="dash-empty">{playerSearchError}</p>}
-              {!playerSearchLoading && playerResults.length > 0 &&
-                playerResults.slice(0, 6).map((player) => {
-                  const imgSrc = proxyImageUrl(player.meta?.photoUrl);
-                  return (
-                    <div
-                      key={player.id}
-                      className="dash-player-card"
-                      onClick={() => { setPlayerQuery(""); navigate(`/players/${player.id}`); }}
-                    >
-                      <div className="dash-search-avatar">
-                        {imgSrc ? <img src={imgSrc} alt="" /> : player.label.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="dash-player-card-info">
-                        <strong>{player.label}</strong>
-                        <span>{player.meta?.realName ?? ""}</span>
-                      </div>
+          {topQueriesLoading ? (
+            <p className="dash-empty">Loading queries...</p>
+          ) : topQueries.length === 0 ? (
+            <p className="dash-empty">No query data available.</p>
+          ) : (
+            <div className="dash-query-list">
+              {topQueries.map((query) => {
+                const topRow = query.rows[0];
+                const isExpanded = expandedTopQueryKey === query.key;
+                return (
+                  <article
+                    key={query.key}
+                    className={`dash-query-tile${isExpanded ? " is-expanded" : ""}`}
+                  >
+                    <div className="dash-query-tile-head">
+                      <h3>{query.title}</h3>
+                      <button
+                        type="button"
+                        className="dash-query-toggle"
+                        aria-expanded={isExpanded}
+                        onClick={() => setExpandedTopQueryKey(isExpanded ? null : query.key)}
+                      >
+                        {isExpanded ? "Hide Top 6" : "Show Top 6"}
+                      </button>
                     </div>
-                  );
-                })}
-              {!playerSearchLoading && !playerSearchError && playerResults.length === 0 && (
-                <p className="dash-empty">No players found.</p>
-              )}
+                    <div className="dash-query-tile-body">
+                      {topRow ? (
+                        <>
+                          <span className="dash-query-tile-name">{topRow.label}</span>
+                          <span className="dash-query-tile-value">{topRow.valueDisplay}</span>
+                        </>
+                      ) : (
+                        <span className="dash-query-tile-name">No data</span>
+                      )}
+                    </div>
+                    <div className="dash-query-hover-rows">
+                      {query.rows.slice(0, 6).map((row, index) => {
+                        const [contextPrimary, contextTeams] = (row.context ?? "").split(" • ");
+                        return (
+                          <div key={`${query.key}-${row.id}-${index}`} className="dash-query-row">
+                            <span className="dash-query-rank">{index + 1}</span>
+                            <div className="dash-query-entity">
+                              {row.entityType === "player" ? (
+                                <span>{row.label}</span>
+                              ) : (
+                                <span className="dash-query-match">{row.label}</span>
+                              )}
+                              {contextPrimary ? <span className="dash-query-context">{contextPrimary}</span> : null}
+                              {contextTeams ? <span className="dash-query-context-team">{contextTeams}</span> : null}
+                            </div>
+                            <span className="dash-query-value" title={query.valueLabel}>{row.valueDisplay}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
+
+        <div className="dash-insights-panel dash-profiles-panel">
+          <div className="dash-featured-header">
+            <div>
+              <span className="dash-label">Featured Profiles &middot; {seasonLabel}</span>
+              <h2>{featuredTitle}</h2>
+            </div>
+          </div>
+          {featuredLoading && <p className="dash-empty">Loading...</p>}
+          {!featuredLoading && featuredLeaderboard?.rows?.length ? (
+            <div className="featured-cards">
+              {featuredLeaderboard.rows.slice(0, 6).map((row, index) => {
+                const imgSrc = proxyImageUrl(row.photoUrl);
+                return (
+                  <div
+                    key={row.id}
+                    className="featured-card"
+                    style={{ animationDelay: `${index * 60}ms` }}
+                    onClick={() => navigate(`/players/${row.id}`)}
+                  >
+                    <div className="featured-card-photo">
+                      {imgSrc ? (
+                        <img src={imgSrc} alt={row.label} loading="lazy" />
+                      ) : (
+                        <span className="card-avatar">{row.label.charAt(0)}</span>
+                      )}
+                    </div>
+                    <div className="featured-card-info">
+                      <strong>{row.label}</strong>
+                      <span className="card-team">
+                        {row.teams[0] ? <TeamNameWithLogo team={row.teams[0]} /> : "—"}
+                      </span>
+                      <span className="card-value">
+                        {formatStat(row.value, featuredLeaderboard.metric.format, featuredLeaderboard.mode)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            !featuredLoading && <p className="dash-empty">No data available.</p>
+          )}
+
+          <div className="dash-player-search">
+            <h3>Find a Player Profile</h3>
+            <div className="dash-search-bar dash-player-bar">
+              <svg className="dash-search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="8.5" cy="8.5" r="5.5" />
+                <path d="M13 13l4 4" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search players..."
+                value={playerQuery}
+                onChange={(e) => setPlayerQuery(e.target.value)}
+              />
+            </div>
+            {playerQuery.trim() && (
+              <div className="dash-player-results">
+                {playerSearchLoading && <p className="dash-empty">Searching...</p>}
+                {!playerSearchLoading && playerSearchError && <p className="dash-empty">{playerSearchError}</p>}
+                {!playerSearchLoading && playerResults.length > 0 &&
+                  playerResults.slice(0, 6).map((player) => {
+                    const imgSrc = proxyImageUrl(player.meta?.photoUrl);
+                    return (
+                      <div
+                        key={player.id}
+                        className="dash-player-card"
+                        onClick={() => { setPlayerQuery(""); navigate(`/players/${player.id}`); }}
+                      >
+                        <div className="dash-search-avatar">
+                          {imgSrc ? <img src={imgSrc} alt="" /> : player.label.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="dash-player-card-info">
+                          <strong>{player.label}</strong>
+                          <span>{player.meta?.realName ?? ""}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {!playerSearchLoading && !playerSearchError && playerResults.length === 0 && (
+                  <p className="dash-empty">No players found.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="dash-acknowledgements">
+        <div className="dash-featured-header">
+          <div>
+            <span className="dash-label">Acknowledgements</span>
+            <h2>Community & Data Credits</h2>
+          </div>
+        </div>
+        <p>
+          This resource is only possible because so many in the Rocket League community work so hard at it.
+          In particular, I want to acknowledge the invaluable work of:
+        </p>
+        <ul className="dash-ack-list">
+          <li>
+            <a href="https://ballchasing.com" target="_blank" rel="noreferrer noopener">
+              Ballchasing.com
+            </a>
+            {" "}for providing a means to preserve the replays from all RLCS games.
+          </li>
+          <li>
+            <a href="https://lndrlndr.github.io/" target="_blank" rel="noreferrer noopener">
+              CARL
+            </a>
+            {" "}- an invaluable analytics tool for coaches which we used to extract every major
+            and minor stat from every game, the backbone of this database.
+          </li>
+          <li>
+            <a href="https://liquipedia.net/rocketleague/Main_Page" target="_blank" rel="noreferrer noopener">
+              Liquipedia
+            </a>
+            {" "}- the unwavering archivists of everything competitive Rocket League.
+          </li>
+          <li>
+            <a href="https://x.com/Borkey_" target="_blank" rel="noreferrer noopener">
+              Borkey
+            </a>
+            {" "}for hours of work helping ensure the accuracy of the spreadsheets on which this data is based.
+          </li>
+          <li>
+            <a href="https://danishsaleem.com" target="_blank" rel="noreferrer noopener">
+              D-Money
+            </a>
+            {" "}for coding and building this website.
+          </li>
+        </ul>
       </section>
     </div>
   );

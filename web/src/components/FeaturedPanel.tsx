@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import type { FeaturedResponse } from "../types/api";
 import { formatStat } from "../utils/format";
 import { proxyImageUrl } from "../utils/normalize";
+import TeamNameWithLogo from "./TeamNameWithLogo";
 
 type FeaturedPanelProps = {
   data: FeaturedResponse;
@@ -31,7 +32,11 @@ export default function FeaturedPanel({ data }: FeaturedPanelProps) {
             </div>
             <div className="featured-card-info">
               <strong>{row.label}</strong>
-              <span className="card-team">{row.teams.join(" / ") || "—"}</span>
+              <span className="card-team team-inline-list">
+                {row.teams.length
+                  ? row.teams.map((team) => <TeamNameWithLogo key={`${row.id}-${team}`} team={team} />)
+                  : "—"}
+              </span>
               <span className="card-value">
                 {formatStat(row.value, data.metric.format, data.mode)}
               </span>

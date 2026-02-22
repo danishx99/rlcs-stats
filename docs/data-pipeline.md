@@ -143,7 +143,7 @@ The `parseDateString()` function handles multiple date formats:
 Applied after coercion to stats-table TEXT columns:
 
 - **Team** — trimmed and uppercased
-- **Split, Regional, Stage, Round** — trimmed; empty strings become `null`
+- **Split, Event, Stage, Round** — trimmed; empty strings become `null`
 - All other TEXT columns — unchanged
 
 ### Synthetic Forfeit Column
@@ -172,7 +172,7 @@ After all rows are inserted, the pipeline runs a SQL backfill to compute `series
 ### Hash Formula
 
 ```
-series_id = md5(Season|Split|Regional|Day|Stage|Round|Best of|team_a|team_b)
+series_id = md5(Season|Split|Event|Day|Stage|Round|Best of|team_a|team_b)
 ```
 
 Where `team_a` and `team_b` are the two distinct team names (uppercased, trimmed) sorted alphabetically using `LEAST`/`GREATEST`. The pipe `|` character is the literal delimiter.
@@ -200,7 +200,7 @@ For more details on series grouping, see [docs/series-grouping.md](./series-grou
 | `Match ID` | `TEXT` | Match identifier from source data |
 | `Season` | `TEXT` | Season label |
 | `Split` | `TEXT` | Split label |
-| `Regional` | `TEXT` | Regional event name |
+| `Event` | `TEXT` | Event name |
 | `Day` | `INTEGER` | Event day number |
 | `Stage` | `TEXT` | Stage name |
 | `Round` | `TEXT` | Round label |

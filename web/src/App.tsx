@@ -20,6 +20,15 @@ export default function App() {
   const navigate = useNavigate();
 
   const { meta } = useMeta(filters);
+  const { meta: rootMeta } = useMeta({ season: "", split: "", event: "" });
+  const latestSeason = rootMeta?.seasons?.length
+    ? [...rootMeta.seasons].sort((a, b) => {
+        const yearA = Number.parseInt(a, 10);
+        const yearB = Number.parseInt(b, 10);
+        if (Number.isFinite(yearA) && Number.isFinite(yearB)) return yearA - yearB;
+        return a.localeCompare(b);
+      })[rootMeta.seasons.length - 1]
+    : null;
 
   const addCompareSelection = (item: SearchResult) => {
     if (item.type === "stat") return;
@@ -47,7 +56,7 @@ export default function App() {
             element={
               <HomePage
                 filters={filters}
-                latestSeason={meta?.seasons?.length ? meta.seasons[meta.seasons.length - 1] : null}
+                latestSeason={latestSeason}
                 featuredOptions={meta?.featuredOptions ?? []}
               />
             }

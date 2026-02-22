@@ -6,6 +6,7 @@ import { proxyImageUrl } from "../utils/normalize";
 import { formatDate } from "../utils/date";
 import Leaderboard from "../components/Leaderboard";
 import StatPicker from "../components/StatPicker";
+import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
 const CORE_LEADERBOARDS = [
   { key: "rating", title: "Top 10 Players (Rating)" },
@@ -399,21 +400,11 @@ export default function EventPage() {
                         {placementLabel(t.placementStart, t.placementEnd)}
                       </li>
                     )}
-                    <li onClick={() => navigate(`/rosters/${t.team}`)}>
+                    <li>
                       <span className="event-team-rank">{i + 1}</span>
-                      <div className="event-team-logo">
-                        {proxyImageUrl(t.logoUrl) ? (
-                          <img src={proxyImageUrl(t.logoUrl)!} alt={t.team} loading="lazy" />
-                        ) : (
-                          <span>{t.team.charAt(0)}</span>
-                        )}
-                      </div>
-                      <strong>{t.team}</strong>
-                      {t.deepRound && (
-                        <span className="event-team-round">
-                          {t.deepRound}{t.wonDeepest ? " W" : " L"}
-                        </span>
-                      )}
+                      <strong>
+                        <TeamNameWithLogo team={t.team} logoUrl={t.logoUrl} />
+                      </strong>
                     </li>
                   </Fragment>
                 );
@@ -457,7 +448,7 @@ export default function EventPage() {
           {coreLeaderboards.map((item) => (
             <div key={item.data.metric.key} className="event-panel panel">
               <h3>{item.title}</h3>
-              <Leaderboard data={item.data} />
+              <Leaderboard data={item.data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
             </div>
           ))}
         </div>
@@ -502,7 +493,9 @@ export default function EventPage() {
               <div key={key} className="event-pick-stat-card panel">
                 <h4>{label}</h4>
                 {isLoading && <p className="dash-search-status">Loading...</p>}
-                {!isLoading && data && data.rows.length > 0 && <Leaderboard data={data} />}
+                {!isLoading && data && data.rows.length > 0 && (
+                  <Leaderboard data={data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
+                )}
                 {!isLoading && data && data.rows.length === 0 && (
                   <p className="dash-search-status">No data for this stat.</p>
                 )}

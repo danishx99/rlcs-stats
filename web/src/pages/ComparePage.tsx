@@ -5,6 +5,8 @@ import { api } from "../api";
 import { proxyImageUrl } from "../utils/normalize";
 import ComparePanel from "../components/ComparePanel";
 import StatPicker from "../components/StatPicker";
+import TeamNameWithLogo from "../components/TeamNameWithLogo";
+import PlayerNameWithPhoto from "../components/PlayerNameWithPhoto";
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
 const SEARCH_DEBOUNCE_MS = 500;
@@ -168,23 +170,24 @@ export default function ComparePage({
               {!searchLoading && filteredResults.length > 0 &&
                 filteredResults.slice(0, 6).map((item) => {
                   const already = compareSelection.some((s) => s.id === item.id);
-                  const imgSrc = proxyImageUrl(item.meta?.photoUrl);
+                  const image = proxyImageUrl(item.meta?.photoUrl);
+                  const subtitle = item.type === "player"
+                    ? item.meta?.realName ?? ""
+                    : item.meta?.starters?.join(" / ") ?? "";
                   return (
                     <div
                       key={item.id}
-                      className={`compare-search-card${already ? " compare-search-card--added" : ""}`}
+                      className={`dash-search-item compare-search-item${already ? " compare-search-item--added" : ""}`}
                       onClick={() => !already && handleAddResult(item)}
                     >
-                      <div className="dash-search-avatar">
-                        {imgSrc ? <img src={imgSrc} alt="" /> : item.label.charAt(0).toUpperCase()}
+                      <div className={`dash-search-avatar${item.type === "roster" ? " dash-search-avatar--logo" : ""}`}>
+                        {image ? <img src={image} alt="" /> : item.label.charAt(0)}
                       </div>
-                      <div className="dash-player-card-info">
+                      <div className="dash-search-item-info">
                         <strong>{item.label}</strong>
-                        <span>
-                          {item.type === "player" ? item.meta?.realName ?? "" : item.meta?.starters?.join(" / ") ?? ""}
-                        </span>
+                        {subtitle && <span>{subtitle}</span>}
                       </div>
-                      <span className="compare-search-type">{item.type}</span>
+                      <span className="dash-search-type">{item.type === "player" ? "Player" : "Team"}</span>
                       {already && <span className="compare-search-added">Added</span>}
                     </div>
                   );
@@ -210,7 +213,20 @@ export default function ComparePage({
                   className="chip"
                   onClick={() => onRemoveCompare(entry.id)}
                 >
-                  {entry.label}
+                  {entry.type === "player" ? (
+                    <PlayerNameWithPhoto
+                      name={entry.label}
+                      playerId={entry.id}
+                      photoUrl={entry.meta?.photoUrl ?? null}
+                      link={false}
+                    />
+                  ) : (
+                    <TeamNameWithLogo
+                      team={entry.label}
+                      logoUrl={entry.meta?.photoUrl ?? null}
+                      link={false}
+                    />
+                  )}
                   <span>&times;</span>
                 </button>
               ))}

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { SeriesDetail, SeriesListRow, SeriesMetaResponse } from "../types/api";
 import { formatDate } from "../utils/date";
+import { buildEventPath } from "../utils/event-routing";
+import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
 type SeriesFilters = {
   season: string;
@@ -400,6 +402,8 @@ export default function SeriesPage() {
               <tbody>
                 {seriesRows.map((row) => {
                   const rowContext = seriesContext(row);
+                  const titlePrefix = [row.season, row.split].filter(Boolean).join(" · ");
+                  const eventHref = row.event ? buildEventPath(row.event, { season: row.season, split: row.split }) : null;
                   return (
                     <tr
                       key={row.seriesId}
@@ -412,17 +416,30 @@ export default function SeriesPage() {
                       <td>{formatDate(row.date)}</td>
                       <td>
                         <div className="cell-title">
-                          <strong>{rowContext.title}</strong>
+                          <strong>
+                            {titlePrefix ? <>{titlePrefix} · </> : null}
+                            {eventHref && row.event ? (
+                              <Link
+                                className="inline-link"
+                                to={eventHref}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {row.event}
+                              </Link>
+                            ) : (
+                              row.event ?? rowContext.title
+                            )}
+                          </strong>
                           <span>{rowContext.subtitle || "—"}</span>
                         </div>
                       </td>
-                      <td>{row.teamA ?? "—"}</td>
+                      <td><TeamNameWithLogo team={row.teamA} /></td>
                       <td>
                         <span className={scoreClass(row.teamAWins, row.teamBWins)}>
                           {row.teamAWins}-{row.teamBWins}
                         </span>
                       </td>
-                      <td>{row.teamB ?? "—"}</td>
+                      <td><TeamNameWithLogo team={row.teamB} /></td>
                       <td>{row.gamesRecorded}</td>
                     </tr>
                   );
@@ -445,8 +462,28 @@ export default function SeriesPage() {
             <div className="panel-header">
               <div>
                 <p className="panel-label">Series Detail</p>
-                <h3>{selectedSeries?.teamA ?? "Team A"} vs {selectedSeries?.teamB ?? "Team B"}</h3>
-                <div className="section-note">{context.title}</div>
+                <h3>
+                  <TeamNameWithLogo team={selectedSeries?.teamA ?? "Team A"} /> vs{" "}
+                  <TeamNameWithLogo team={selectedSeries?.teamB ?? "Team B"} />
+                </h3>
+                <div className="section-note">
+                  {[selectedSeries?.season, selectedSeries?.split].filter(Boolean).join(" · ")}
+                  {selectedSeries?.event ? (
+                    <>
+                      {[selectedSeries?.season, selectedSeries?.split].filter(Boolean).length ? " · " : ""}
+                      <Link
+                        className="inline-link"
+                        to={buildEventPath(selectedSeries.event, {
+                          season: selectedSeries.season,
+                          split: selectedSeries.split
+                        })}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {selectedSeries.event}
+                      </Link>
+                    </>
+                  ) : null}
+                </div>
                 {context.subtitle ? <div className="series-subline">{context.subtitle}</div> : null}
               </div>
               <button
@@ -462,11 +499,11 @@ export default function SeriesPage() {
 
             <div className="series-modal-score">
               <span className={scoreClass(selectedSeries?.teamAWins ?? 0, selectedSeries?.teamBWins ?? 0)}>
-                {selectedSeries?.teamA ?? "Team A"}
+                <TeamNameWithLogo team={selectedSeries?.teamA ?? "Team A"} />
               </span>
               <strong>{selectedSeries ? `${selectedSeries.teamAWins}-${selectedSeries.teamBWins}` : "—"}</strong>
               <span className={scoreClass(selectedSeries?.teamBWins ?? 0, selectedSeries?.teamAWins ?? 0)}>
-                {selectedSeries?.teamB ?? "Team B"}
+                <TeamNameWithLogo team={selectedSeries?.teamB ?? "Team B"} />
               </span>
             </div>
 
@@ -504,7 +541,9 @@ export default function SeriesPage() {
                           <td className="series-match-id">{game.matchId ?? "—"}</td>
                           <td>{result}</td>
                           <td>
-                            <span className={winnerCls}>{winner}</span>
+                            <span className={winnerCls}>
+                              <TeamNameWithLogo team={winner} />
+                            </span>
                           </td>
                         </tr>
                       );

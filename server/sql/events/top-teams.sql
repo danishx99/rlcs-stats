@@ -1,7 +1,7 @@
 WITH base_scope AS (
   SELECT *
   FROM stats
-  WHERE LOWER(TRIM("Regional")) = LOWER($1)
+  WHERE LOWER(TRIM("Event")) = LOWER($1)
     AND ($2::text IS NULL OR LOWER(TRIM("Season")) = LOWER($2))
     AND ($3::text IS NULL OR LOWER(TRIM("Split")) = LOWER($3))
     AND "Team" IS NOT NULL
@@ -29,6 +29,10 @@ team_rounds AS (
     MAX("Date") AS round_date,
     CASE UPPER(TRIM("Round"))
       WHEN 'GF'     THEN 100
+      WHEN 'GF 1'   THEN 100
+      WHEN 'GF1'    THEN 100
+      WHEN 'GF 2'   THEN 100
+      WHEN 'GF2'    THEN 100
       WHEN 'UF'     THEN 90
       WHEN 'LF'     THEN 90
       WHEN 'SF'     THEN 80
@@ -73,8 +77,8 @@ team_latest AS (
 classified AS (
   SELECT
     tl.*,
-    (tl.deep_round = 'GF' AND tl.won_deepest) AS is_champion,
-    (NOT (tl.deep_round = 'GF' AND tl.won_deepest) AND NOT tl.won_deepest) AS is_eliminated
+    (tl.round_depth = 100 AND tl.won_deepest) AS is_champion,
+    (NOT (tl.round_depth = 100 AND tl.won_deepest) AND NOT tl.won_deepest) AS is_eliminated
   FROM team_latest tl
 ),
 placement_basis AS (

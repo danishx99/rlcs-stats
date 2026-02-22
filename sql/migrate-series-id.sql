@@ -1,6 +1,6 @@
 -- migrate-series-id.sql
 -- Backfill the materialized series_id column on stats.
--- series_id = md5(Season|Split|Regional|Day|Stage|Round|Best of|team_a|team_b)
+-- series_id = md5(Season|Split|Event|Day|Stage|Round|Best of|team_a|team_b)
 -- where team_a/team_b are the canonical (MIN/MAX) team pair for the match.
 -- Single-team matches and >2-team collisions get series_id = NULL.
 \set ON_ERROR_STOP on
@@ -22,7 +22,7 @@ WITH match_agg AS (
     MAX("Team") AS team_b,
     MIN("Season") AS season,
     MIN(NULLIF("Split", '')) AS split,
-    MIN(NULLIF("Regional", '')) AS regional,
+    MIN(NULLIF("Event", '')) AS event,
     MIN("Day")::text AS day,
     MIN(NULLIF("Stage", '')) AS stage,
     MIN(NULLIF("Round", '')) AS round,
@@ -37,7 +37,7 @@ UPDATE stats s
 SET series_id = md5(
   COALESCE(ma.season,'') || '|' ||
   COALESCE(ma.split,'') || '|' ||
-  COALESCE(ma.regional,'') || '|' ||
+  COALESCE(ma.event,'') || '|' ||
   COALESCE(ma.day,'') || '|' ||
   COALESCE(ma.stage,'') || '|' ||
   COALESCE(ma.round,'') || '|' ||

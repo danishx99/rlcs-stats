@@ -11,7 +11,7 @@ WITH base_stats AS (
     s."Date"::date AS match_date,
     s."Season" AS season,
     s."Split" AS split,
-    s."Regional" AS regional,
+    s."Event" AS event,
     s."Stage" AS stage,
     s."Round" AS round,
     s."Best of " AS best_of,
@@ -46,7 +46,7 @@ match_meta AS (
     MIN(b.match_date) AS match_date,
     MIN(b.season) AS season,
     MIN(b.split) AS split,
-    MIN(b.regional) AS regional,
+    MIN(b.event) AS event,
     MIN(b.stage) AS stage,
     MIN(b.round) AS round,
     MAX(b.best_of) AS best_of,
@@ -107,7 +107,7 @@ valid_two_team_matches AS (
     m.match_date,
     m.season,
     m.split,
-    m.regional,
+    m.event,
     m.stage,
     m.round,
     m.best_of,
@@ -116,7 +116,7 @@ valid_two_team_matches AS (
   FROM match_meta m
   JOIN team_victories tv ON tv.match_id = m.match_id
   WHERE m.team_count = 2
-  GROUP BY m.match_id, m.match_date, m.season, m.split, m.regional, m.stage, m.round, m.best_of
+  GROUP BY m.match_id, m.match_date, m.season, m.split, m.event, m.stage, m.round, m.best_of
 ),
 series_matches AS (
   SELECT
@@ -125,7 +125,7 @@ series_matches AS (
       COALESCE(v.match_date::text, ''),
       COALESCE(v.season, ''),
       COALESCE(v.split, ''),
-      COALESCE(v.regional, ''),
+      COALESCE(v.event, ''),
       COALESCE(v.stage, ''),
       COALESCE(v.round, ''),
       COALESCE(v.team_a, ''),
@@ -176,7 +176,7 @@ match_series_id_gaps AS (
     b.match_id,
     MIN(m.season) AS season,
     MIN(m.split) AS split,
-    MIN(m.regional) AS regional,
+    MIN(m.event) AS event,
     MIN(m.stage) AS stage,
     MIN(m.round) AS round,
     MAX(m.team_count) AS team_count,
@@ -298,7 +298,7 @@ fractional_non_ot_rows AS (
 dimension_values AS (
   SELECT 'Split'::text AS dimension, s."Split"::text AS raw_value FROM stats s
   UNION ALL
-  SELECT 'Regional'::text AS dimension, s."Regional"::text AS raw_value FROM stats s
+  SELECT 'Event'::text AS dimension, s."Event"::text AS raw_value FROM stats s
   UNION ALL
   SELECT 'Stage'::text AS dimension, s."Stage"::text AS raw_value FROM stats s
   UNION ALL
@@ -346,7 +346,7 @@ playoff_team_series AS (
   SELECT
     NULLIF(TRIM(b.season), '') AS season,
     NULLIF(TRIM(b.split), '') AS split,
-    NULLIF(TRIM(b.regional), '') AS regional,
+    NULLIF(TRIM(b.event), '') AS event,
     b.series_id,
     UPPER(TRIM(b.round)) AS round_key,
     MAX(b.match_ts) AS series_date,
@@ -359,7 +359,7 @@ playoff_team_series AS (
   GROUP BY
     NULLIF(TRIM(b.season), ''),
     NULLIF(TRIM(b.split), ''),
-    NULLIF(TRIM(b.regional), ''),
+    NULLIF(TRIM(b.event), ''),
     b.series_id,
     UPPER(TRIM(b.round)),
     b.team_key
@@ -368,7 +368,7 @@ playoff_series_catalog AS (
   SELECT DISTINCT
     pts.season,
     pts.split,
-    pts.regional,
+    pts.event,
     pts.series_id,
     pts.series_date
   FROM playoff_team_series pts
@@ -378,11 +378,11 @@ playoff_series_instances_marked AS (
     psc.*,
     CASE
       WHEN LAG(psc.series_date) OVER (
-        PARTITION BY psc.season, psc.split, psc.regional
+        PARTITION BY psc.season, psc.split, psc.event
         ORDER BY psc.series_date, psc.series_id
       ) IS NULL THEN 1
       WHEN psc.series_date - LAG(psc.series_date) OVER (
-        PARTITION BY psc.season, psc.split, psc.regional
+        PARTITION BY psc.season, psc.split, psc.event
         ORDER BY psc.series_date, psc.series_id
       ) > INTERVAL '7 days' THEN 1
       ELSE 0
@@ -393,11 +393,11 @@ playoff_series_instances AS (
   SELECT
     psim.season,
     psim.split,
-    psim.regional,
+    psim.event,
     psim.series_id,
     psim.series_date,
     SUM(psim.starts_new_instance) OVER (
-      PARTITION BY psim.season, psim.split, psim.regional
+      PARTITION BY psim.season, psim.split, psim.event
       ORDER BY psim.series_date, psim.series_id
       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     )::int AS event_instance_id
@@ -411,7 +411,7 @@ playoff_team_series_scoped AS (
   JOIN playoff_series_instances psi
     ON  pts.season IS NOT DISTINCT FROM psi.season
     AND pts.split IS NOT DISTINCT FROM psi.split
-    AND pts.regional IS NOT DISTINCT FROM psi.regional
+    AND pts.event IS NOT DISTINCT FROM psi.event
     AND pts.series_id = psi.series_id
 ),
 playoff_series_ranked AS (
@@ -421,10 +421,10 @@ playoff_series_ranked AS (
   FROM playoff_team_series_scoped pts
 ),
 playoff_team_latest AS (
-  SELECT DISTINCT ON (season, split, regional, event_instance_id, team_key)
+  SELECT DISTINCT ON (season, split, event, event_instance_id, team_key)
     season,
     split,
-    regional,
+    event,
     event_instance_id,
     team_key,
     round_key,
@@ -434,13 +434,13 @@ playoff_team_latest AS (
     series_rank,
     (series_rank = 1) AS won_latest_series
   FROM playoff_series_ranked
-  ORDER BY season, split, regional, event_instance_id, team_key, series_date DESC NULLS LAST, series_id DESC
+  ORDER BY season, split, event, event_instance_id, team_key, series_date DESC NULLS LAST, series_id DESC
 ),
 playoff_unresolved_winners AS (
   SELECT
     ptl.season,
     ptl.split,
-    ptl.regional,
+    ptl.event,
     ptl.event_instance_id,
     ptl.team_key,
     ptl.round_key,
@@ -470,7 +470,7 @@ playoff_bracket_conflicts AS (
   SELECT
     a.season,
     a.split,
-    a.regional,
+    a.event,
     a.event_instance_id,
     a.team_key,
     a.round_key   AS deep_round,
@@ -485,7 +485,7 @@ playoff_bracket_conflicts AS (
   JOIN playoff_round_depth b
     ON  a.season   IS NOT DISTINCT FROM b.season
     AND a.split    IS NOT DISTINCT FROM b.split
-    AND a.regional IS NOT DISTINCT FROM b.regional
+    AND a.event IS NOT DISTINCT FROM b.event
     AND a.event_instance_id = b.event_instance_id
     AND a.team_key = b.team_key
     AND a.series_id <> b.series_id
@@ -973,7 +973,7 @@ checks AS (
         'match_id', x.match_id,
         'season', x.season,
         'split', x.split,
-        'regional', x.regional,
+        'event', x.event,
         'stage', x.stage,
         'round', x.round,
         'team_count', x.team_count,
@@ -1005,7 +1005,7 @@ checks AS (
       SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
         'season', x.season,
         'split', x.split,
-        'regional', x.regional,
+        'event', x.event,
         'event_instance_id', x.event_instance_id,
         'team', x.team_key,
         'latest_round', x.round_key,
@@ -1016,7 +1016,7 @@ checks AS (
       FROM (
         SELECT puw.*
         FROM playoff_unresolved_winners puw
-        ORDER BY puw.series_date DESC NULLS LAST, puw.season, puw.split, puw.regional, puw.team_key
+        ORDER BY puw.series_date DESC NULLS LAST, puw.season, puw.split, puw.event, puw.team_key
         LIMIT 20
       ) x
     ), '[]'::jsonb)
@@ -1036,7 +1036,7 @@ checks AS (
       SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
         'season', x.season,
         'split', x.split,
-        'regional', x.regional,
+        'event', x.event,
         'event_instance_id', x.event_instance_id,
         'team', x.team_key,
         'deep_round', x.deep_round,
@@ -1049,7 +1049,7 @@ checks AS (
       FROM (
         SELECT pbc.*
         FROM playoff_bracket_conflicts pbc
-        ORDER BY pbc.season, pbc.split, pbc.regional, pbc.team_key
+        ORDER BY pbc.season, pbc.split, pbc.event, pbc.team_key
         LIMIT 20
       ) x
     ), '[]'::jsonb)

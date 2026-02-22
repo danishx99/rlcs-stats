@@ -1,5 +1,9 @@
 import type { Client } from "pg";
-import { createStatsTableSql, addStatsTableCommentsSql } from "./stats-schema";
+import {
+  createStatsTableSql,
+  addStatsColumnsSql,
+  addStatsTableCommentsSql
+} from "./stats-schema";
 import {
   createPlayersTableSql,
   addPlayersTableCommentsSql,
@@ -55,6 +59,13 @@ function normalizePlayerHeader(header: string): string {
   return playerHeaderAliases.get(key) ?? cleaned;
 }
 
+function normalizeMatchesHeader(header: string): string {
+  if (header === "Regional") {
+    return "Event";
+  }
+  return header;
+}
+
 export const DATASETS: DatasetConfig[] = [
   {
     key: "matches",
@@ -63,7 +74,9 @@ export const DATASETS: DatasetConfig[] = [
     tableName: "stats",
     schemaFile: "src/stats-schema.ts",
     createTableSql: createStatsTableSql,
+    addColumnsSql: addStatsColumnsSql,
     addCommentsSql: addStatsTableCommentsSql,
+    headerNormalizer: normalizeMatchesHeader,
     denormalize: true
   },
   {

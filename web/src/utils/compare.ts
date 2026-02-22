@@ -1,7 +1,16 @@
 import type { CompareHistoryRow, CompareHistoryTeam } from "../types/api";
 
+export function seriesLabelParts(row: CompareHistoryRow) {
+  return {
+    prefix: [row.season, row.split].filter(Boolean).join(" · "),
+    event: row.event,
+    suffix: [row.stage, row.round].filter(Boolean).join(" · ")
+  };
+}
+
 export function formatSeriesLabel(row: CompareHistoryRow) {
-  const parts = [row.season, row.split, row.regional, row.stage, row.round].filter(Boolean);
+  const { prefix, event, suffix } = seriesLabelParts(row);
+  const parts = [prefix, event, suffix].filter(Boolean);
   return parts.length ? parts.join(" · ") : "Series";
 }
 

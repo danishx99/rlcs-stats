@@ -33,7 +33,7 @@ export function buildFilterClauses(params: URLSearchParams, alias = "s") {
     values.push(split);
   }
   if (event) {
-    clauses.push(`LOWER(TRIM(${alias}."Regional")) = LOWER($${values.length + 1})`);
+    clauses.push(`LOWER(TRIM(${alias}."Event")) = LOWER($${values.length + 1})`);
     values.push(event);
   }
 

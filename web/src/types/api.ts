@@ -184,7 +184,7 @@ export type CompareHistoryRow = {
   date: string | null;
   season: string | null;
   split: string | null;
-  regional: string | null;
+  event: string | null;
   stage: string | null;
   round: string | null;
   teams: CompareHistoryTeam[] | null;
@@ -286,7 +286,7 @@ export type PlayerResultSeries = {
 export type PlayerResultEvent = {
   season: string;
   split: string;
-  regional: string;
+  event: string;
   placement: string | null;
   series: PlayerResultSeries[];
 };
@@ -326,6 +326,30 @@ export type EventDetailResponse = {
   teams: EventTeam[];
   bracket: EventBracket | null;
   leaderboards: LeaderboardResponse[];
+};
+
+export type TopQueryRow = {
+  id: string;
+  label: string;
+  entityType: "player" | "match";
+  team: string | null;
+  value: number;
+  valueDisplay: string;
+  context: string | null;
+  photoUrl: string | null;
+};
+
+export type TopQueryCategory = {
+  key: string;
+  title: string;
+  subtitle: string;
+  valueLabel: string;
+  rows: TopQueryRow[];
+};
+
+export type InsightsResponse = {
+  generatedAt: string;
+  categories: TopQueryCategory[];
 };
 
 export type FeedbackType = "bug" | "idea" | "question";
