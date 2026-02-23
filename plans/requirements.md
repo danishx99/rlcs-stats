@@ -60,6 +60,7 @@
 - ✅ Results history retains opponent and score columns
 - ✅ Results history ordered most recent first
 - ✅ Opponent team logos shown in results table
+- [] Fix top 8–16 placement labels not displaying correctly on player profile page
 
 ### Event Page
 - ✅ Event name in header
@@ -86,15 +87,15 @@
 ## Data Integrity & Ingestion
 - ✅ Full data reload approach accepted for `Event` migration (no legacy backfill requirement for production)
 - [ ] Zero-out known series completeness anomalies in source data before final production publish
-- [ ] Fix incorrect placement calculations on player profile page (event placement and best result are currently wrong)
-- [ ] Fix event page result placements (e.g. `/events/Regional%20Event%201?season=2021-22&split=Fall` shows incorrect placements)
-- [ ] Fix top 8–16 placement labels not displaying correctly on player profile page
+- ✅ Fix incorrect placement calculations on player profile page (event placement and best result are currently wrong)
+- ✅ Fix event page result placements (e.g. `/events/Regional%20Event%201?season=2021-22&split=Fall` shows incorrect placements)
 
 ## V0.1 Remaining Requirements
 
 ### Visual & UX
 - [ ] Make overall UI more compact
 - [ ] Add better placeholder icons for missing team logos and player photos
+- [ ] Redesign the Team page UI
 
 ### Data & Content
 - [ ] Add 1v1 and Majors data to the database
@@ -116,6 +117,7 @@
   - Most RLCS games played: show first event in expanded rows
 - ✅ Fast Insights expanded rows do not render player photos
 - ✅ Add acknowledgements section at the bottom of the page
+- ✅ Increase visual contrast for the Queries component on the home page
 
 ### Player Profile Improvements
 - ✅ Show current team with clickable link
