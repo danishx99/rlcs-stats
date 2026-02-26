@@ -95,7 +95,10 @@
 ### Visual & UX
 - [ ] Make overall UI more compact
 - [ ] Add better placeholder icons for missing team logos and player photos
+  - Default team logo: `https://rlesport.gg/downloads/org_logos/default_team.jpg`
+  - Default player photo: `https://rlesport.gg/downloads/player_pics/default_nologo.png`
 - [ ] Redesign the Team page UI
+- [ ] Improve general UX across the app
 
 ### Data & Content
 - [ ] Add 1v1 and Majors data to the database

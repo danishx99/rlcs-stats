@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { MetaResponse, RosterProfile } from "../types/api";
 import { buildEventPath, parseDebutEvent } from "../utils/event-routing";
-import { proxyImageUrl, normalizeSocialLink } from "../utils/normalize";
+import { proxyImageUrl, normalizeSocialLink, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import { formatRosterStarters } from "../utils/roster";
 import { resolveTeamRosterId } from "../utils/team-routing";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
@@ -115,17 +115,11 @@ export default function RosterPage({
       <div className="panel roster-profile-card">
         <div className="profile-header">
           <div className="profile-media">
-            {rosterProfile.logoUrl ? (
-              <img
-                src={proxyImageUrl(rosterProfile.logoUrl) ?? undefined}
-                alt={rosterProfile.name ?? "Team"}
-                loading="lazy"
-              />
-            ) : (
-              <div className="profile-avatar roster-avatar">
-                {rosterProfile.name?.[0] ?? "?"}
-              </div>
-            )}
+            <img
+              src={proxyImageUrl(rosterProfile.logoUrl) ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!}
+              alt={rosterProfile.name ?? "Team"}
+              loading="lazy"
+            />
           </div>
           <div className="profile-info">
             <h1>{rosterProfile.name ?? "Team"}</h1>

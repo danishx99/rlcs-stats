@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { proxyImageUrl } from "../utils/normalize";
+import { proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../utils/normalize";
 
 type PlayerNameWithPhotoProps = {
   name: string | null | undefined;
@@ -22,7 +22,7 @@ export default function PlayerNameWithPhoto({
   const content = (
     <span className={`identity-inline ${className}`.trim()}>
       <span className="identity-avatar identity-avatar--player">
-        {image ? <img src={image} alt={label} loading="lazy" /> : label.charAt(0)}
+        <img src={image ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!} alt={label} loading="lazy" />
       </span>
       <span>{label}</span>
     </span>

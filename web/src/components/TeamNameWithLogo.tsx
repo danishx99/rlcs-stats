@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTeamLogos } from "../hooks/useTeamLogos";
-import { proxyImageUrl } from "../utils/normalize";
+import { proxyImageUrl, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import { toOrgRosterId } from "../utils/roster";
 
 type TeamNameWithLogoProps = {
@@ -30,7 +30,7 @@ export default function TeamNameWithLogo({
   const content = (
     <span className={`identity-inline ${className}`.trim()}>
       <span className="identity-avatar identity-avatar--team">
-        {image ? <img src={image} alt={label} loading="lazy" /> : label.charAt(0)}
+        <img src={image ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!} alt={label} loading="lazy" />
       </span>
       <span>{label}</span>
     </span>

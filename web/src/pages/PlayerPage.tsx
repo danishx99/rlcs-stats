@@ -6,7 +6,7 @@ import SeasonTable from "../components/SeasonTable";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import { computeAge, formatDate } from "../utils/date";
 import { buildEventPath, parseDebutEvent } from "../utils/event-routing";
-import { normalizeSocialLink, proxyImageUrl } from "../utils/normalize";
+import { normalizeSocialLink, proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../utils/normalize";
 import { resolveTeamRosterId } from "../utils/team-routing";
 
 function ordinal(n: number) {
@@ -216,15 +216,11 @@ export default function PlayerPage({
         <section className="panel player-overview-card">
           <div className="player-overview-head">
             <div className="profile-media">
-              {playerProfile.photoUrl ? (
-                <img
-                  src={proxyImageUrl(playerProfile.photoUrl) ?? undefined}
-                  alt={playerProfile.handle ?? playerProfile.playerName ?? "Player"}
-                  loading="lazy"
-                />
-              ) : (
-                <div className="profile-avatar">{playerProfile.handle?.[0] ?? "?"}</div>
-              )}
+              <img
+                src={proxyImageUrl(playerProfile.photoUrl) ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!}
+                alt={playerProfile.handle ?? playerProfile.playerName ?? "Player"}
+                loading="lazy"
+              />
             </div>
             <div className="player-overview-name">
               <h2>{playerProfile.handle ?? playerProfile.playerName ?? "Player"}</h2>

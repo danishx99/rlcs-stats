@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { FeaturedResponse } from "../types/api";
 import { formatStat } from "../utils/format";
-import { proxyImageUrl } from "../utils/normalize";
+import { proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../utils/normalize";
 import TeamNameWithLogo from "./TeamNameWithLogo";
 
 type FeaturedPanelProps = {
@@ -24,11 +24,7 @@ export default function FeaturedPanel({ data }: FeaturedPanelProps) {
             onClick={() => navigate(`/players/${row.id}`)}
           >
             <div className="featured-card-photo">
-              {imgSrc ? (
-                <img src={imgSrc} alt={row.label} loading="lazy" />
-              ) : (
-                <span className="card-avatar">{row.label.charAt(0)}</span>
-              )}
+              <img src={imgSrc ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!} alt={row.label} loading="lazy" />
             </div>
             <div className="featured-card-info">
               <strong>{row.label}</strong>
