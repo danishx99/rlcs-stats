@@ -4,8 +4,20 @@ import type { Client } from "pg";
 import { streamCsvRows } from "./util/csv";
 import type { ColumnSpec, ColumnType, FileReport, RowError } from "./util/types";
 
-const COMPUTE_SERIES_IDS_SQL = `
-WITH match_agg AS (
+function buildSeriesScopeClause(scoped: boolean): string {
+  if (!scoped) return "";
+  return ` AND "Match ID" = ANY($1::text[])`;
+}
+
+function buildTwoTeamSeriesUpdateSql(scoped: boolean): string {
+  const scope = buildSeriesScopeClause(scoped);
+  return `
+WITH target_matches AS (
+  SELECT DISTINCT "Match ID" AS match_id
+  FROM stats
+  WHERE series_id IS NULL${scope}
+),
+match_agg AS (
   SELECT
     "Match ID" AS match_id,
     MIN("Team") AS team_a,
@@ -18,7 +30,7 @@ WITH match_agg AS (
     MIN(NULLIF("Round", '')) AS round,
     MAX("Best of ")::text AS best_of
   FROM stats
-  WHERE series_id IS NULL
+  WHERE "Match ID" IN (SELECT match_id FROM target_matches)
     AND "Team" IS NOT NULL
     AND "Team" <> ''
   GROUP BY "Match ID"
@@ -39,10 +51,56 @@ FROM match_agg ma
 WHERE s."Match ID" = ma.match_id
   AND s.series_id IS NULL;
 `;
+}
 
-export async function computeSeriesIds(client: Client): Promise<number> {
-  const result = await client.query(COMPUTE_SERIES_IDS_SQL);
-  return result.rowCount ?? 0;
+function buildSingleTeamSeriesUpdateSql(scoped: boolean): string {
+  const scope = buildSeriesScopeClause(scoped);
+  return `
+WITH single_team_matches AS (
+  SELECT
+    "Match ID" AS match_id
+  FROM stats
+  WHERE series_id IS NULL${scope}
+    AND "Team" IS NOT NULL
+    AND TRIM("Team") <> ''
+  GROUP BY "Match ID"
+  HAVING COUNT(DISTINCT UPPER(TRIM("Team"))) = 1
+)
+UPDATE stats s
+SET series_id = md5(
+  COALESCE(s."Season", '') || '|' ||
+  COALESCE(NULLIF(s."Split", ''), '') || '|' ||
+  COALESCE(NULLIF(s."Event", ''), '') || '|' ||
+  COALESCE(s."Day"::text, '') || '|' ||
+  COALESCE(NULLIF(s."Stage", ''), '') || '|' ||
+  COALESCE(NULLIF(s."Round", ''), '') || '|' ||
+  COALESCE(s."Best of "::text, '') || '|' ||
+  UPPER(TRIM(s."Team")) || '|' ||
+  regexp_replace(s."Match ID", '-G[0-9]+$', '')
+)
+FROM single_team_matches stm
+WHERE s."Match ID" = stm.match_id
+  AND s.series_id IS NULL
+  AND s."Team" IS NOT NULL
+  AND TRIM(s."Team") <> '';
+`;
+}
+
+export async function computeSeriesIds(client: Client, matchIds?: string[]): Promise<number> {
+  const scopedMatchIds = matchIds?.filter((value) => value && value.trim().length > 0) ?? [];
+  const scoped = scopedMatchIds.length > 0;
+
+  if (scoped) {
+    await client.query(
+      `UPDATE stats SET series_id = NULL WHERE "Match ID" = ANY($1::text[]);`,
+      [scopedMatchIds]
+    );
+  }
+
+  const params = scoped ? [scopedMatchIds] : [];
+  const twoTeamResult = await client.query(buildTwoTeamSeriesUpdateSql(scoped), params);
+  const singleTeamResult = await client.query(buildSingleTeamSeriesUpdateSql(scoped), params);
+  return (twoTeamResult.rowCount ?? 0) + (singleTeamResult.rowCount ?? 0);
 }
 
 const REFRESH_SERIES_ROSTER_SQL = `
@@ -87,6 +145,7 @@ export type LoadOptions = {
   allowNewColumns?: boolean;
   tableName: string;
   schemaFile?: string;
+  sourceFile?: string;
   headerNormalizer?: (header: string) => string;
   ignoreCoercionErrors?: boolean;
   stopAfterHeader?: string;
@@ -314,6 +373,7 @@ export async function loadCsvFile(
   options: LoadOptions
 ): Promise<FileReport> {
   const fileName = basename(filePath);
+  const sourceFile = options.sourceFile ?? fileName;
   const typeMap = new Map(specs.map((spec) => [spec.name, spec.type]));
   const errors: RowError[] = [];
   const progressEvery = options.progressEvery ?? 10000;
@@ -474,7 +534,7 @@ export async function loadCsvFile(
       }
 
       const rowHash = createHash("sha256").update(hashParts.join(HASH_SEPARATOR)).digest("hex");
-      batchValues.push(...coercedValues, rowHash, fileName);
+      batchValues.push(...coercedValues, rowHash, sourceFile);
       batchRows += 1;
 
       if (batchRows >= batchLimit) {

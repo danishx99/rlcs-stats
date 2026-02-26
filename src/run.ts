@@ -25,6 +25,7 @@ type CliOptions = {
   strict: boolean;
   enforceSeriesIds: boolean;
   truncate: boolean;
+  sync: boolean;
   allowNewColumns: boolean;
   dataset?: string;
 };
@@ -37,6 +38,7 @@ function parseArgs(argv: string[]): CliOptions {
     strict: false,
     enforceSeriesIds: false,
     truncate: false,
+    sync: false,
     allowNewColumns: false
   };
 
@@ -62,6 +64,8 @@ function parseArgs(argv: string[]): CliOptions {
       options.enforceSeriesIds = true;
     } else if (arg === "--truncate") {
       options.truncate = true;
+    } else if (arg === "--sync") {
+      options.sync = true;
     } else if (arg === "--allow-new-columns") {
       options.allowNewColumns = true;
     } else if (arg === "--dataset") {
@@ -140,11 +144,12 @@ async function computeFileHash(filePath: string): Promise<string> {
 async function isFileIngested(
   client: Client,
   tableName: string,
+  fileName: string,
   fileHash: string
 ): Promise<boolean> {
   const result = await client.query(
-    "SELECT 1 FROM file_ingest WHERE table_name = $1 AND file_hash = $2 LIMIT 1;",
-    [tableName, fileHash]
+    "SELECT 1 FROM file_ingest WHERE table_name = $1 AND file_name = $2 AND file_hash = $3 LIMIT 1;",
+    [tableName, fileName, fileHash]
   );
   return (result.rowCount ?? 0) > 0;
 }
@@ -152,6 +157,7 @@ async function isFileIngested(
 async function recordFileIngest(
   client: Client,
   tableName: string,
+  fileName: string,
   report: FileReport,
   fileHash: string,
   fileSize: number
@@ -159,11 +165,20 @@ async function recordFileIngest(
   await client.query(
     `
     INSERT INTO file_ingest (table_name, file_name, file_hash, file_size, row_count, inserted, skipped, errored)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    ON CONFLICT (table_name, file_name) DO UPDATE
+    SET
+      file_hash = EXCLUDED.file_hash,
+      file_size = EXCLUDED.file_size,
+      row_count = EXCLUDED.row_count,
+      inserted = EXCLUDED.inserted,
+      skipped = EXCLUDED.skipped,
+      errored = EXCLUDED.errored,
+      ingested_at = now();
     `,
     [
       tableName,
-      report.fileName,
+      fileName,
       fileHash,
       fileSize,
       report.totalRows,
@@ -180,6 +195,60 @@ type SeriesIdCoverage = {
   affectedMatchIds: number;
   sampleMatchIds: string[];
 };
+
+async function getMatchIdsBySourceFile(
+  client: Client,
+  sourceFileName: string
+): Promise<string[]> {
+  const result = await client.query(
+    `
+    SELECT DISTINCT "Match ID" AS match_id
+    FROM stats
+    WHERE regexp_replace(source_file, ' \\([0-9]+\\)(\\.[^.]+)$', '\\1') = $1
+      AND "Match ID" IS NOT NULL
+      AND TRIM("Match ID") <> '';
+    `,
+    [sourceFileName]
+  );
+  return result.rows
+    .map((row) => String(row.match_id ?? ""))
+    .filter((value) => value.length > 0);
+}
+
+async function getStaleStatsMatchIds(
+  client: Client,
+  canonicalSourceFiles: string[]
+): Promise<string[]> {
+  if (canonicalSourceFiles.length === 0) {
+    const result = await client.query(
+      `
+      SELECT DISTINCT "Match ID" AS match_id
+      FROM stats
+      WHERE source_file <> ''
+        AND "Match ID" IS NOT NULL
+        AND TRIM("Match ID") <> '';
+      `
+    );
+    return result.rows
+      .map((row) => String(row.match_id ?? ""))
+      .filter((value) => value.length > 0);
+  }
+
+  const result = await client.query(
+    `
+    SELECT DISTINCT "Match ID" AS match_id
+    FROM stats
+    WHERE source_file <> ''
+      AND regexp_replace(source_file, ' \\([0-9]+\\)(\\.[^.]+)$', '\\1') <> ALL($1::text[])
+      AND "Match ID" IS NOT NULL
+      AND TRIM("Match ID") <> '';
+    `,
+    [canonicalSourceFiles]
+  );
+  return result.rows
+    .map((row) => String(row.match_id ?? ""))
+    .filter((value) => value.length > 0);
+}
 
 async function getSeriesIdCoverage(client: Client): Promise<SeriesIdCoverage> {
   const result = await client.query(
@@ -212,6 +281,56 @@ async function getSeriesIdCoverage(client: Client): Promise<SeriesIdCoverage> {
   return { totalRows, missingSeriesIds, affectedMatchIds, sampleMatchIds };
 }
 
+async function hasMissingSeriesIds(client: Client): Promise<boolean> {
+  const result = await client.query(
+    `
+    SELECT 1
+    FROM stats
+    WHERE series_id IS NULL OR TRIM(series_id) = ''
+    LIMIT 1;
+    `
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+function normalizeSourceFileName(fileName: string): string {
+  return fileName.replace(/ \(\d+\)(\.[^.]+)$/u, "$1").trim();
+}
+
+async function syncDatasetSources(
+  client: Client,
+  tableName: string,
+  canonicalSourceFiles: string[]
+): Promise<number> {
+  if (canonicalSourceFiles.length === 0) {
+    const deleted = await client.query(`DELETE FROM ${quoteIdent(tableName)} WHERE source_file <> ''`);
+    await client.query("DELETE FROM file_ingest WHERE table_name = $1", [tableName]);
+    return deleted.rowCount ?? 0;
+  }
+
+  const sqlNormalized =
+    "regexp_replace(%s, ' \\([0-9]+\\)(\\.[^.]+)$', '\\1')";
+
+  const deleted = await client.query(
+    `
+    DELETE FROM ${quoteIdent(tableName)}
+    WHERE source_file <> ''
+      AND ${sqlNormalized.replace("%s", "source_file")} <> ALL($1::text[]);
+    `,
+    [canonicalSourceFiles]
+  );
+
+  await client.query(
+    `
+    DELETE FROM file_ingest
+    WHERE table_name = $1
+      AND ${sqlNormalized.replace("%s", "file_name")} <> ALL($2::text[]);
+    `,
+    [tableName, canonicalSourceFiles]
+  );
+  return deleted.rowCount ?? 0;
+}
+
 async function listFiles(dir: string, pattern: string): Promise<string[]> {
   let entries: string[] = [];
   try {
@@ -236,7 +355,7 @@ async function main(): Promise<void> {
   try {
     console.log("Connected to DB");
     console.log(
-      `Ingestion start: datasets=${datasets.map((dataset) => dataset.key).join(", ")}, dryRun=${options.dryRun}, truncate=${options.truncate}`
+      `Ingestion start: datasets=${datasets.map((dataset) => dataset.key).join(", ")}, dryRun=${options.dryRun}, truncate=${options.truncate}, sync=${options.sync}`
     );
     console.log("Ensuring schema...");
     await client.query(createFileIngestTableSql);
@@ -304,10 +423,30 @@ async function main(): Promise<void> {
     }
 
     const reports: FileReport[] = [];
+    let statsMutated = false;
+    const changedStatsMatchIds = new Set<string>();
     for (const dataset of datasets) {
       const datasetDir = join(options.dir, dataset.dataSubdir);
       const files = await listFiles(datasetDir, options.pattern);
+      const canonicalSourceFiles = Array.from(
+        new Set(files.map((filePath) => normalizeSourceFileName(basename(filePath))))
+      );
       console.log(`[${dataset.label}] scanning ${datasetDir}: ${files.length} files matched`);
+
+      if (!dataset.customLoader && options.sync && !options.dryRun && !options.limit) {
+        console.log(`[${dataset.label}] sync mode: removing stale source-file rows`);
+        if (dataset.tableName === "stats") {
+          const staleMatchIds = await getStaleStatsMatchIds(client, canonicalSourceFiles);
+          for (const matchId of staleMatchIds) {
+            changedStatsMatchIds.add(matchId);
+          }
+        }
+        const deletedRows = await syncDatasetSources(client, dataset.tableName, canonicalSourceFiles);
+        if (dataset.tableName === "stats" && deletedRows > 0) {
+          statsMutated = true;
+        }
+      }
+
       if (files.length === 0) {
         console.log(`${dataset.label}: no files matched`);
         continue;
@@ -323,8 +462,9 @@ async function main(): Promise<void> {
         const fileStats = await stat(filePath);
         const fileHash = await computeFileHash(filePath);
         const fileName = basename(filePath);
+        const sourceFileName = normalizeSourceFileName(fileName);
 
-        if (!options.limit && (await isFileIngested(client, dataset.tableName, fileHash))) {
+        if (!options.limit && (await isFileIngested(client, dataset.tableName, sourceFileName, fileHash))) {
           const skippedReport: FileReport = {
             fileName,
             status: "skipped",
@@ -343,35 +483,93 @@ async function main(): Promise<void> {
         }
 
         const specs = await getColumnSpecsFromDb(client, dataset.tableName);
+        const shouldReplaceExisting = !options.dryRun && !options.limit;
         console.log(`[${dataset.label}] processing file ${filePath}`);
-        const report = await loadCsvFile(client, filePath, specs, {
-          strict: options.strict,
-          dryRun: options.dryRun,
-          limit: options.limit,
-          allowNewColumns: options.allowNewColumns,
-          tableName: dataset.tableName,
-          schemaFile: dataset.schemaFile,
-          headerNormalizer: dataset.headerNormalizer,
-          ignoreCoercionErrors: dataset.ignoreCoercionErrors,
-          stopAfterHeader: dataset.stopAfterHeader,
-          denormalize: dataset.denormalize
-        });
-        report.fileHash = fileHash;
-        report.dataset = dataset.key;
-        reports.push(report);
-        console.log(
-          `[${dataset.label}] ${report.fileName}: rows ${report.totalRows}, inserted ${report.inserted}, skipped ${report.skipped}, errored ${report.errored}`
-        );
+        if (shouldReplaceExisting) {
+          await client.query("BEGIN");
+        }
+        try {
+          if (shouldReplaceExisting) {
+            if (dataset.tableName === "stats") {
+              const existingMatchIds = await getMatchIdsBySourceFile(client, sourceFileName);
+              for (const matchId of existingMatchIds) {
+                changedStatsMatchIds.add(matchId);
+              }
+            }
+            const deleteResult = await client.query(
+              `DELETE FROM ${quoteIdent(dataset.tableName)}
+               WHERE regexp_replace(source_file, ' \\([0-9]+\\)(\\.[^.]+)$', '\\1') = $1;`,
+              [sourceFileName]
+            );
+            if (dataset.tableName === "stats" && (deleteResult.rowCount ?? 0) > 0) {
+              statsMutated = true;
+            }
+          }
 
-        if (!options.dryRun && !options.limit) {
-          await recordFileIngest(client, dataset.tableName, report, fileHash, fileStats.size);
+          const report = await loadCsvFile(client, filePath, specs, {
+            strict: options.strict,
+            dryRun: options.dryRun,
+            limit: options.limit,
+            allowNewColumns: options.allowNewColumns,
+            tableName: dataset.tableName,
+            schemaFile: dataset.schemaFile,
+            sourceFile: sourceFileName,
+            headerNormalizer: dataset.headerNormalizer,
+            ignoreCoercionErrors: dataset.ignoreCoercionErrors,
+            stopAfterHeader: dataset.stopAfterHeader,
+            denormalize: dataset.denormalize
+          });
+          report.fileHash = fileHash;
+          report.dataset = dataset.key;
+          reports.push(report);
+          console.log(
+            `[${dataset.label}] ${report.fileName}: rows ${report.totalRows}, inserted ${report.inserted}, skipped ${report.skipped}, errored ${report.errored}`
+          );
+
+          if (shouldReplaceExisting) {
+            await recordFileIngest(
+              client,
+              dataset.tableName,
+              sourceFileName,
+              report,
+              fileHash,
+              fileStats.size
+            );
+            if (dataset.tableName === "stats") {
+              statsMutated = true;
+              const reloadedMatchIds = await getMatchIdsBySourceFile(client, sourceFileName);
+              for (const matchId of reloadedMatchIds) {
+                changedStatsMatchIds.add(matchId);
+              }
+            }
+            await client.query("COMMIT");
+          }
+        } catch (error) {
+          if (shouldReplaceExisting) {
+            await client.query("ROLLBACK");
+          }
+          throw error;
         }
       }
     }
 
-    if (!options.dryRun && hasStatsDataset) {
+    const shouldBackfillSeriesIds =
+      !options.dryRun &&
+      hasStatsDataset &&
+      (statsMutated || (await hasMissingSeriesIds(client)));
+
+    if (shouldBackfillSeriesIds) {
       console.log("Generating series ids...");
-      const updated = await computeSeriesIds(client);
+      const scopedMatchIds = Array.from(changedStatsMatchIds);
+      if (statsMutated && scopedMatchIds.length > 0) {
+        console.log(`Series id backfill scope: ${scopedMatchIds.length} changed match IDs`);
+      } else {
+        console.log("Series id backfill scope: full stats table");
+      }
+      const updated = await computeSeriesIds(
+        client,
+        statsMutated && scopedMatchIds.length > 0 ? scopedMatchIds : undefined
+      );
       console.log(`Series id backfill complete: ${updated} rows updated`);
       const seriesCoverage = await getSeriesIdCoverage(client);
       if (seriesCoverage.totalRows > 0 && seriesCoverage.missingSeriesIds > 0) {
@@ -389,6 +587,8 @@ async function main(): Promise<void> {
       console.log("Refreshing series roster table...");
       const seriesRosterRows = await refreshSeriesRoster(client);
       console.log(`Series roster refresh complete: ${seriesRosterRows} rows`);
+    } else if (!options.dryRun && hasStatsDataset) {
+      console.log("Stats unchanged; skipping series id backfill and series roster refresh");
     }
 
     const totals = reports.reduce(

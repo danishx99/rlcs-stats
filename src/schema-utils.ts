@@ -42,5 +42,14 @@ ALTER TABLE file_ingest
   ADD COLUMN IF NOT EXISTS table_name TEXT NOT NULL DEFAULT 'stats';
 
 DROP INDEX IF EXISTS file_ingest_hash_uq;
-CREATE UNIQUE INDEX IF NOT EXISTS file_ingest_table_hash_uq ON file_ingest(table_name, file_hash);
+DROP INDEX IF EXISTS file_ingest_table_hash_uq;
+DELETE FROM file_ingest fi
+USING file_ingest newer
+WHERE fi.table_name = newer.table_name
+  AND fi.file_name = newer.file_name
+  AND (
+    fi.ingested_at < newer.ingested_at
+    OR (fi.ingested_at = newer.ingested_at AND fi.id < newer.id)
+  );
+CREATE UNIQUE INDEX IF NOT EXISTS file_ingest_table_file_uq ON file_ingest(table_name, file_name);
 `;

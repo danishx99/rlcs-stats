@@ -28,12 +28,14 @@
 
 ## Deploy API
 
-The API service runs on Railway using `Dockerfile.api`. The Railway project is linked in this repo (`.railway/` config).
+The API service runs on Railway using `Dockerfile.api`.
 
 ```bash
-# From the repo root — uploads code and triggers a Docker build on Railway
+# Manual deploy (optional)
 railway up
 ```
+
+In normal operation, Railway auto-deploys the API on new commits.
 
 Railway auto-detects `Dockerfile.api` via the `RAILWAY_DOCKERFILE_PATH` variable. The service reads `PORT` (set by Railway) and `DATABASE_URL` (linked to the Postgres service).
 
@@ -108,16 +110,13 @@ RewriteRule . /index.html [L]
 Data is loaded from local CSV files into the Railway Postgres instance via its public proxy URL.
 
 ```bash
-DATABASE_URL="<railway-public-url>" bun run src/run.ts --dir ./data
+bun run prod:data:sync
 ```
 
-To get the public URL:
-
-```bash
-railway variables --kv -s Postgres | grep DATABASE_PUBLIC_URL
-```
-
-The loader is idempotent — it tracks ingested files by hash and skips duplicates.
+This runs `src/run.ts` with `--sync`, which reconciles prod data to match current `data/` CSVs without resetting unrelated tables (for example `feedback`):
+- changed CSVs are replaced
+- stale CSV-backed rows are removed
+- unchanged files are skipped
 
 ---
 
@@ -126,18 +125,17 @@ The loader is idempotent — it tracks ingested files by hash and skips duplicat
 ### Ship a code change (API + frontend)
 
 ```bash
-# 1. Deploy API
-railway up
-
-# 2. Build and deploy frontend
-./scripts/deploy-frontend.sh
+# Push to main:
+# - Railway auto-deploys API
+# - GitHub Action deploys frontend
+# - GitHub Action runs db sync (bun run db:load with --sync)
+git push origin main
 ```
 
 ### Update data only (new CSV files)
 
 ```bash
-DATABASE_URL="$(railway variables --kv -s Postgres | grep DATABASE_PUBLIC_URL | cut -d= -f2-)" \
-  bun run src/run.ts --dir ./data
+bun run prod:data:sync
 ```
 
 ### Verify everything is healthy
@@ -167,5 +165,5 @@ bun run dev
 
 - **CORS**: API allows all origins (`Access-Control-Allow-Origin: *`)
 - **Image proxy**: Player photos are proxied through the API at `/api/image?url=<encoded>`
-- **No CI/CD pipeline yet**: deploys are manual via `railway up` and `./scripts/deploy-frontend.sh`
+- **CI/CD**: on push to `main`, Railway auto-deploys API; GitHub Actions deploys frontend and runs Railway data sync
 - The server reads `PORT` (Railway), falling back to `API_PORT`, then `8787`

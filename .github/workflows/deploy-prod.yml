@@ -50,3 +50,24 @@ jobs:
         run: |
           scp -P "${{ secrets.VPS_PORT }}" -i ~/.ssh/id_ed25519 -r web/dist/* web/dist/.htaccess \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/public_html/"
+
+  sync-data:
+    name: Sync Railway Data
+    runs-on: ubuntu-latest
+    if: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Sync CSV data to Railway Postgres
+        env:
+          DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
+        run: bun run db:load

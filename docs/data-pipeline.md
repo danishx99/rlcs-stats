@@ -19,8 +19,9 @@ bun run load                             # same, via npm script
 | `--dry-run` | `false` | Parse and validate without writing to the database |
 | `--strict` | `false` | Throw on the first coercion error instead of logging and continuing |
 | `--truncate` | `false` | `TRUNCATE` target tables and `file_ingest` before loading |
+| `--sync` | `false` | Reconcile DB with files on disk for generic datasets (remove stale source files, replace changed source files) |
 | `--allow-new-columns` | `false` | Auto-add CSV columns not in the schema as `TEXT` instead of failing |
-| `--dataset <key>` | `all` | Load only one dataset: `matches` or `players` |
+| `--dataset <key>` | `all` | Load one dataset: `matches`, `players`, `teams`, `standings`, or `brackets` |
 
 ## Pipeline Stages
 
@@ -51,9 +52,16 @@ If `--truncate` is passed and not in dry-run mode:
 
 For each dataset, lists files in `<dir>/<dataSubdir>/` matching the glob pattern. Files are processed in directory-listing order.
 
-### 5. File-Level Deduplication
+### 5. File-Level Deduplication / Replacement
 
-Before processing a file, the loader computes its SHA-256 hash and checks the `file_ingest` table for a matching `(table_name, file_hash)` pair. If found, the file is skipped entirely. This check is bypassed when `--limit` is set.
+Before processing a file, the loader computes its SHA-256 hash and checks `file_ingest` for a matching `(table_name, file_name, file_hash)` tuple. If found, the file is skipped entirely. This check is bypassed when `--limit` is set.
+
+For non-custom datasets (`matches`, `players`, `teams`), changed files are treated as replacements:
+- Existing rows for the same canonical source file are deleted first (`source_file`, normalizing copy suffixes like ` (3)`).
+- New rows are inserted from the current CSV.
+- `file_ingest` is upserted by `(table_name, file_name)`.
+
+When `--sync` is enabled, rows/files that no longer exist on disk are removed so the DB converges to "what a fresh load from current files would produce" without resetting unrelated tables.
 
 ### 6. Load CSV Rows
 
@@ -78,11 +86,13 @@ Rows are inserted in batches via multi-row `INSERT ... ON CONFLICT (row_hash) DO
 
 ### 7. Record File Ingest
 
-After successfully processing a file (not in dry-run or limit mode), a row is inserted into `file_ingest` with the file name, SHA-256 hash, size, and row counts.
+After successfully processing a file (not in dry-run or limit mode), `file_ingest` is upserted with the file name, SHA-256 hash, size, and row counts.
 
 ### 8. Series ID Backfill
 
-After all files are loaded (not in dry-run mode, stats dataset was processed), `computeSeriesIds()` runs a single SQL statement that backfills `series_id` for any rows where it is `NULL`. See [Series ID](#series-id).
+After loading, `computeSeriesIds()` and `refreshSeriesRoster()` run only when the `stats` table was mutated during that run (for example changed/removed stats CSV-backed rows). If stats were unchanged, these steps are skipped.
+
+When stats changed, backfill is scoped to affected `Match ID`s collected from changed/removed stats source files, so large non-related portions of `stats` are not rescanned.
 
 ### 9. Write Report
 
