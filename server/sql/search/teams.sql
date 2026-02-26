@@ -69,7 +69,7 @@ starter_profiles AS (
     COALESCE(MIN(p."Primary Handle"), MIN(s."Player Name")) AS handle
   FROM latest_roster lr
   CROSS JOIN LATERAL unnest(lr.starters) AS starter_id
-  LEFT JOIN players p ON p."Player ID" = starter_id
+  LEFT JOIN players p ON p."Unique ID" = starter_id
   LEFT JOIN stats s ON NULLIF(TRIM(s."Unique ID"), '') = starter_id
   GROUP BY lr.team_group_id, starter_id
 )

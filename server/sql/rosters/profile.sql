@@ -406,7 +406,7 @@ player_handles AS (
     SELECT DISTINCT starter_id AS player_key
     FROM roster_starter_map
   ) rpm
-  LEFT JOIN players p ON p."Player ID" = rpm.player_key
+  LEFT JOIN players p ON p."Unique ID" = rpm.player_key
   LEFT JOIN scope_stats ss ON ss.player_key = rpm.player_key
   GROUP BY rpm.player_key
 ),

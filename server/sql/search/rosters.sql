@@ -20,7 +20,7 @@ starter_profiles AS (
   FROM roster_starters rs
   CROSS JOIN LATERAL unnest(rs.starters) AS starter_id
   LEFT JOIN base b ON b.player_key = starter_id
-  LEFT JOIN players p ON p."Player ID" = starter_id
+  LEFT JOIN players p ON p."Unique ID" = starter_id
   GROUP BY rs.roster_id, starter_id
 )
 SELECT DISTINCT ON (roster_id)

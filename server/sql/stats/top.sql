@@ -22,7 +22,7 @@ SELECT
   MIN(p."Country") AS country,
   {{valueExpr}} AS value
 FROM player_scope
-LEFT JOIN players p ON p."Player ID" = player_scope.player_key
+LEFT JOIN players p ON p."Unique ID" = player_scope.player_key
 GROUP BY player_scope.player_key
 {{havingClause}}
 ORDER BY value {{sortDir}} NULLS LAST

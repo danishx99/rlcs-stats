@@ -4,7 +4,7 @@ WITH player_base AS (
   SELECT
     {{playerIdParam}} AS player_key,
     p."Primary Handle" AS handle,
-    p."All Aliases" AS aliases,
+    p.aka AS aliases,
     p."Real Name" AS real_name,
     p."Country" AS country,
     p."Photo URL" AS photo_url,
@@ -12,7 +12,7 @@ WITH player_base AS (
     p."TikTok" AS tiktok,
     p."Date of Birth" AS date_of_birth
   FROM players p
-  WHERE p."Player ID" = {{playerIdParam}}
+  WHERE p."Unique ID" = {{playerIdParam}}
 ),
 player_exists AS (
   SELECT 1 WHERE EXISTS (SELECT 1 FROM player_base)

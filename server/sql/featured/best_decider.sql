@@ -13,7 +13,7 @@ SELECT
   COUNT(*) AS games,
   AVG(base."Score_All Zones") AS avg_score
 FROM base
-LEFT JOIN players p ON p."Player ID" = base.player_key
+LEFT JOIN players p ON p."Unique ID" = base.player_key
 WHERE base.player_key IS NOT NULL
   AND base."Best of " IN (5, 7)
   AND base."Game Number" = base."Best of "

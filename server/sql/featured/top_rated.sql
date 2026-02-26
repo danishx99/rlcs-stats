@@ -25,7 +25,7 @@ SELECT
   COALESCE(SUM(base."Goals_All Zones")::float / NULLIF(SUM(base."Shots_All Zones"), 0), 0) * 100 AS shooting_pct,
   AVG(base."Kills_All Zones") - AVG(base."Deaths_All Zones") AS demo_diff
 FROM base
-LEFT JOIN players p ON p."Player ID" = base.player_key
+LEFT JOIN players p ON p."Unique ID" = base.player_key
 WHERE base.player_key IS NOT NULL
 GROUP BY base.player_key
 HAVING COUNT(*) >= 10

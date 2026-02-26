@@ -141,7 +141,7 @@ entity_labels AS (
     pr.player_key AS id,
     COALESCE(MIN(p."Primary Handle"), MIN(pr."Player Name")) AS label
   FROM player_rows pr
-  LEFT JOIN players p ON p."Player ID" = pr.player_key
+  LEFT JOIN players p ON p."Unique ID" = pr.player_key
   GROUP BY pr.player_key
 )
 SELECT

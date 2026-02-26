@@ -13,7 +13,7 @@ SELECT
   COUNT(*) AS games,
   AVG(base."Supersonic Speed_All Zones") AS supersonic
 FROM base
-LEFT JOIN players p ON p."Player ID" = base.player_key
+LEFT JOIN players p ON p."Unique ID" = base.player_key
 WHERE base.player_key IS NOT NULL
 GROUP BY base.player_key
 ORDER BY value DESC, COUNT(*) DESC

@@ -8,7 +8,7 @@ WITH base AS (
 SELECT
   base.player_key AS id,
   COALESCE(MIN(p."Primary Handle"), MIN(base."Player Name")) AS label,
-  MIN(p."All Aliases") AS aliases,
+  MIN(p.aka) AS aliases,
   MIN(p."Country") AS country,
   MIN(p."Photo URL") AS photo_url,
   (SELECT ARRAY_AGG(sub.team ORDER BY sub.latest_date DESC NULLS LAST) FROM (
@@ -19,7 +19,7 @@ SELECT
   ) sub) AS teams,
   COUNT(*) AS games
 FROM base
-LEFT JOIN players p ON p."Player ID" = base.player_key
+LEFT JOIN players p ON p."Unique ID" = base.player_key
 GROUP BY base.player_key
 ORDER BY games DESC
 LIMIT {{limitParam}}

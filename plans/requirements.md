@@ -100,7 +100,7 @@
 
 ### Data & Content
 - [ ] Add 1v1 and Majors data to the database
-- [ ] Ensure player aliases are listed (new column needed)
+- ✅ Ensure player aliases are listed (sourced from CSV `AKA` column)
 
 ### Home Additions
 - ✅ Rotating featured players from common stats (rating, goals, saves, demos, shots, assists)

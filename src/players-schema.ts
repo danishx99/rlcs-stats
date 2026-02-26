@@ -1,8 +1,10 @@
 export const createPlayersTableSql = `
 CREATE TABLE IF NOT EXISTS players (
   id BIGSERIAL PRIMARY KEY,
+  "Unique ID" TEXT,
   "Player ID" TEXT,
   "Primary Handle" TEXT,
+  aka TEXT,
   "All Aliases" TEXT,
   "Real Name" TEXT,
   "Pronounciation" TEXT,
@@ -16,8 +18,10 @@ CREATE TABLE IF NOT EXISTS players (
 
 export const addPlayersColumnsSql = `
 ALTER TABLE players
+  ADD COLUMN IF NOT EXISTS "Unique ID" TEXT,
   ADD COLUMN IF NOT EXISTS "Player ID" TEXT,
   ADD COLUMN IF NOT EXISTS "Primary Handle" TEXT,
+  ADD COLUMN IF NOT EXISTS aka TEXT,
   ADD COLUMN IF NOT EXISTS "All Aliases" TEXT,
   ADD COLUMN IF NOT EXISTS "Real Name" TEXT,
   ADD COLUMN IF NOT EXISTS "Pronounciation" TEXT,
@@ -30,8 +34,10 @@ ALTER TABLE players
 
 export const addPlayersTableCommentsSql = `
 COMMENT ON COLUMN players."id" IS 'Primary key.';
+COMMENT ON COLUMN players."Unique ID" IS 'RLCS unique player identifier used in match stats.';
 COMMENT ON COLUMN players."Player ID" IS 'Platform player ID from source data; not necessarily unique.';
 COMMENT ON COLUMN players."Primary Handle" IS 'Primary in-game handle.';
+COMMENT ON COLUMN players.aka IS 'Current known player aliases from the AKA source column.';
 COMMENT ON COLUMN players."All Aliases" IS 'Other handles used by the player.';
 COMMENT ON COLUMN players."Real Name" IS 'Player''s real name.';
 COMMENT ON COLUMN players."Pronounciation" IS 'How to pronounce the player''s name.';

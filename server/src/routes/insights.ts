@@ -116,7 +116,7 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           MAX(s."Team") OVER (PARTITION BY s."Match ID", s."Game Number") AS team_b,
           p."Photo URL" AS photo_url
         FROM stats s
-        LEFT JOIN players p ON p."Player ID" = s."Unique ID"
+        LEFT JOIN players p ON p."Unique ID" = s."Unique ID"
         ${baseWhere}
         ORDER BY s."Score_All Zones" DESC NULLS LAST
         LIMIT ${limitParam};
@@ -149,7 +149,7 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           MIN(sr.team_b) AS team_b,
           MIN(p."Photo URL") AS photo_url
         FROM series_rows sr
-        LEFT JOIN players p ON p."Player ID" = sr."Unique ID"
+        LEFT JOIN players p ON p."Unique ID" = sr."Unique ID"
         GROUP BY sr.series_id, sr."Unique ID"
         HAVING SUM(COALESCE(sr."Goals_All Zones", 0)) > 0
         ORDER BY value DESC, label
@@ -173,7 +173,7 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           MIN(s."Event") AS event,
           MIN(p."Photo URL") AS photo_url
         FROM stats s
-        LEFT JOIN players p ON p."Player ID" = s."Unique ID"
+        LEFT JOIN players p ON p."Unique ID" = s."Unique ID"
         ${baseWhere}
         GROUP BY s."Season", s."Unique ID"
         HAVING SUM(COALESCE(s."Kills_All Zones", 0)) > 0
@@ -234,7 +234,7 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           (ARRAY_AGG(s."Event" ORDER BY s."Date" ASC NULLS LAST, s."Season", s."Split", s."Event"))[1] AS first_event,
           MIN(p."Photo URL") AS photo_url
         FROM stats s
-        LEFT JOIN players p ON p."Player ID" = s."Unique ID"
+        LEFT JOIN players p ON p."Unique ID" = s."Unique ID"
         ${baseWhere}
         GROUP BY s."Unique ID"
         ORDER BY value DESC, label
@@ -260,7 +260,7 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           MAX(s."Team") OVER (PARTITION BY s."Match ID", s."Game Number") AS team_b,
           p."Photo URL" AS photo_url
         FROM stats s
-        LEFT JOIN players p ON p."Player ID" = s."Unique ID"
+        LEFT JOIN players p ON p."Unique ID" = s."Unique ID"
         ${baseWhere}
         ORDER BY s."Goals_All Zones" DESC NULLS LAST
         LIMIT ${limitParam};

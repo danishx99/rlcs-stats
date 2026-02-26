@@ -14,7 +14,7 @@ SELECT
   AVG(base."In Air_All Zones") AS in_air,
   AVG(base."Average Speed_All Zones") AS avg_speed
 FROM base
-LEFT JOIN players p ON p."Player ID" = base.player_key
+LEFT JOIN players p ON p."Unique ID" = base.player_key
 WHERE base.player_key IS NOT NULL
 GROUP BY base.player_key
 ORDER BY value ASC, COUNT(*) DESC

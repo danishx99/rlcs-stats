@@ -2,13 +2,13 @@ WITH base AS (
   SELECT
     {{playerKeyExpr}} AS player_key,
     COALESCE(p."Primary Handle", s."Player Name") AS label,
-    p."All Aliases" AS aliases,
+    p.aka AS aliases,
     p."Real Name" AS real_name,
     p."Photo URL" AS photo_url,
     p."Country" AS country,
     s."Player Name" AS player_name
   FROM stats s
-  LEFT JOIN players p ON p."Player ID" = {{playerKeyExpr}}
+  LEFT JOIN players p ON p."Unique ID" = {{playerKeyExpr}}
 )
 SELECT DISTINCT ON (player_key)
   player_key AS id,

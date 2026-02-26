@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { MetaResponse, PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
 import SeasonTable from "../components/SeasonTable";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
+import { formatAliases } from "../utils/aliases";
 import { computeAge, formatDate } from "../utils/date";
 import { buildEventPath, parseDebutEvent } from "../utils/event-routing";
 import { normalizeSocialLink, proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../utils/normalize";
@@ -242,18 +243,21 @@ export default function PlayerPage({
             </div>
             <div className="player-overview-name">
               <h2>{playerProfile.handle ?? playerProfile.playerName ?? "Player"}</h2>
-              <p>{playerProfile.playerName ?? "—"}</p>
+              <div className="player-overview-meta">
+                <div className="player-overview-meta-row">
+                  <span>Country</span>
+                  <strong>{playerProfile.country ?? "—"}</strong>
+                </div>
+                <div className="player-overview-meta-row">
+                  <span>Current Team</span>
+                  <strong>{currentTeam ? <TeamNameWithLogo team={currentTeam} /> : "—"}</strong>
+                </div>
+              </div>
             </div>
           </div>
           <div className="player-overview-list">
             <div><span>Name</span><strong>{playerProfile.realName ?? "—"}</strong></div>
-            <div><span>Country</span><strong>{playerProfile.country ?? "—"}</strong></div>
-            <div>
-              <span>Current Team</span>
-              <strong>
-                {currentTeam ? <TeamNameWithLogo team={currentTeam} /> : "—"}
-              </strong>
-            </div>
+            <div><span>Aliases</span><strong>{formatAliases(playerProfile.aliases)}</strong></div>
             <div>
               <span>Birthday</span>
               <strong>{playerProfile.dateOfBirth ? formatDate(playerProfile.dateOfBirth) : "—"}{age ? ` (Age ${age})` : ""}</strong>
