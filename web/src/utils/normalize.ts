@@ -24,6 +24,9 @@ export function normalizeSocialLink(value: string | null | undefined, type: "twi
   return `https://tiktok.com/@${cleaned}`;
 }
 
+export const DEFAULT_PLAYER_PHOTO = "https://rlesport.gg/downloads/player_pics/default_nologo.png";
+export const DEFAULT_TEAM_LOGO = "https://rlesport.gg/downloads/org_logos/default_team.jpg";
+
 export function proxyImageUrl(value?: string | null) {
   const url = normalizeHandle(value);
   if (!url) return null;
