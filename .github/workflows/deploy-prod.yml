@@ -54,7 +54,6 @@ jobs:
   sync-data:
     name: Sync Railway Data
     runs-on: ubuntu-latest
-    if: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,4 +69,9 @@ jobs:
       - name: Sync CSV data to Railway Postgres
         env:
           DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
-        run: bun run db:load
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "RAILWAY_DATABASE_PUBLIC_URL is not set; skipping data sync."
+            exit 0
+          fi
+          bun run db:load
