@@ -140,6 +140,15 @@ export async function handlePlayerResults(
       season: row.season,
       split: row.split,
       event: row.event,
+      team: row.team ?? null,
+      placementStart:
+        row.placement_start === null || row.placement_start === undefined
+          ? null
+          : Number(row.placement_start),
+      placementEnd:
+        row.placement_end === null || row.placement_end === undefined
+          ? null
+          : Number(row.placement_end),
       placement: row.placement ?? null,
       series: (row.series ?? []).map((s: Record<string, unknown>) => ({
         seriesId: s.series_id ?? "",

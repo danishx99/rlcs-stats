@@ -14,7 +14,7 @@ has_playoffs AS (
     WHERE LOWER(TRIM("Stage")) = 'playoffs'
   ) AS yes
 ),
-scoped AS (
+scoped_playoff AS (
   SELECT b.*
   FROM base_scope b
   CROSS JOIN has_playoffs hp
@@ -28,29 +28,43 @@ team_rounds AS (
     UPPER(TRIM("Round")) AS rnd,
     MAX("Date") AS round_date,
     CASE UPPER(TRIM("Round"))
-      WHEN 'GF'     THEN 100
-      WHEN 'GF 1'   THEN 100
-      WHEN 'GF1'    THEN 100
-      WHEN 'GF 2'   THEN 100
-      WHEN 'GF2'    THEN 100
-      WHEN 'UF'     THEN 90
-      WHEN 'LF'     THEN 90
-      WHEN 'SF'     THEN 80
-      WHEN 'USF'    THEN 80
-      WHEN 'LSF'    THEN 80
-      WHEN 'QF'     THEN 70
-      WHEN 'UQF'    THEN 70
-      WHEN 'LQF'    THEN 70
-      WHEN 'LR3'    THEN 60
-      WHEN 'LR2'    THEN 50
-      WHEN 'LR1'    THEN 40
-      WHEN 'UR1'    THEN 40
-      WHEN 'R1'     THEN 40
+      WHEN 'GF'      THEN 100
+      WHEN 'GF 1'    THEN 100
+      WHEN 'GF1'     THEN 100
+      WHEN 'GF 2'    THEN 100
+      WHEN 'GF2'     THEN 100
+      WHEN 'UF'      THEN 90
+      WHEN 'LF'      THEN 90
+      WHEN 'SF'      THEN 80
+      WHEN 'USF'     THEN 80
+      WHEN 'LSF'     THEN 80
+      WHEN 'QF'      THEN 70
+      WHEN 'UQF'     THEN 70
+      WHEN 'LQF'     THEN 70
+      WHEN 'LR3'     THEN 60
+      WHEN 'LR2'     THEN 50
+      WHEN 'LR1'     THEN 40
+      WHEN 'UR1'     THEN 40
+      WHEN 'R1'      THEN 40
       WHEN 'SWISS 5' THEN 30
+      WHEN '5'       THEN 30
+      WHEN 'R5'      THEN 30
+      WHEN 'ROUND 5' THEN 30
       WHEN 'SWISS 4' THEN 28
+      WHEN '4'       THEN 28
+      WHEN 'R4'      THEN 28
+      WHEN 'ROUND 4' THEN 28
       WHEN 'SWISS 3' THEN 26
+      WHEN '3'       THEN 26
+      WHEN 'R3'      THEN 26
+      WHEN 'ROUND 3' THEN 26
       WHEN 'SWISS 2' THEN 24
+      WHEN '2'       THEN 24
+      WHEN 'R2'      THEN 24
+      WHEN 'ROUND 2' THEN 24
       WHEN 'SWISS 1' THEN 22
+      WHEN '1'       THEN 22
+      WHEN 'ROUND 1' THEN 22
       WHEN 'GROUPS'  THEN 12
       ELSE 0
     END AS depth,
@@ -59,13 +73,14 @@ team_rounds AS (
       >
       SUM(CASE WHEN COALESCE("Victory", false) = false THEN 1 ELSE 0 END)
     ) AS won_round
-  FROM scoped
+  FROM scoped_playoff
   WHERE "Round" IS NOT NULL
     AND TRIM("Round") <> ''
   GROUP BY UPPER(TRIM("Team")), UPPER(TRIM("Round"))
 ),
 team_latest AS (
   SELECT DISTINCT ON (team_norm)
+    team_norm,
     team,
     rnd AS deep_round,
     depth AS round_depth,
@@ -123,8 +138,9 @@ elim_ranges AS (
     ) + 2 AS placement_start
   FROM elim_groups eg
 ),
-placed AS (
+playoff_placed AS (
   SELECT
+    pb.team_norm,
     pb.team,
     pb.deep_round,
     pb.round_depth,
@@ -142,14 +158,174 @@ placed AS (
   FROM placement_basis pb
   LEFT JOIN elim_ranges er
     ON er.round_depth = pb.effective_depth
+),
+playoff_anchor AS (
+  SELECT COALESCE(MAX(placement_end) FILTER (WHERE placement_end < 999), 0) AS placement_anchor
+  FROM playoff_placed
+),
+non_playoff_game_results AS (
+  SELECT
+    UPPER(TRIM(bs."Team")) AS team_norm,
+    MIN(TRIM(bs."Team")) AS team,
+    UPPER(TRIM(bs."Round")) AS rnd,
+    bs.series_id,
+    bs."Game Number" AS game_number,
+    MAX(bs."Date") AS match_date,
+    MAX(bs."Best of ") AS best_of,
+    BOOL_OR(bs."Victory") AS game_won,
+    CASE UPPER(TRIM(bs."Round"))
+      WHEN 'GF'      THEN 100
+      WHEN 'GF 1'    THEN 100
+      WHEN 'GF1'     THEN 100
+      WHEN 'GF 2'    THEN 100
+      WHEN 'GF2'     THEN 100
+      WHEN 'UF'      THEN 90
+      WHEN 'LF'      THEN 90
+      WHEN 'SF'      THEN 80
+      WHEN 'USF'     THEN 80
+      WHEN 'LSF'     THEN 80
+      WHEN 'QF'      THEN 70
+      WHEN 'UQF'     THEN 70
+      WHEN 'LQF'     THEN 70
+      WHEN 'LR3'     THEN 60
+      WHEN 'LR2'     THEN 50
+      WHEN 'LR1'     THEN 40
+      WHEN 'UR1'     THEN 40
+      WHEN 'R1'      THEN 40
+      WHEN 'SWISS 5' THEN 30
+      WHEN '5'       THEN 30
+      WHEN 'R5'      THEN 30
+      WHEN 'ROUND 5' THEN 30
+      WHEN 'SWISS 4' THEN 28
+      WHEN '4'       THEN 28
+      WHEN 'R4'      THEN 28
+      WHEN 'ROUND 4' THEN 28
+      WHEN 'SWISS 3' THEN 26
+      WHEN '3'       THEN 26
+      WHEN 'R3'      THEN 26
+      WHEN 'ROUND 3' THEN 26
+      WHEN 'SWISS 2' THEN 24
+      WHEN '2'       THEN 24
+      WHEN 'R2'      THEN 24
+      WHEN 'ROUND 2' THEN 24
+      WHEN 'SWISS 1' THEN 22
+      WHEN '1'       THEN 22
+      WHEN 'ROUND 1' THEN 22
+      WHEN 'GROUPS'  THEN 12
+      ELSE 0
+    END AS depth
+  FROM base_scope bs
+  JOIN has_playoffs hp
+    ON hp.yes
+  LEFT JOIN playoff_placed pp
+    ON pp.team_norm = UPPER(TRIM(bs."Team"))
+  WHERE bs.series_id IS NOT NULL
+    AND bs."Round" IS NOT NULL
+    AND TRIM(bs."Round") <> ''
+    AND pp.team_norm IS NULL
+    AND NOT (LOWER(TRIM(bs."Stage")) LIKE '%playoff%')
+  GROUP BY
+    UPPER(TRIM(bs."Team")),
+    UPPER(TRIM(bs."Round")),
+    bs.series_id,
+    bs."Game Number"
+),
+non_playoff_series_results AS (
+  SELECT
+    team_norm,
+    team,
+    rnd,
+    depth,
+    series_id,
+    MAX(best_of) AS best_of,
+    MAX(match_date) AS match_date,
+    SUM(CASE WHEN game_won THEN 1 ELSE 0 END) AS wins
+  FROM non_playoff_game_results
+  GROUP BY team_norm, team, rnd, depth, series_id
+),
+non_playoff_losses AS (
+  SELECT
+    team_norm,
+    team,
+    rnd,
+    depth,
+    series_id,
+    match_date
+  FROM non_playoff_series_results
+  WHERE wins < CEIL(best_of / 2.0)
+    AND depth > 0
+),
+non_playoff_elimination AS (
+  SELECT
+    ranked.team_norm,
+    ranked.team,
+    ranked.rnd AS deep_round,
+    ranked.depth AS round_depth
+  FROM (
+    SELECT
+      npl.*,
+      ROW_NUMBER() OVER (
+        PARTITION BY npl.team_norm
+        ORDER BY npl.match_date DESC NULLS LAST, npl.depth DESC, npl.series_id DESC
+      ) AS rn
+    FROM non_playoff_losses npl
+  ) ranked
+  WHERE ranked.rn = 1
+),
+non_playoff_groups AS (
+  SELECT
+    round_depth,
+    COUNT(*) AS team_count
+  FROM non_playoff_elimination
+  GROUP BY round_depth
+),
+non_playoff_ranges AS (
+  SELECT
+    npg.round_depth,
+    npg.team_count,
+    (SELECT placement_anchor FROM playoff_anchor) + COALESCE(
+      SUM(npg.team_count) OVER (
+        ORDER BY npg.round_depth DESC
+        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+      ),
+      0
+    ) + 1 AS placement_start
+  FROM non_playoff_groups npg
+),
+non_playoff_placed AS (
+  SELECT
+    npe.team_norm,
+    npe.team,
+    npe.deep_round,
+    npe.round_depth,
+    false AS won_deepest,
+    npr.placement_start,
+    npr.placement_start + npr.team_count - 1 AS placement_end
+  FROM non_playoff_elimination npe
+  JOIN non_playoff_ranges npr
+    ON npr.round_depth = npe.round_depth
+),
+all_placed AS (
+  SELECT team_norm, team, deep_round, round_depth, won_deepest, placement_start, placement_end
+  FROM playoff_placed
+  UNION ALL
+  SELECT team_norm, team, deep_round, round_depth, won_deepest, placement_start, placement_end
+  FROM non_playoff_placed
 )
-SELECT p.team, p.deep_round, p.round_depth,
+SELECT
+  p.team,
+  p.deep_round,
+  p.round_depth,
   p.won_deepest,
   p.placement_start,
   p.placement_end,
-  (SELECT tp."Logo Link" FROM team_profiles tp
-   WHERE UPPER(tp."Team Name") = UPPER(p.team) LIMIT 1) AS logo_url
-FROM placed p
+  (
+    SELECT tp."Logo Link"
+    FROM team_profiles tp
+    WHERE UPPER(tp."Team Name") = UPPER(p.team)
+    LIMIT 1
+  ) AS logo_url
+FROM all_placed p
 WHERE p.placement_start < 999
 ORDER BY p.placement_start ASC, p.placement_end ASC, p.round_depth DESC, p.team ASC
 LIMIT $4;

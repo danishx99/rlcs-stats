@@ -287,6 +287,8 @@ export type PlayerResultEvent = {
   season: string;
   split: string;
   event: string;
+  placementStart: number | null;
+  placementEnd: number | null;
   placement: string | null;
   series: PlayerResultSeries[];
 };

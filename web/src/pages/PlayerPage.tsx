@@ -20,7 +20,25 @@ function ordinal(n: number) {
   }
 }
 
-function formatPlacement(placement: string | null) {
+function formatPlacement(
+  placement: string | null,
+  placementStart: number | null | undefined,
+  placementEnd: number | null | undefined
+) {
+  const hasRange =
+    Number.isFinite(placementStart) &&
+    Number.isFinite(placementEnd) &&
+    Number(placementStart) > 0 &&
+    Number(placementEnd) > 0;
+  if (hasRange) {
+    const start = Number(placementStart);
+    const end = Number(placementEnd);
+    if (start === end) {
+      return ordinal(start);
+    }
+    return `${ordinal(start)}-${ordinal(end)}`;
+  }
+
   if (!placement) return "—";
   const match = placement.match(/^Top\s+(\d+)$/i);
   if (!match) return placement;
@@ -339,8 +357,13 @@ export default function PlayerPage({
                   const eventHref = event.event
                     ? buildEventPath(event.event, { season: event.season, split: event.split })
                     : null;
-                  const placement = formatPlacement(event.placement);
-                  const isChampion = placement === "1st";
+                  const placement = formatPlacement(
+                    event.placement,
+                    event.placementStart,
+                    event.placementEnd
+                  );
+                  const isChampion =
+                    (event.placementStart === 1 && event.placementEnd === 1) || placement === "1st";
                   return (
                     <tr
                       key={`${event.season}-${event.split}-${event.event}`}

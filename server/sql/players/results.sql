@@ -134,10 +134,24 @@ event_team_rounds AS (
       WHEN 'UR1'     THEN 40
       WHEN 'R1'      THEN 40
       WHEN 'SWISS 5' THEN 30
+      WHEN '5'       THEN 30
+      WHEN 'R5'      THEN 30
+      WHEN 'ROUND 5' THEN 30
       WHEN 'SWISS 4' THEN 28
+      WHEN '4'       THEN 28
+      WHEN 'R4'      THEN 28
+      WHEN 'ROUND 4' THEN 28
       WHEN 'SWISS 3' THEN 26
+      WHEN '3'       THEN 26
+      WHEN 'R3'      THEN 26
+      WHEN 'ROUND 3' THEN 26
       WHEN 'SWISS 2' THEN 24
+      WHEN '2'       THEN 24
+      WHEN 'R2'      THEN 24
+      WHEN 'ROUND 2' THEN 24
       WHEN 'SWISS 1' THEN 22
+      WHEN '1'       THEN 22
+      WHEN 'ROUND 1' THEN 22
       WHEN 'GROUPS'  THEN 12
       ELSE 0
     END AS depth,
@@ -248,22 +262,219 @@ event_team_placements AS (
    AND eer.event IS NOT DISTINCT FROM epb.event
    AND eer.round_depth = epb.effective_depth
 ),
+event_playoff_anchor AS (
+  SELECT
+    season,
+    split,
+    event,
+    COALESCE(MAX(placement_end) FILTER (WHERE placement_end < 999), 0) AS placement_anchor
+  FROM event_team_placements
+  GROUP BY season, split, event
+),
+event_non_playoff_game_results AS (
+  SELECT
+    TRIM(ebs."Season") AS season,
+    TRIM(ebs."Split") AS split,
+    TRIM(ebs."Event") AS event,
+    UPPER(TRIM(ebs."Team")) AS team_norm,
+    MIN(TRIM(ebs."Team")) AS team,
+    UPPER(TRIM(ebs."Round")) AS rnd,
+    ebs.series_id,
+    ebs."Game Number" AS game_number,
+    MAX(ebs."Date") AS match_date,
+    MAX(ebs."Best of ") AS best_of,
+    BOOL_OR(ebs."Victory") AS game_won,
+    CASE UPPER(TRIM(ebs."Round"))
+      WHEN 'GF'      THEN 100
+      WHEN 'GF 1'    THEN 100
+      WHEN 'GF1'     THEN 100
+      WHEN 'GF 2'    THEN 100
+      WHEN 'GF2'     THEN 100
+      WHEN 'UF'      THEN 90
+      WHEN 'LF'      THEN 90
+      WHEN 'SF'      THEN 80
+      WHEN 'USF'     THEN 80
+      WHEN 'LSF'     THEN 80
+      WHEN 'QF'      THEN 70
+      WHEN 'UQF'     THEN 70
+      WHEN 'LQF'     THEN 70
+      WHEN 'LR3'     THEN 60
+      WHEN 'LR2'     THEN 50
+      WHEN 'LR1'     THEN 40
+      WHEN 'UR1'     THEN 40
+      WHEN 'R1'      THEN 40
+      WHEN 'SWISS 5' THEN 30
+      WHEN '5'       THEN 30
+      WHEN 'R5'      THEN 30
+      WHEN 'ROUND 5' THEN 30
+      WHEN 'SWISS 4' THEN 28
+      WHEN '4'       THEN 28
+      WHEN 'R4'      THEN 28
+      WHEN 'ROUND 4' THEN 28
+      WHEN 'SWISS 3' THEN 26
+      WHEN '3'       THEN 26
+      WHEN 'R3'      THEN 26
+      WHEN 'ROUND 3' THEN 26
+      WHEN 'SWISS 2' THEN 24
+      WHEN '2'       THEN 24
+      WHEN 'R2'      THEN 24
+      WHEN 'ROUND 2' THEN 24
+      WHEN 'SWISS 1' THEN 22
+      WHEN '1'       THEN 22
+      WHEN 'ROUND 1' THEN 22
+      WHEN 'GROUPS'  THEN 12
+      ELSE 0
+    END AS depth
+  FROM event_base_scope ebs
+  JOIN event_has_playoffs ehp
+    ON TRIM(ebs."Season") IS NOT DISTINCT FROM ehp.season
+   AND TRIM(ebs."Split") IS NOT DISTINCT FROM ehp.split
+   AND TRIM(ebs."Event") IS NOT DISTINCT FROM ehp.event
+   AND ehp.has_playoffs
+  LEFT JOIN event_team_placements etp
+    ON etp.season IS NOT DISTINCT FROM TRIM(ebs."Season")
+   AND etp.split IS NOT DISTINCT FROM TRIM(ebs."Split")
+   AND etp.event IS NOT DISTINCT FROM TRIM(ebs."Event")
+   AND etp.team_norm = UPPER(TRIM(ebs."Team"))
+  WHERE ebs.series_id IS NOT NULL
+    AND ebs."Round" IS NOT NULL
+    AND TRIM(ebs."Round") <> ''
+    AND etp.team_norm IS NULL
+    AND NOT (LOWER(TRIM(ebs."Stage")) LIKE '%playoff%')
+  GROUP BY
+    TRIM(ebs."Season"),
+    TRIM(ebs."Split"),
+    TRIM(ebs."Event"),
+    UPPER(TRIM(ebs."Team")),
+    UPPER(TRIM(ebs."Round")),
+    ebs.series_id,
+    ebs."Game Number"
+),
+event_non_playoff_series_results AS (
+  SELECT
+    season,
+    split,
+    event,
+    team_norm,
+    team,
+    rnd,
+    depth,
+    series_id,
+    MAX(best_of) AS best_of,
+    MAX(match_date) AS match_date,
+    SUM(CASE WHEN game_won THEN 1 ELSE 0 END) AS wins
+  FROM event_non_playoff_game_results
+  GROUP BY season, split, event, team_norm, team, rnd, depth, series_id
+),
+event_non_playoff_losses AS (
+  SELECT
+    season,
+    split,
+    event,
+    team_norm,
+    team,
+    rnd,
+    depth,
+    series_id,
+    match_date
+  FROM event_non_playoff_series_results
+  WHERE wins < CEIL(best_of / 2.0)
+),
+event_non_playoff_elimination AS (
+  SELECT
+    ranked.season,
+    ranked.split,
+    ranked.event,
+    ranked.team_norm,
+    ranked.team,
+    ranked.depth AS elimination_depth
+  FROM (
+    SELECT
+      enl.*,
+      ROW_NUMBER() OVER (
+        PARTITION BY enl.season, enl.split, enl.event, enl.team_norm
+        ORDER BY enl.match_date DESC NULLS LAST, enl.depth DESC, enl.series_id DESC
+      ) AS rn
+    FROM event_non_playoff_losses enl
+    WHERE enl.depth > 0
+  ) ranked
+  WHERE ranked.rn = 1
+),
+event_non_playoff_groups AS (
+  SELECT
+    season,
+    split,
+    event,
+    elimination_depth,
+    COUNT(*) AS team_count
+  FROM event_non_playoff_elimination
+  GROUP BY season, split, event, elimination_depth
+),
+event_non_playoff_ranges AS (
+  SELECT
+    enpg.season,
+    enpg.split,
+    enpg.event,
+    enpg.elimination_depth,
+    enpg.team_count,
+    COALESCE(epa.placement_anchor, 0) + COALESCE(
+      SUM(enpg.team_count) OVER (
+        PARTITION BY enpg.season, enpg.split, enpg.event
+        ORDER BY enpg.elimination_depth DESC
+        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+      ),
+      0
+    ) + 1 AS placement_start
+  FROM event_non_playoff_groups enpg
+  LEFT JOIN event_playoff_anchor epa
+    ON epa.season IS NOT DISTINCT FROM enpg.season
+   AND epa.split IS NOT DISTINCT FROM enpg.split
+   AND epa.event IS NOT DISTINCT FROM enpg.event
+),
+event_non_playoff_placements AS (
+  SELECT
+    enpe.season,
+    enpe.split,
+    enpe.event,
+    enpe.team_norm,
+    enpe.team,
+    enpr.placement_start,
+    enpr.placement_start + enpr.team_count - 1 AS placement_end
+  FROM event_non_playoff_elimination enpe
+  JOIN event_non_playoff_ranges enpr
+    ON enpr.season IS NOT DISTINCT FROM enpe.season
+   AND enpr.split IS NOT DISTINCT FROM enpe.split
+   AND enpr.event IS NOT DISTINCT FROM enpe.event
+   AND enpr.elimination_depth = enpe.elimination_depth
+),
+event_all_placements AS (
+  SELECT season, split, event, team_norm, team, placement_start, placement_end
+  FROM event_team_placements
+  UNION ALL
+  SELECT season, split, event, team_norm, team, placement_start, placement_end
+  FROM event_non_playoff_placements
+),
 event_placement AS (
   SELECT
     pet.season,
     pet.split,
     pet.event,
+    pet.team,
+    eap.placement_start,
+    eap.placement_end,
     CASE
-      WHEN etp.placement_end IS NOT NULL AND etp.placement_end < 999
-      THEN CONCAT('Top ', etp.placement_end::text)
+      WHEN eap.placement_start IS NULL OR eap.placement_end IS NULL THEN NULL
+      WHEN eap.placement_start >= 999 OR eap.placement_end >= 999 THEN NULL
+      WHEN eap.placement_start = eap.placement_end THEN CONCAT('Top ', eap.placement_end::text)
+      WHEN eap.placement_start < eap.placement_end THEN CONCAT('Top ', eap.placement_start::text, '-', eap.placement_end::text)
       ELSE NULL
     END AS placement
   FROM player_event_team pet
-  LEFT JOIN event_team_placements etp
-    ON etp.season IS NOT DISTINCT FROM pet.season
-   AND etp.split IS NOT DISTINCT FROM pet.split
-   AND etp.event IS NOT DISTINCT FROM pet.event
-   AND etp.team_norm = UPPER(TRIM(pet.team))
+  LEFT JOIN event_all_placements eap
+    ON eap.season IS NOT DISTINCT FROM pet.season
+   AND eap.split IS NOT DISTINCT FROM pet.split
+   AND eap.event IS NOT DISTINCT FROM pet.event
+   AND eap.team_norm = UPPER(TRIM(pet.team))
 ),
 series_detail AS (
   SELECT
@@ -299,10 +510,24 @@ series_detail AS (
           WHEN UPPER(TRIM(sw.round)) = 'UR1' THEN 40
           WHEN UPPER(TRIM(sw.round)) = 'R1' THEN 40
           WHEN UPPER(TRIM(sw.round)) = 'SWISS 5' THEN 30
+          WHEN UPPER(TRIM(sw.round)) = '5' THEN 30
+          WHEN UPPER(TRIM(sw.round)) = 'R5' THEN 30
+          WHEN UPPER(TRIM(sw.round)) = 'ROUND 5' THEN 30
           WHEN UPPER(TRIM(sw.round)) = 'SWISS 4' THEN 28
+          WHEN UPPER(TRIM(sw.round)) = '4' THEN 28
+          WHEN UPPER(TRIM(sw.round)) = 'R4' THEN 28
+          WHEN UPPER(TRIM(sw.round)) = 'ROUND 4' THEN 28
           WHEN UPPER(TRIM(sw.round)) = 'SWISS 3' THEN 26
+          WHEN UPPER(TRIM(sw.round)) = '3' THEN 26
+          WHEN UPPER(TRIM(sw.round)) = 'R3' THEN 26
+          WHEN UPPER(TRIM(sw.round)) = 'ROUND 3' THEN 26
           WHEN UPPER(TRIM(sw.round)) = 'SWISS 2' THEN 24
+          WHEN UPPER(TRIM(sw.round)) = '2' THEN 24
+          WHEN UPPER(TRIM(sw.round)) = 'R2' THEN 24
+          WHEN UPPER(TRIM(sw.round)) = 'ROUND 2' THEN 24
           WHEN UPPER(TRIM(sw.round)) = 'SWISS 1' THEN 22
+          WHEN UPPER(TRIM(sw.round)) = '1' THEN 22
+          WHEN UPPER(TRIM(sw.round)) = 'ROUND 1' THEN 22
           WHEN UPPER(TRIM(sw.round)) = 'GROUPS' THEN 12
           ELSE 0
         END DESC,
@@ -316,6 +541,9 @@ SELECT
   ep.season,
   ep.split,
   ep.event,
+  ep.team,
+  ep.placement_start,
+  ep.placement_end,
   ep.placement,
   (
     SELECT JSON_AGG(sub ORDER BY sub.date ASC NULLS LAST)

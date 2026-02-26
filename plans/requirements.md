@@ -44,7 +44,7 @@
 - ✅ Compare add-search dropdown uses global-search style rows (image left, text right)
 - ✅ Head-to-head stat cards (player compare view) do **not** show org/team name or team logo inline
 - ✅ Head-to-head series table does **not** show team logos
-- [ ] Improve head-to-head series Team A/Team B team-logo UI treatment (defer polish for later pass)
+- ✅ Improve head-to-head series Team A/Team B team-logo UI treatment (defer polish for later pass)
 
 ### Team / Roster Page
 - ✅ Team logo and team name in header
@@ -60,7 +60,7 @@
 - ✅ Results history retains opponent and score columns
 - ✅ Results history ordered most recent first
 - ✅ Opponent team logos shown in results table
-- [] Fix top 8–16 placement labels not displaying correctly on player profile page
+- ✅ Fix top 8–16 placement labels not displaying correctly on player profile page
 
 ### Event Page
 - ✅ Event name in header
@@ -94,9 +94,7 @@
 
 ### Visual & UX
 - [ ] Make overall UI more compact
-- [ ] Add better placeholder icons for missing team logos and player photos
-  - Default team logo: `https://rlesport.gg/downloads/org_logos/default_team.jpg`
-  - Default player photo: `https://rlesport.gg/downloads/player_pics/default_nologo.png`
+- ✅ Add better placeholder icons for missing team logos and player photos
 - [ ] Redesign the Team page UI
 - [ ] Improve general UX across the app
 

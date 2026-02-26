@@ -19,6 +19,8 @@ const CORE_LEADERBOARD_KEYS = new Set<string>(CORE_LEADERBOARDS.map((item) => it
 const DEFAULT_STATS: string[] = [];
 const SUGGESTED_STATS = ["shots", "score", "avg_speed", "on_ground", "in_air"];
 const SEARCH_DEBOUNCE_MS = 500;
+const TOP_TEAMS_LIMIT = 8;
+const FULL_TEAMS_LIMIT = 256;
 
 function ordinal(n: number) {
   const mod100 = n % 100;
@@ -45,6 +47,7 @@ export default function EventPage() {
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [teams, setTeams] = useState<EventTeam[]>([]);
+  const [showAllPlacements, setShowAllPlacements] = useState(false);
   const [bracket, setBracket] = useState<EventBracket | null>(null);
   const [leaderboards, setLeaderboards] = useState<LeaderboardResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,13 +73,18 @@ export default function EventPage() {
   // Load event data
   useEffect(() => {
     if (!eventName) return;
+
     async function loadEvent() {
       setLoading(true);
       setError(null);
       try {
-        const response = await api.eventDetail(decodeURIComponent(eventName!), { season: urlSeason, split: urlSplit });
-        setEvent(response.event);
+        const response = await api.eventDetail(decodeURIComponent(eventName!), {
+          season: urlSeason,
+          split: urlSplit,
+          teamsLimit: FULL_TEAMS_LIMIT
+        });
         setTeams(response.teams);
+        setEvent(response.event);
         setBracket(response.bracket);
         setLeaderboards(response.leaderboards);
       } catch (err) {
@@ -262,6 +270,7 @@ export default function EventPage() {
     .map((item) => ({ title: item.title, data: coreLeaderboardMap.get(item.key) }))
     .filter((item): item is { title: string; data: LeaderboardResponse } => Boolean(item.data));
   const selectedExtraStats = selectedStats.filter((k) => !CORE_LEADERBOARD_KEYS.has(k));
+  const visibleTeams = showAllPlacements ? teams : teams.slice(0, TOP_TEAMS_LIMIT);
   return (
     <div className="page page-no-nav">
       <button className="ghost back-button" onClick={() => navigate("/")}>
@@ -387,11 +396,20 @@ export default function EventPage() {
       {/* Top row: Teams + Bracket */}
       <div className="event-grid">
         <div className="event-panel event-panel--bracket panel">
-          <h3>Top Teams</h3>
-          {teams.length > 0 ? (
+          <div className="event-resource-header">
+            <h3>{showAllPlacements ? "All Placements" : "Top Teams"}</h3>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => setShowAllPlacements((prev) => !prev)}
+            >
+              {showAllPlacements ? "Show Top 8" : "Show All"}
+            </button>
+          </div>
+          {visibleTeams.length > 0 ? (
             <ol className="event-teams-list">
-              {teams.map((t, i) => {
-                const prev = i > 0 ? teams[i - 1] : null;
+              {visibleTeams.map((t, i) => {
+                const prev = i > 0 ? visibleTeams[i - 1] : null;
                 const showGroupHeader = !prev || prev.placementStart !== t.placementStart || prev.placementEnd !== t.placementEnd;
                 return (
                   <Fragment key={t.team}>

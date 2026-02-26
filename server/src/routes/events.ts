@@ -11,11 +11,17 @@ const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
 const bracketSql = loadSql("../../sql/events/bracket.sql", import.meta.url);
 
 const LEADERBOARD_METRICS = ["rating", "goals", "demos", "saves", "assists"];
+const DEFAULT_TEAMS_LIMIT = 8;
+const MAX_TEAMS_LIMIT = 256;
 
 export async function handleEventDetail(_req: IncomingMessage, res: ServerResponse, eventName: string, url: URL) {
   const decoded = decodeURIComponent(eventName);
   const season = url.searchParams.get("season")?.trim() || null;
   const split = url.searchParams.get("split")?.trim() || null;
+  const teamsLimitRaw = Number.parseInt(url.searchParams.get("teamsLimit") ?? "", 10);
+  const teamsLimit = Number.isFinite(teamsLimitRaw) && teamsLimitRaw > 0
+    ? Math.min(teamsLimitRaw, MAX_TEAMS_LIMIT)
+    : DEFAULT_TEAMS_LIMIT;
 
   try {
     const leaderboardQueries = LEADERBOARD_METRICS.map((key) => {
@@ -40,7 +46,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         formatSql(detailSql, { playerKeyExpr: playerKeyExpr("s") }),
         [decoded, season, split]
       ),
-      pool.query(topTeamsSql, [decoded, season, split, 8]),
+      pool.query(topTeamsSql, [decoded, season, split, teamsLimit]),
       ...leaderboardQueries.map((q) => pool.query(q.sql, [decoded, season, split, 10]))
     ]);
 
