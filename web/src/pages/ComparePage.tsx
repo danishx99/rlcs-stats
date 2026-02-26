@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MetaResponse, SearchResult, StatCategory, StatOption } from "../types/api";
 import { api } from "../api";
-import { proxyImageUrl } from "../utils/normalize";
+import { proxyImageUrl, DEFAULT_PLAYER_PHOTO, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import ComparePanel from "../components/ComparePanel";
 import StatPicker from "../components/StatPicker";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
@@ -170,7 +170,9 @@ export default function ComparePage({
               {!searchLoading && filteredResults.length > 0 &&
                 filteredResults.slice(0, 6).map((item) => {
                   const already = compareSelection.some((s) => s.id === item.id);
-                  const image = proxyImageUrl(item.meta?.photoUrl);
+                  const image = proxyImageUrl(item.meta?.photoUrl) ?? proxyImageUrl(
+                    item.type === "roster" ? DEFAULT_TEAM_LOGO : DEFAULT_PLAYER_PHOTO
+                  )!;
                   const subtitle = item.type === "player"
                     ? item.meta?.realName ?? ""
                     : item.meta?.starters?.join(" / ") ?? "";
@@ -181,7 +183,7 @@ export default function ComparePage({
                       onClick={() => !already && handleAddResult(item)}
                     >
                       <div className={`dash-search-avatar${item.type === "roster" ? " dash-search-avatar--logo" : ""}`}>
-                        {image ? <img src={image} alt="" /> : item.label.charAt(0)}
+                        <img src={image} alt="" />
                       </div>
                       <div className="dash-search-item-info">
                         <strong>{item.label}</strong>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { LeaderboardResponse, SearchResponse, StatOption, StandingsResponse, TopQueryCategory } from "../types/api";
 import { api } from "../api";
-import { proxyImageUrl } from "../utils/normalize";
+import { proxyImageUrl, DEFAULT_PLAYER_PHOTO, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import { formatStat } from "../utils/format";
 import { toOrgRosterId } from "../utils/roster";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
@@ -241,7 +241,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                   <div className="dash-search-group">
                     <div className="dash-search-group-title">Players</div>
                     {players.slice(0, 5).map((p) => {
-                      const img = proxyImageUrl(p.meta?.photoUrl);
+                      const img = proxyImageUrl(p.meta?.photoUrl) ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                       return (
                         <div
                           key={p.id}
@@ -249,7 +249,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                           onClick={() => { setSearchQuery(""); navigate(`/players/${p.id}`); }}
                         >
                           <div className="dash-search-avatar">
-                            {img ? <img src={img} alt="" /> : p.label.charAt(0)}
+                            <img src={img} alt="" />
                           </div>
                           <div className="dash-search-item-info">
                             <strong>{p.label}</strong>
@@ -265,7 +265,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                   <div className="dash-search-group">
                     <div className="dash-search-group-title">Teams</div>
                     {teams.slice(0, 5).map((team) => {
-                      const img = proxyImageUrl(team.meta?.photoUrl);
+                      const img = proxyImageUrl(team.meta?.photoUrl) ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!;
                       return (
                         <div
                           key={team.id}
@@ -273,7 +273,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                           onClick={() => { setSearchQuery(""); navigate(`/rosters/${encodeURIComponent(team.id)}`); }}
                         >
                           <div className="dash-search-avatar dash-search-avatar--logo">
-                            {img ? <img src={img} alt="" /> : team.label.charAt(0)}
+                            <img src={img} alt="" />
                           </div>
                           <div className="dash-search-item-info">
                             <strong>{team.label}</strong>
@@ -513,7 +513,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
           {!featuredLoading && featuredLeaderboard?.rows?.length ? (
             <div className="featured-cards">
               {featuredLeaderboard.rows.slice(0, 6).map((row, index) => {
-                const imgSrc = proxyImageUrl(row.photoUrl);
+                const imgSrc = proxyImageUrl(row.photoUrl) ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                 return (
                   <div
                     key={row.id}
@@ -522,11 +522,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                     onClick={() => navigate(`/players/${row.id}`)}
                   >
                     <div className="featured-card-photo">
-                      {imgSrc ? (
-                        <img src={imgSrc} alt={row.label} loading="lazy" />
-                      ) : (
-                        <span className="card-avatar">{row.label.charAt(0)}</span>
-                      )}
+                      <img src={imgSrc} alt={row.label} loading="lazy" />
                     </div>
                     <div className="featured-card-info">
                       <strong>{row.label}</strong>
@@ -565,7 +561,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                 {!playerSearchLoading && playerSearchError && <p className="dash-empty">{playerSearchError}</p>}
                 {!playerSearchLoading && playerResults.length > 0 &&
                   playerResults.slice(0, 6).map((player) => {
-                    const imgSrc = proxyImageUrl(player.meta?.photoUrl);
+                    const imgSrc = proxyImageUrl(player.meta?.photoUrl) ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                     return (
                       <div
                         key={player.id}
@@ -573,7 +569,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                         onClick={() => { setPlayerQuery(""); navigate(`/players/${player.id}`); }}
                       >
                         <div className="dash-search-avatar">
-                          {imgSrc ? <img src={imgSrc} alt="" /> : player.label.charAt(0).toUpperCase()}
+                          <img src={imgSrc} alt="" />
                         </div>
                         <div className="dash-player-card-info">
                           <strong>{player.label}</strong>
