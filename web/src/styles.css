@@ -519,6 +519,12 @@ body {
   color: #0b0f14;
 }
 
+.tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--ink-dim);
+}
+
 .topbar-search label {
   display: grid;
   gap: 6px;
@@ -3328,6 +3334,10 @@ th {
   text-overflow: ellipsis;
 }
 
+.event-teams-list--ones strong {
+  color: #fff;
+}
+
 .event-team-wins {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.8rem;
@@ -4184,6 +4194,36 @@ th {
   gap: 10px;
   flex-wrap: wrap;
   margin-left: auto;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-strong);
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: var(--ink-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+
+.checkbox-inline input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.checkbox-inline:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 130, 67, 0.15);
 }
 
 .stat-page-filters select {

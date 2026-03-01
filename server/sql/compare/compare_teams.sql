@@ -7,7 +7,7 @@ WITH base AS (
 SELECT
   base."Team" AS id,
   base."Team" AS label,
-  COUNT(*) AS games,
+  COUNT(DISTINCT (base.series_id, base."Game Number")) AS games,
   {{metricSelect}}
 FROM base
 WHERE base."Team" = ANY({{idsParam}})

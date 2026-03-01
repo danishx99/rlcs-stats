@@ -18,7 +18,6 @@ import TeamNameWithLogo from "../components/TeamNameWithLogo";
  */
 
 export type HomePageProps = {
-  filters: { season: string; split: string; event: string };
   latestSeason: string | null;
   featuredOptions: StatOption[];
 };
@@ -26,8 +25,13 @@ export type HomePageProps = {
 const SEARCH_DEBOUNCE_MS = 500;
 const PLAYER_SEARCH_DEBOUNCE_MS = 500;
 const ROTATING_FEATURED_METRICS = ["rating", "goals", "saves", "demos", "shots", "assists"] as const;
+const HOME_TRACK = {
+  gameMode: "3s",
+  scope: "regional",
+  tier: "none"
+} as const;
 
-export default function HomePage({ filters, latestSeason, featuredOptions }: HomePageProps) {
+export default function HomePage({ latestSeason, featuredOptions }: HomePageProps) {
   const navigate = useNavigate();
   const [featuredMetricKey] = useState<string>(() => {
     const index = Math.floor(Math.random() * ROTATING_FEATURED_METRICS.length);
@@ -52,7 +56,8 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
 
   // Load rotating featured leaderboard for the latest season
   useEffect(() => {
-    if (!latestSeason) return;
+    const featuredSeason = latestSeason;
+    if (!featuredSeason) return;
     async function loadFeaturedLeaderboard() {
       setFeaturedLoading(true);
       try {
@@ -60,7 +65,10 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
           metric: featuredMetricKey,
           type: "player",
           mode: "avg",
-          season: latestSeason,
+          season: featuredSeason,
+          gameMode: HOME_TRACK.gameMode,
+          scope: HOME_TRACK.scope,
+          tier: HOME_TRACK.tier,
           limit: 6
         });
         setFeaturedLeaderboard(response);
@@ -71,7 +79,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
       }
     }
     loadFeaturedLeaderboard();
-  }, [latestSeason, featuredMetricKey]);
+  }, [featuredMetricKey, latestSeason]);
 
   // Load standings
   useEffect(() => {
@@ -92,21 +100,32 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
   }, [latestSeason, standingsSeason]);
 
   useEffect(() => {
+    let isActive = true;
+
     async function loadTopQueries() {
       setTopQueriesLoading(true);
       try {
         const response = await api.insights({
-          limit: 6
+          limit: 6,
+          gameMode: HOME_TRACK.gameMode,
+          scope: HOME_TRACK.scope,
+          tier: HOME_TRACK.tier
         });
+        if (!isActive) return;
         setTopQueries(response.categories ?? []);
       } catch (error) {
+        if (!isActive) return;
         console.error(error);
-        setTopQueries([]);
       } finally {
+        if (!isActive) return;
         setTopQueriesLoading(false);
       }
     }
     loadTopQueries();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   // Global search (search bar under hero)
@@ -123,7 +142,12 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
       setSearchLoading(true);
       setSearchError(null);
       try {
-        const response = await api.search({ q: searchQuery });
+        // Intentionally omit gameMode so home search includes all modes (1s/2s/3s).
+        const response = await api.search({
+          q: searchQuery,
+          scope: HOME_TRACK.scope,
+          tier: HOME_TRACK.tier
+        });
         if (!isActive) return;
         setSearchResults(response);
       } catch (error) {
@@ -167,7 +191,12 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
       setPlayerSearchLoading(true);
       setPlayerSearchError(null);
       try {
-        const response = await api.search({ q: playerQuery });
+        const response = await api.search({
+          q: playerQuery,
+          gameMode: HOME_TRACK.gameMode,
+          scope: HOME_TRACK.scope,
+          tier: HOME_TRACK.tier
+        });
         if (!isActive) return;
         setPlayerResults(response.players ?? []);
       } catch (error) {
@@ -312,11 +341,7 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
                         className="dash-search-item"
                         onClick={() => {
                           setSearchQuery("");
-                          const params = new URLSearchParams();
-                          if (ev.meta?.season) params.set("season", ev.meta.season);
-                          if (ev.meta?.split) params.set("split", ev.meta.split);
-                          const query = params.toString();
-                          navigate(`/events/${encodeURIComponent(ev.id)}${query ? `?${query}` : ""}`);
+                          navigate(`/events/${encodeURIComponent(ev.id)}`);
                         }}
                       >
                         <div className="dash-search-avatar dash-search-avatar--event">
@@ -358,7 +383,18 @@ export default function HomePage({ filters, latestSeason, featuredOptions }: Hom
             <svg className="dash-nav-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>
           </div>
 
-          <div className="dash-nav-card" onClick={() => navigate("/stats/score")}>
+          <div
+            className="dash-nav-card"
+            onClick={() =>
+              navigate(
+                `/stats/score?${new URLSearchParams({
+                  gameMode: HOME_TRACK.gameMode,
+                  scope: HOME_TRACK.scope,
+                  tier: HOME_TRACK.tier
+                }).toString()}`
+              )
+            }
+          >
             <div className="dash-nav-icon dash-nav-icon--blue">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 20V10M12 20V4M6 20v-6" />

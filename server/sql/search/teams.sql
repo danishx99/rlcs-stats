@@ -17,6 +17,7 @@ series_dates AS (
   WHERE s.series_id IS NOT NULL
     AND s."Team" IS NOT NULL
     AND TRIM(s."Team") <> ''
+    {{where}}
   GROUP BY s.series_id, UPPER(TRIM(s."Team"))
 ),
 grouped AS (
@@ -35,7 +36,7 @@ grouped AS (
     END AS team_group_id,
     COALESCE(tpn.org_name, TRIM(sr.team)) AS display_name
   FROM series_roster sr
-  LEFT JOIN series_dates sd
+  JOIN series_dates sd
     ON sd.series_id = sr.series_id
    AND sd.team_norm = UPPER(TRIM(sr.team))
   LEFT JOIN team_profiles_norm tpn
@@ -44,8 +45,8 @@ grouped AS (
 matching_groups AS (
   SELECT DISTINCT g.team_group_id
   FROM grouped g
-  WHERE g.display_name ILIKE $1
-     OR g.team_label ILIKE $1
+  WHERE g.display_name ILIKE {{likeParam}}
+     OR g.team_label ILIKE {{likeParam}}
 ),
 ranked AS (
   SELECT
@@ -82,4 +83,4 @@ SELECT
   lr.logo_url
 FROM latest_roster lr
 ORDER BY lr.latest_date DESC NULLS LAST, lr.display_name
-LIMIT $2;
+LIMIT {{limitParam}};

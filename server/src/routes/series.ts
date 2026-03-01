@@ -13,6 +13,9 @@ const seriesListSql = loadSql("../../sql/series/list.sql", import.meta.url);
 const seriesDetailSql = loadSql("../../sql/series/detail.sql", import.meta.url);
 
 type SeriesFilters = {
+  mode: string | null;
+  scope: string | null;
+  tier: string | null;
   season: string | null;
   split: string | null;
   event: string | null;
@@ -22,6 +25,9 @@ type SeriesFilters = {
 };
 
 type SeriesFilterFlags = {
+  mode?: boolean;
+  scope?: boolean;
+  tier?: boolean;
   season?: boolean;
   split?: boolean;
   event?: boolean;
@@ -29,6 +35,27 @@ type SeriesFilterFlags = {
 };
 
 function parseSeriesFilters(url: URL): { filters: SeriesFilters | null; error: string | null } {
+  const mode = normalizeFilter(url.searchParams.get("gameMode"))
+    ?? normalizeFilter(url.searchParams.get("mode"));
+  const includeLans = url.searchParams.get("includeLans") === "1";
+  if (!mode) {
+    return {
+      filters: null,
+      error: "mode is required"
+    };
+  }
+  let scope = normalizeFilter(url.searchParams.get("scope"));
+  let tier = normalizeFilter(url.searchParams.get("tier"));
+  if (mode !== "3s") {
+    scope = "regional";
+    tier = "none";
+  } else if (!includeLans) {
+    scope = scope ?? "regional";
+    tier = tier ?? "none";
+  } else {
+    scope = null;
+    tier = null;
+  }
   const season = normalizeFilter(url.searchParams.get("season"));
   const split = normalizeFilter(url.searchParams.get("split"));
   const event = normalizeFilter(url.searchParams.get("event"));
@@ -37,7 +64,7 @@ function parseSeriesFilters(url: URL): { filters: SeriesFilters | null; error: s
   const team2 = normalizeFilter(url.searchParams.get("team2"));
 
   return {
-    filters: { season, split, event, stage, team, team2 },
+    filters: { mode, scope, tier, season, split, event, stage, team, team2 },
     error: null
   };
 }
@@ -50,6 +77,18 @@ function buildSeriesFilterClauses(filters: SeriesFilters, alias: string, flags: 
   const clauses: string[] = [];
   const values: Array<string | number> = [];
 
+  if (flags.mode && filters.mode) {
+    clauses.push(`LOWER(TRIM(${columnRef(alias, "mode")})) = LOWER($${values.length + 1})`);
+    values.push(filters.mode);
+  }
+  if (flags.scope && filters.scope) {
+    clauses.push(`LOWER(TRIM(${columnRef(alias, "scope")})) = LOWER($${values.length + 1})`);
+    values.push(filters.scope);
+  }
+  if (flags.tier && filters.tier) {
+    clauses.push(`LOWER(TRIM(${columnRef(alias, "tier")})) = LOWER($${values.length + 1})`);
+    values.push(filters.tier);
+  }
   if (flags.season && filters.season) {
     clauses.push(`LOWER(TRIM(${columnRef(alias, "Season")})) = LOWER($${values.length + 1})`);
     values.push(filters.season);
@@ -162,20 +201,43 @@ export async function handleSeriesMeta(_req: IncomingMessage, res: ServerRespons
     return;
   }
 
-  const splitFilters = buildSeriesFilterClauses(filters, "", { season: true });
-  const eventFilters = buildSeriesFilterClauses(filters, "", { season: true, split: true });
+  const seasonFilters = buildSeriesFilterClauses(filters, "", {
+    mode: true,
+    scope: true,
+    tier: true
+  });
+  const splitFilters = buildSeriesFilterClauses(filters, "", {
+    mode: true,
+    scope: true,
+    tier: true,
+    season: true
+  });
+  const eventFilters = buildSeriesFilterClauses(filters, "", {
+    mode: true,
+    scope: true,
+    tier: true,
+    season: true,
+    split: true
+  });
   const stageFilters = buildSeriesFilterClauses(filters, "", {
+    mode: true,
+    scope: true,
+    tier: true,
     season: true,
     split: true,
     event: true
   });
   const teamFilters = buildSeriesFilterClauses(filters, "", {
+    mode: true,
+    scope: true,
+    tier: true,
     season: true,
     split: true,
     event: true,
     stage: true
   });
 
+  const seasonWhere = seasonFilters.clauses.length ? `AND ${seasonFilters.clauses.join(" AND ")}` : "";
   const splitWhere = splitFilters.clauses.length ? `AND ${splitFilters.clauses.join(" AND ")}` : "";
   const eventWhere = eventFilters.clauses.length ? `AND ${eventFilters.clauses.join(" AND ")}` : "";
   const stageWhere = stageFilters.clauses.length ? `AND ${stageFilters.clauses.join(" AND ")}` : "";
@@ -183,7 +245,7 @@ export async function handleSeriesMeta(_req: IncomingMessage, res: ServerRespons
 
   try {
     const [seasons, splits, events, stages, teams] = await Promise.all([
-      pool.query(seriesMetaSeasonsSql),
+      pool.query(formatSql(seriesMetaSeasonsSql, { where: seasonWhere }), seasonFilters.values),
       pool.query(formatSql(seriesMetaSplitsSql, { where: splitWhere }), splitFilters.values),
       pool.query(formatSql(seriesMetaEventsSql, { where: eventWhere }), eventFilters.values),
       pool.query(formatSql(seriesMetaStagesSql, { where: stageWhere }), stageFilters.values),
@@ -192,6 +254,9 @@ export async function handleSeriesMeta(_req: IncomingMessage, res: ServerRespons
 
     json(res, 200, {
       generatedAt: new Date().toISOString(),
+      mode: filters.mode,
+      scope: filters.scope,
+      tier: filters.tier,
       seasons: seasons.rows.map((row) => mapNullableString(row.value)).filter(Boolean),
       splits: splits.rows.map((row) => mapNullableString(row.value)).filter(Boolean),
       events: events.rows.map((row) => mapNullableString(row.value)).filter(Boolean),
@@ -212,6 +277,9 @@ export async function handleSeriesList(_req: IncomingMessage, res: ServerRespons
   }
 
   const { clauses, values } = buildSeriesFilterClauses(filters, "s", {
+    mode: true,
+    scope: true,
+    tier: true,
     season: true,
     split: true,
     event: true,
@@ -234,8 +302,12 @@ export async function handleSeriesList(_req: IncomingMessage, res: ServerRespons
 
         return {
           seriesId,
+          eventId: mapNullableString(row.event_id),
           date: mapDate(row.date),
           season: mapNullableString(row.season),
+          mode: mapNullableString(row.mode),
+          scope: mapNullableString(row.scope),
+          tier: mapNullableString(row.tier),
           split: mapNullableString(row.split),
           event: mapNullableString(row.event),
           stage: mapNullableString(row.stage),
@@ -251,8 +323,12 @@ export async function handleSeriesList(_req: IncomingMessage, res: ServerRespons
       })
       .filter((row): row is {
         seriesId: string;
+        eventId: string | null;
         date: string | null;
         season: string | null;
+        mode: string | null;
+        scope: string | null;
+        tier: string | null;
         split: string | null;
         event: string | null;
         stage: string | null;
@@ -307,7 +383,11 @@ export async function handleSeriesDetail(
     json(res, 200, {
       series: {
         seriesId: foundSeriesId,
+        eventId: mapNullableString(row.event_id),
         date: mapDate(row.date),
+        mode: mapNullableString(row.mode),
+        scope: mapNullableString(row.scope),
+        tier: mapNullableString(row.tier),
         season: mapNullableString(row.season),
         split: mapNullableString(row.split),
         event: mapNullableString(row.event),

@@ -1,5 +1,10 @@
 # Data Notes
 
+## Players CSV Header Mapping (2026-02-26)
+- In `data/players/*.csv`, the join key header is `Unique ID` and must map to `players."Unique ID"` for joins against `stats."Unique ID"`.
+- `Player ID` is a separate platform identifier and should not be used as the primary join key for player lookups.
+- Player aliases for UI/profile should come from CSV column `AKA` (stored in `players.aka`), not `All Aliases`.
+
 reverse engineer bracket using matches
 results page per event
 
@@ -27,6 +32,9 @@ After a re-import with `--truncate`, all stored values are true integer counts. 
 For 1v1 matches, the event type is listed as "1v1" under "regional".
 
 TODO: Handle 1v1 data separately from standard team formats (3v3) in API queries and UI presentation.
+
+## Stats Page Future Scope
+- TODO: Consider optional inclusion of non-SSA players in Stat Leaderboard view (do not enable by default yet).
 
 ## Forfeits (FF)
 When a team forfeits, the victor column shows **FF** for those games. This means fewer games than expected appear in a series (e.g. 3 games in a Bo5, 4 games in a Bo7).
@@ -69,5 +77,4 @@ e.g. "Fall Split" (split) → Shows:
 ## Known Bugs
 
 - **VALIANT roster page not loading** (2026-02-19): `/rosters/org%3AVALIANT` shows nothing. Needs investigation — could be a data issue or a query/routing problem.
-
-
+- **LAN player placements may be inaccurate** (2026-02-26): player results placement labels for international LAN events can be incorrect because current stats data often includes only SSA-involved match slices instead of the full event field.

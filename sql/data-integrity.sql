@@ -1,5 +1,6 @@
 -- data-integrity.sql
 -- Audit-only integrity suite for RLCS stats data.
+-- Default scope: regional 3s only (excludes international LAN + 1s/2s tracks).
 -- Output schema:
 --   check_id, severity, status, metric_name, metric_value, threshold, sample_json
 
@@ -39,6 +40,8 @@ WITH base_stats AS (
     s.series_id,
     s.source_file
   FROM stats s
+  WHERE LOWER(TRIM(s."mode")) = '3s'
+    AND LOWER(TRIM(s."scope")) = 'regional'
 ),
 match_meta AS (
   SELECT
@@ -296,15 +299,15 @@ fractional_non_ot_rows AS (
     )
 ),
 dimension_values AS (
-  SELECT 'Split'::text AS dimension, s."Split"::text AS raw_value FROM stats s
+  SELECT 'Split'::text AS dimension, b.split::text AS raw_value FROM base_stats b
   UNION ALL
-  SELECT 'Event'::text AS dimension, s."Event"::text AS raw_value FROM stats s
+  SELECT 'Event'::text AS dimension, b.event::text AS raw_value FROM base_stats b
   UNION ALL
-  SELECT 'Stage'::text AS dimension, s."Stage"::text AS raw_value FROM stats s
+  SELECT 'Stage'::text AS dimension, b.stage::text AS raw_value FROM base_stats b
   UNION ALL
-  SELECT 'Round'::text AS dimension, s."Round"::text AS raw_value FROM stats s
+  SELECT 'Round'::text AS dimension, b.round::text AS raw_value FROM base_stats b
   UNION ALL
-  SELECT 'Team'::text AS dimension, s."Team"::text AS raw_value FROM stats s
+  SELECT 'Team'::text AS dimension, b.team_key::text AS raw_value FROM base_stats b
 ),
 whitespace_summary AS (
   SELECT
@@ -320,27 +323,31 @@ whitespace_summary AS (
 ),
 case_team_variants AS (
   SELECT
-    UPPER(TRIM(s."Team")) AS canonical_team,
-    COUNT(DISTINCT TRIM(s."Team")) AS variants,
-    ARRAY_AGG(DISTINCT TRIM(s."Team") ORDER BY TRIM(s."Team")) AS names
-  FROM stats s
-  WHERE NULLIF(TRIM(s."Team"), '') IS NOT NULL
-  GROUP BY UPPER(TRIM(s."Team"))
-  HAVING COUNT(DISTINCT TRIM(s."Team")) > 1
+    UPPER(b.team_key) AS canonical_team,
+    COUNT(DISTINCT b.team_key) AS variants,
+    ARRAY_AGG(DISTINCT b.team_key ORDER BY b.team_key) AS names
+  FROM base_stats b
+  WHERE NULLIF(TRIM(b.team_key), '') IS NOT NULL
+  GROUP BY UPPER(b.team_key)
+  HAVING COUNT(DISTINCT b.team_key) > 1
 ),
 player_name_id_variants AS (
   SELECT
     NULLIF(TRIM(s."Player Name"), '') AS player_name,
-    COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) AS unique_id_count,
-    ARRAY_AGG(DISTINCT NULLIF(TRIM(s."Unique ID"), '') ORDER BY NULLIF(TRIM(s."Unique ID"), ''))
-      FILTER (WHERE NULLIF(TRIM(s."Unique ID"), '') IS NOT NULL) AS unique_ids,
+    COUNT(DISTINCT b.player_key) AS unique_id_count,
+    ARRAY_AGG(DISTINCT b.player_key ORDER BY b.player_key)
+      FILTER (WHERE b.player_key IS NOT NULL) AS unique_ids,
     COUNT(*) AS row_count
   FROM stats s
+  JOIN base_stats b ON b.match_id = s."Match ID"
+    AND b.game_number = s."Game Number"
+    AND b.team_key IS NOT DISTINCT FROM TRIM(s."Team")
+    AND b.player_key IS NOT DISTINCT FROM NULLIF(TRIM(s."Unique ID"), '')
   WHERE NULLIF(TRIM(s."Player Name"), '') IS NOT NULL
     -- Known exception: "Shadow" is used by multiple real players in this dataset.
     AND LOWER(TRIM(s."Player Name")) <> 'shadow'
   GROUP BY NULLIF(TRIM(s."Player Name"), '')
-  HAVING COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) > 1
+  HAVING COUNT(DISTINCT b.player_key) > 1
 ),
 playoff_team_series AS (
   SELECT

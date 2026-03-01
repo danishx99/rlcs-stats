@@ -2,7 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode, parseListParam } from "../utils/filters";
-import { DEFAULT_COMPARE_STATS, metricExpression, resolveStatOptionAsync } from "../utils/stats";
+import { DEFAULT_COMPARE_STATS, metricExpression, resolveStatOptionAsync, shouldUseGameDenominatorForTeamAvg } from "../utils/stats";
 import type { StatOption } from "../types";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr, rosterCtes } from "../utils/roster";
@@ -48,8 +48,15 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
     const { clauses, values } = buildFilterClauses(url.searchParams, "fb");
     const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
     const idsIndex = values.length + 1;
+    const rosterGameCountExpr = 'COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game Number"))';
     const metricSelect = options
-      .map((option) => `${metricExpression(option, mode, "roster_scope")} AS "${option.key}"`)
+      .map((option) => {
+        const perGameDenominator =
+          mode === "avg" && shouldUseGameDenominatorForTeamAvg(option)
+            ? rosterGameCountExpr
+            : undefined;
+        return `${metricExpression(option, mode, "roster_scope", perGameDenominator)} AS "${option.key}"`;
+      })
       .join(",\n            ");
 
     try {
@@ -88,8 +95,15 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
     const { clauses, values } = buildFilterClauses(url.searchParams, "s");
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     const idsIndex = values.length + 1;
+    const teamGameCountExpr = 'COUNT(DISTINCT (base.series_id, base."Game Number"))';
     const metricSelect = options
-      .map((option) => `${metricExpression(option, mode, "base")} AS "${option.key}"`)
+      .map((option) => {
+        const perGameDenominator =
+          mode === "avg" && shouldUseGameDenominatorForTeamAvg(option)
+            ? teamGameCountExpr
+            : undefined;
+        return `${metricExpression(option, mode, "base", perGameDenominator)} AS "${option.key}"`;
+      })
       .join(",\n            ");
 
     try {

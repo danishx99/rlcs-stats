@@ -66,6 +66,16 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Preflight ingest validation (dry-run)
+        env:
+          DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "RAILWAY_DATABASE_PUBLIC_URL is not set; skipping preflight."
+            exit 0
+          fi
+          bun run src/run.ts --dir ./data --dry-run
+
       - name: Sync CSV data to Railway Postgres
         env:
           DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
@@ -75,3 +85,13 @@ jobs:
             exit 0
           fi
           bun run db:load
+
+      - name: Verify data integrity
+        env:
+          DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_PUBLIC_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "RAILWAY_DATABASE_PUBLIC_URL is not set; skipping integrity checks."
+            exit 0
+          fi
+          bun run verify:data

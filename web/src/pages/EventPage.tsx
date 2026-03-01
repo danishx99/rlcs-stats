@@ -1,10 +1,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { EventBracket, EventDetail, EventTeam, LeaderboardResponse, MetaResponse, SearchResponse, StatCategory, StatOption } from "../types/api";
 import { proxyImageUrl } from "../utils/normalize";
 import { formatDate } from "../utils/date";
+import { buildEventPath } from "../utils/event-routing";
+import { sortEventsLanLast } from "../utils/events";
 import Leaderboard from "../components/Leaderboard";
+import PlayerNameWithPhoto from "../components/PlayerNameWithPhoto";
 import StatPicker from "../components/StatPicker";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
@@ -40,10 +43,7 @@ function placementLabel(start: number, end: number) {
 }
 
 export default function EventPage() {
-  const { eventName } = useParams();
-  const [searchParams] = useSearchParams();
-  const urlSeason = searchParams.get("season") || undefined;
-  const urlSplit = searchParams.get("split") || undefined;
+  const { eventId } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [teams, setTeams] = useState<EventTeam[]>([]);
@@ -72,24 +72,21 @@ export default function EventPage() {
 
   // Load event data
   useEffect(() => {
-    if (!eventName) return;
+    if (!eventId) return;
+    const targetEventId = decodeURIComponent(eventId);
 
     async function loadEvent() {
       setLoading(true);
       setError(null);
       try {
-        const response = await api.eventDetail(decodeURIComponent(eventName!), {
-          season: urlSeason,
-          split: urlSplit,
-          teamsLimit: FULL_TEAMS_LIMIT
-        });
+        const response = await api.eventDetail(targetEventId, { teamsLimit: FULL_TEAMS_LIMIT });
         setTeams(response.teams);
         setEvent(response.event);
         setBracket(response.bracket);
         setLeaderboards(response.leaderboards);
       } catch (err) {
-        console.error(err);
         const message = err instanceof Error ? err.message.toLowerCase() : "";
+        console.error(err);
         if (message.includes("not found") || message.includes("api error 404")) {
           setError("Event not found.");
         } else {
@@ -101,7 +98,7 @@ export default function EventPage() {
       }
     }
     loadEvent();
-  }, [eventName, urlSeason, urlSplit]);
+  }, [eventId]);
 
   // Pre-fill filters from current event
   useEffect(() => {
@@ -112,11 +109,15 @@ export default function EventPage() {
 
   // Load navigation filter options (cascading)
   useEffect(() => {
+    if (!event) return;
     const params: Record<string, string> = {};
     if (filterSeason) params.season = filterSeason;
     if (filterSplit) params.split = filterSplit;
+    if (event.mode) params.gameMode = event.mode;
+    if (event.scope) params.scope = event.scope;
+    if (event.tier) params.tier = event.tier;
     api.meta(params).then(setMeta).catch(console.error);
-  }, [filterSeason, filterSplit]);
+  }, [event, filterSeason, filterSplit]);
 
   // Load stat categories for StatPicker
   useEffect(() => {
@@ -140,6 +141,10 @@ export default function EventPage() {
     const map = new Map<string, StatOption>(allCategoryStats.map((s) => [s.key, s]));
     return visibleStatKeys.map((key) => map.get(key)).filter((s): s is StatOption => Boolean(s));
   }, [visibleStatKeys, allCategoryStats]);
+  const navigationEventOptions = useMemo(
+    () => sortEventsLanLast(meta?.events ?? [], meta?.internationalEvents ?? []),
+    [meta?.events, meta?.internationalEvents]
+  );
 
   const toggleStat = (key: string) => {
     setSelectedStats((prev) =>
@@ -156,7 +161,16 @@ export default function EventPage() {
     const timeout = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const response = await api.search({ q: searchQuery });
+        const trackParams: Record<string, string> = {};
+        if (event?.mode) trackParams.gameMode = event.mode;
+        if (event?.scope) trackParams.scope = event.scope;
+        if (event?.tier) trackParams.tier = event.tier;
+        const response = await api.search({
+          q: searchQuery,
+          season: filterSeason || undefined,
+          split: filterSplit || undefined,
+          ...trackParams
+        });
         setSearchResults(response.events ?? []);
       } catch (err) {
         console.error(err);
@@ -165,7 +179,7 @@ export default function EventPage() {
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
-  }, [searchQuery]);
+  }, [event, filterSeason, filterSplit, searchQuery]);
 
   // Click outside to close search
   useEffect(() => {
@@ -182,13 +196,13 @@ export default function EventPage() {
   // Reset leaderboard map when event context changes
   useEffect(() => {
     setLeaderboardMap(new Map());
-  }, [eventName, urlSeason, urlSplit]);
+  }, [eventId]);
 
   // Fetch leaderboards for extra selected stats (defaults are already in hardcoded cards)
   useEffect(() => {
     const extraStats = selectedStats.filter((k) => !DEFAULT_STATS.includes(k) && !CORE_LEADERBOARD_KEYS.has(k));
-    if (!eventName || extraStats.length === 0) {
-      setLeaderboardMap(new Map());
+    if (!event || extraStats.length === 0) {
+      setLeaderboardMap((prev) => (prev.size === 0 ? prev : new Map()));
       return;
     }
 
@@ -216,9 +230,12 @@ export default function EventPage() {
       toFetch.map((metric) =>
         api.statsTop({
           metric,
-          event: decodeURIComponent(eventName!),
-          season: urlSeason,
-          split: urlSplit,
+          event: event.name,
+          season: event.season ?? undefined,
+          split: event.split ?? undefined,
+          gameMode: event.mode ?? undefined,
+          scope: event.scope ?? undefined,
+          tier: event.tier ?? undefined,
           mode: "avg",
           limit: 10,
         }).then((result) => ({ metric, result }))
@@ -242,7 +259,7 @@ export default function EventPage() {
     });
 
     return () => { cancelled = true; };
-  }, [selectedStats, eventName, urlSeason, urlSplit, leaderboardMap]);
+  }, [event, selectedStats, leaderboardMap]);
 
   if (loading) {
     return <div className="page page-no-nav">Loading event...</div>;
@@ -263,14 +280,20 @@ export default function EventPage() {
     .filter(Boolean)
     .map((d) => formatDate(d!))
     .join(" – ");
+  const isLanEvent = event.scope === "international" && (event.tier === "major" || event.tier === "worlds");
 
   const hasSearchResults = searchResults.length > 0;
   const coreLeaderboardMap = new Map(leaderboards.map((lb) => [lb.metric.key, lb]));
-  const coreLeaderboards = CORE_LEADERBOARDS
-    .map((item) => ({ title: item.title, data: coreLeaderboardMap.get(item.key) }))
-    .filter((item): item is { title: string; data: LeaderboardResponse } => Boolean(item.data));
+  const coreLeaderboards = CORE_LEADERBOARDS.reduce<Array<{ title: string; data: LeaderboardResponse }>>((acc, item) => {
+    const data = coreLeaderboardMap.get(item.key);
+    if (data) {
+      acc.push({ title: item.title, data });
+    }
+    return acc;
+  }, []);
   const selectedExtraStats = selectedStats.filter((k) => !CORE_LEADERBOARD_KEYS.has(k));
   const visibleTeams = showAllPlacements ? teams : teams.slice(0, TOP_TEAMS_LIMIT);
+  const isOnesEvent = event.mode === "1s";
   return (
     <div className="page page-no-nav">
       <button className="ghost back-button" onClick={() => navigate("/")}>
@@ -315,11 +338,7 @@ export default function EventPage() {
                       onClick={() => {
                         setSearchQuery("");
                         setSearchResults([]);
-                        const params = new URLSearchParams();
-                        if (ev.meta?.season) params.set("season", ev.meta.season);
-                        if (ev.meta?.split) params.set("split", ev.meta.split);
-                        const query = params.toString();
-                        navigate(`/events/${encodeURIComponent(ev.id)}${query ? `?${query}` : ""}`);
+                        navigate(buildEventPath(ev.id));
                       }}
                     >
                       <div className="dash-search-avatar dash-search-avatar--event">
@@ -347,7 +366,10 @@ export default function EventPage() {
           <div className="event-nav-filters">
             <select
               value={filterSeason}
-              onChange={(e) => { setFilterSeason(e.target.value); setFilterSplit(""); }}
+              onChange={(e) => {
+                setFilterSeason(e.target.value);
+                setFilterSplit("");
+              }}
             >
               <option value="" disabled>Season</option>
               {meta.seasons.map((s) => (
@@ -367,16 +389,27 @@ export default function EventPage() {
               value={event.name}
               onChange={(e) => {
                 if (e.target.value) {
-                  const params = new URLSearchParams();
-                  if (filterSeason) params.set("season", filterSeason);
-                  if (filterSplit) params.set("split", filterSplit);
-                  const query = params.toString();
-                  navigate(`/events/${encodeURIComponent(e.target.value)}${query ? `?${query}` : ""}`);
+                  void api.search({
+                    q: e.target.value,
+                    season: filterSeason || undefined,
+                    split: filterSplit || undefined,
+                    gameMode: event.mode || undefined,
+                    scope: event.scope || undefined,
+                    tier: event.tier || undefined,
+                    limit: 20
+                  }).then((response) => {
+                    const match = (response.events ?? []).find((item) => item.label === e.target.value);
+                    if (match) {
+                      navigate(buildEventPath(match.id));
+                    }
+                  }).catch((lookupError) => {
+                    console.error(lookupError);
+                  });
                 }
               }}
             >
               <option value="">Jump to Event...</option>
-              {meta.events.map((ev) => (
+              {navigationEventOptions.map((ev) => (
                 <option key={ev} value={ev}>{ev}</option>
               ))}
             </select>
@@ -393,134 +426,161 @@ export default function EventPage() {
         </div>
       </div>
 
-      {/* Top row: Teams + Bracket */}
-      <div className="event-grid">
-        <div className="event-panel event-panel--bracket panel">
-          <div className="event-resource-header">
-            <h3>{showAllPlacements ? "All Placements" : "Top Teams"}</h3>
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => setShowAllPlacements((prev) => !prev)}
-            >
-              {showAllPlacements ? "Show Top 8" : "Show All"}
-            </button>
+      {isLanEvent ? (
+        <div className="panel">
+          <div className="section-header">
+            <h2>LAN View Coming Soon</h2>
           </div>
-          {visibleTeams.length > 0 ? (
-            <ol className="event-teams-list">
-              {visibleTeams.map((t, i) => {
-                const prev = i > 0 ? visibleTeams[i - 1] : null;
-                const showGroupHeader = !prev || prev.placementStart !== t.placementStart || prev.placementEnd !== t.placementEnd;
-                return (
-                  <Fragment key={t.team}>
-                    {showGroupHeader && (
-                      <li className="event-team-group-label">
-                        {placementLabel(t.placementStart, t.placementEnd)}
-                      </li>
-                    )}
-                    <li>
-                      <span className="event-team-rank">{i + 1}</span>
-                      <strong>
-                        <TeamNameWithLogo team={t.team} logoUrl={t.logoUrl} />
-                      </strong>
-                    </li>
-                  </Fragment>
-                );
-              })}
-            </ol>
-          ) : (
-            <p className="dash-search-status">No placement data for this event.</p>
-          )}
+          <p className="dash-search-status">
+            This event currently contains only SSA-involved match slices, so the standard regional event view is not accurate.
+          </p>
+          <p className="dash-search-status">
+            A dedicated LAN event view will be added to reflect limited-slice data properly.
+          </p>
         </div>
-        <div className="event-panel panel">
-          <div className="event-resource-header">
-            <h3>Bracket</h3>
-            {bracket?.liquipediaUrl && (
-              <a href={bracket.liquipediaUrl} target="_blank" rel="noreferrer noopener">
-                View on Liquipedia
-              </a>
-            )}
-          </div>
-          {bracket && proxyImageUrl(bracket.imageUrl) ? (
-            <a
-              className="event-bracket-image-link"
-              href={bracket.imageUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-            >
-              <img
-                className="event-bracket-image"
-                src={proxyImageUrl(bracket.imageUrl)!}
-                alt={`${event.name} bracket`}
-                loading="lazy"
-              />
-            </a>
-          ) : (
-            <p className="dash-search-status">No bracket resources for this event.</p>
-          )}
-        </div>
-      </div>
-
-      {coreLeaderboards.length > 0 && (
-        <div className="event-grid event-grid--stats">
-          {coreLeaderboards.map((item) => (
-            <div key={item.data.metric.key} className="event-panel panel">
-              <h3>{item.title}</h3>
-              <Leaderboard data={item.data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
+      ) : (
+        <>
+          {/* Top row: Teams + Bracket */}
+          <div className="event-grid">
+            <div className="event-panel event-panel--bracket panel">
+              <div className="event-resource-header">
+                <h3>{showAllPlacements ? "All Placements" : "Top Teams"}</h3>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => setShowAllPlacements((prev) => !prev)}
+                >
+                  {showAllPlacements ? "Show Top 8" : "Show All"}
+                </button>
+              </div>
+              {visibleTeams.length > 0 ? (
+                <ol className={`event-teams-list${isOnesEvent ? " event-teams-list--ones" : ""}`}>
+                  {visibleTeams.map((t, i) => {
+                    const prev = i > 0 ? visibleTeams[i - 1] : null;
+                    const showGroupHeader = !prev || prev.placementStart !== t.placementStart || prev.placementEnd !== t.placementEnd;
+                    return (
+                      <Fragment key={t.team}>
+                        {showGroupHeader && (
+                          <li className="event-team-group-label">
+                            {placementLabel(t.placementStart, t.placementEnd)}
+                          </li>
+                        )}
+                        <li>
+                          <span className="event-team-rank">{i + 1}</span>
+                          {isOnesEvent ? (
+                            <strong>
+                              <PlayerNameWithPhoto
+                                name={t.team}
+                                playerId={t.uniqueId ?? null}
+                                photoUrl={t.photoUrl ?? null}
+                                className="identity-inline--xl"
+                              />
+                            </strong>
+                          ) : (
+                            <strong>
+                              <TeamNameWithLogo team={t.team} logoUrl={t.logoUrl} />
+                            </strong>
+                          )}
+                        </li>
+                      </Fragment>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <p className="dash-search-status">No placement data for this event.</p>
+              )}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Pick a stat — checkboxes only */}
-      <div className="event-pick-stat panel">
-        <div className="event-pick-stat-header">
-          <h3>Pick a Stat</h3>
-          {statCategories.length > 0 && (
-            <StatPicker
-              categories={statCategories}
-              selected={selectedStats}
-              onToggle={toggleStat}
-            />
-          )}
-        </div>
-        {visibleStatOptions.length > 0 && (
-          <div className="event-pick-stat-toggles">
-            {visibleStatOptions.map((opt) => (
-              <label key={opt.key} className="stat-toggle">
-                <input
-                  type="checkbox"
-                  checked={selectedStats.includes(opt.key)}
-                  onChange={() => toggleStat(opt.key)}
-                />
-                <span className="stat-toggle-label">{opt.label}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Extra leaderboards for stats beyond the defaults */}
-      {selectedExtraStats.length > 0 && (
-        <div className="event-pick-stat-grid">
-          {selectedExtraStats.map((key) => {
-            const data = leaderboardMap.get(key);
-            const isLoading = loadingStats.has(key);
-            const label = allCategoryStats.find((s) => s.key === key)?.label ?? key;
-            return (
-              <div key={key} className="event-pick-stat-card panel">
-                <h4>{label}</h4>
-                {isLoading && <p className="dash-search-status">Loading...</p>}
-                {!isLoading && data && data.rows.length > 0 && (
-                  <Leaderboard data={data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
-                )}
-                {!isLoading && data && data.rows.length === 0 && (
-                  <p className="dash-search-status">No data for this stat.</p>
+            <div className="event-panel panel">
+              <div className="event-resource-header">
+                <h3>Bracket</h3>
+                {bracket?.liquipediaUrl && (
+                  <a href={bracket.liquipediaUrl} target="_blank" rel="noreferrer noopener">
+                    View on Liquipedia
+                  </a>
                 )}
               </div>
-            );
-          })}
-        </div>
+              {bracket && proxyImageUrl(bracket.imageUrl) ? (
+                <a
+                  className="event-bracket-image-link"
+                  href={bracket.imageUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <img
+                    className="event-bracket-image"
+                    src={proxyImageUrl(bracket.imageUrl)!}
+                    alt={`${event.name} bracket`}
+                    loading="lazy"
+                  />
+                </a>
+              ) : (
+                <p className="dash-search-status">No bracket resources for this event.</p>
+              )}
+            </div>
+          </div>
+
+          {coreLeaderboards.length > 0 && (
+            <div className="event-grid event-grid--stats">
+              {coreLeaderboards.map((item) => (
+                <div key={item.data.metric.key} className="event-panel panel">
+                  <h3>{item.title}</h3>
+                  <Leaderboard data={item.data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pick a stat — checkboxes only */}
+          <div className="event-pick-stat panel">
+            <div className="event-pick-stat-header">
+              <h3>Pick a Stat</h3>
+              {statCategories.length > 0 && (
+                <StatPicker
+                  categories={statCategories}
+                  selected={selectedStats}
+                  onToggle={toggleStat}
+                />
+              )}
+            </div>
+            {visibleStatOptions.length > 0 && (
+              <div className="event-pick-stat-toggles">
+                {visibleStatOptions.map((opt) => (
+                  <label key={opt.key} className="stat-toggle">
+                    <input
+                      type="checkbox"
+                      checked={selectedStats.includes(opt.key)}
+                      onChange={() => toggleStat(opt.key)}
+                    />
+                    <span className="stat-toggle-label">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Extra leaderboards for stats beyond the defaults */}
+          {selectedExtraStats.length > 0 && (
+            <div className="event-pick-stat-grid">
+              {selectedExtraStats.map((key) => {
+                const data = leaderboardMap.get(key);
+                const isLoading = loadingStats.has(key);
+                const label = allCategoryStats.find((s) => s.key === key)?.label ?? key;
+                return (
+                  <div key={key} className="event-pick-stat-card panel">
+                    <h4>{label}</h4>
+                    {isLoading && <p className="dash-search-status">Loading...</p>}
+                    {!isLoading && data && data.rows.length > 0 && (
+                      <Leaderboard data={data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
+                    )}
+                    {!isLoading && data && data.rows.length === 0 && (
+                      <p className="dash-search-status">No data for this stat.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

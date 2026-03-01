@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import type { MetaResponse, PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
+import type { PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
 import SeasonTable from "../components/SeasonTable";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import { formatAliases } from "../utils/aliases";
 import { computeAge, formatDate } from "../utils/date";
-import { buildEventPath, parseDebutEvent } from "../utils/event-routing";
+import { buildEventPath } from "../utils/event-routing";
 import { normalizeSocialLink, proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../utils/normalize";
 import { resolveTeamRosterId } from "../utils/team-routing";
 
@@ -51,15 +51,7 @@ function formatPlacement(
   return `${ordinal(start)}-${ordinal(top)}`;
 }
 
-export default function PlayerPage({
-  filters,
-  meta: _meta,
-  onFiltersChange: _onFiltersChange
-}: {
-  filters: { season: string; split: string; event: string };
-  meta: MetaResponse | null;
-  onFiltersChange: (f: { season: string; split: string; event: string }) => void;
-}) {
+export default function PlayerPage() {
   const { uniqueId } = useParams();
   const navigate = useNavigate();
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
@@ -67,11 +59,12 @@ export default function PlayerPage({
   const [playerProfileError, setPlayerProfileError] = useState<string | null>(null);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
+  const [seasonGameMode, setSeasonGameMode] = useState<"1s" | "2s" | "3s">("3s");
+  const [seasonIncludeLans, setSeasonIncludeLans] = useState(false);
   const [results, setResults] = useState<PlayerResultEvent[]>([]);
   const [resultSeasons, setResultSeasons] = useState<string[]>([]);
   const [resultSeason, setResultSeason] = useState("");
-  const [resultsViewMode, setResultsViewMode] = useState<"season" | "all">("season");
-  const [resultSeasonsLoading, setResultSeasonsLoading] = useState(false);
+  const [resultsViewMode, setResultsViewMode] = useState<"season" | "all">("all");
   const [resultsLoading, setResultsLoading] = useState(false);
 
   useEffect(() => {
@@ -101,13 +94,20 @@ export default function PlayerPage({
   }, [uniqueId]);
 
   useEffect(() => {
+    setSeasonIncludeLans(false);
+  }, [uniqueId]);
+
+  useEffect(() => {
     if (!uniqueId) return;
     const playerId = uniqueId;
     async function loadSeason() {
       setSeasonLoading(true);
       try {
         const response: SeasonResponse = await api.playerSeason(playerId, {
-          mode: "avg"
+          mode: "avg",
+          gameMode: seasonGameMode,
+          scope: seasonGameMode === "3s" && !seasonIncludeLans ? "regional" : undefined,
+          tier: seasonGameMode === "3s" && !seasonIncludeLans ? "none" : undefined
         });
         setSeasonRows(response.rows);
       } catch (error) {
@@ -118,23 +118,25 @@ export default function PlayerPage({
     }
 
     loadSeason();
-  }, [uniqueId]);
+  }, [seasonGameMode, seasonIncludeLans, uniqueId]);
 
   useEffect(() => {
-    if (!uniqueId) return;
+    if (!uniqueId) {
+      setResults([]);
+      setResultSeasons([]);
+      setResultSeason("");
+      setResultsLoading(false);
+      return;
+    }
     const playerId = uniqueId;
     let isActive = true;
-    async function loadResultSeasons() {
-      setResultSeasonsLoading(true);
+    async function loadResults() {
+      setResultsLoading(true);
       try {
-        const response: SeasonResponse = await api.playerSeason(playerId, {
-          mode: "avg"
-        });
+        const response = await api.playerResults(playerId);
         if (!isActive) return;
-        const seasons = response.rows
-          .map((row) => row.season)
-          .filter((season): season is string => Boolean(season))
-          .reverse();
+        setResults(response.events);
+        const seasons = (response.seasons ?? []).filter(Boolean).reverse();
         setResultSeasons(seasons);
         setResultSeason((current) => {
           if (current && seasons.includes(current)) return current;
@@ -143,60 +145,26 @@ export default function PlayerPage({
       } catch (error) {
         if (!isActive) return;
         console.error(error);
+        setResults([]);
         setResultSeasons([]);
         setResultSeason("");
       } finally {
         if (!isActive) return;
-        setResultSeasonsLoading(false);
+        setResultsLoading(false);
       }
     }
 
-    loadResultSeasons();
+    loadResults();
 
     return () => {
       isActive = false;
     };
   }, [uniqueId]);
 
-  useEffect(() => {
-    if (!uniqueId || (resultsViewMode === "season" && !resultSeason)) {
-      setResults([]);
-      if (!resultSeasonsLoading) {
-        setResultsLoading(false);
-      }
-      return;
-    }
-    const playerId = uniqueId;
-    let isActive = true;
-    async function loadResultsForSeason() {
-      setResultsLoading(true);
-      try {
-        const response = await api.playerResults(
-          playerId,
-          resultsViewMode === "season"
-            ? { season: resultSeason }
-            : undefined
-        );
-        if (!isActive) return;
-        setResults(response.events);
-      } catch (error) {
-        if (!isActive) return;
-        console.error(error);
-        setResults([]);
-      } finally {
-        if (!isActive) return;
-        setResultsLoading(false);
-      }
-    }
-
-    loadResultsForSeason();
-
-    return () => {
-      isActive = false;
-    };
-  }, [uniqueId, resultSeason, resultSeasonsLoading, resultsViewMode]);
-
-  const showResultsLoading = resultSeasonsLoading || resultsLoading;
+  const visibleResults = resultsViewMode === "season"
+    ? results.filter((event) => event.season === resultSeason)
+    : results;
+  const playerHasLanEvents = results.some((event) => event.scope === "international");
 
   if (playerProfileLoading) {
     return <div className="page page-no-nav">Loading player profile...</div>;
@@ -216,7 +184,6 @@ export default function PlayerPage({
   const age = computeAge(playerProfile.dateOfBirth);
   const twitchLink = normalizeSocialLink(playerProfile.twitch, "twitch");
   const tiktokLink = normalizeSocialLink(playerProfile.tiktok, "tiktok");
-  const debutEvent = parseDebutEvent(playerProfile.debut);
   const currentTeam = playerProfile.teams[0] ?? null;
   const navigateToTeam = async (teamName: string) => {
     const rosterId = await resolveTeamRosterId(teamName);
@@ -265,16 +232,7 @@ export default function PlayerPage({
             <div>
               <span>Debut</span>
               <strong>
-                {playerProfile.debut && debutEvent ? (
-                  <Link
-                    className="inline-link"
-                    to={buildEventPath(debutEvent.event, { season: debutEvent.season, split: debutEvent.split })}
-                  >
-                    {playerProfile.debut}
-                  </Link>
-                ) : (
-                  playerProfile.debut ?? "—"
-                )}
+                {playerProfile.debut ?? "—"}
               </strong>
             </div>
             <div><span>Best Result</span><strong>{playerProfile.bestResult ?? "—"}</strong></div>
@@ -296,6 +254,33 @@ export default function PlayerPage({
         <section className="panel player-season-card">
           <div className="section-header player-season-header">
             <h2>Perf by Season</h2>
+            <div className="profile-filter-row">
+              {playerHasLanEvents && (
+                <label className="checkbox-inline">
+                  <input
+                    type="checkbox"
+                    checked={seasonIncludeLans}
+                    onChange={(e) => setSeasonIncludeLans(e.target.checked)}
+                    disabled={seasonGameMode !== "3s"}
+                  />
+                  Include LAN Events
+                </label>
+              )}
+              <select
+                value={seasonGameMode}
+                onChange={(e) => {
+                  const mode = e.target.value as "1s" | "2s" | "3s";
+                  setSeasonGameMode(mode);
+                  if (mode !== "3s") {
+                    setSeasonIncludeLans(false);
+                  }
+                }}
+              >
+                <option value="1s">1s</option>
+                <option value="2s">2s</option>
+                <option value="3s">3s</option>
+              </select>
+            </div>
           </div>
           {seasonLoading ? <div className="loading">Loading seasons...</div> : null}
           <SeasonTable rows={[...seasonRows].reverse()} />
@@ -336,9 +321,9 @@ export default function PlayerPage({
           </div>
         </div>
 
-        {showResultsLoading ? (
+        {resultsLoading ? (
           <div className="loading">Loading event results...</div>
-        ) : results.length === 0 ? (
+        ) : visibleResults.length === 0 ? (
           <div className="empty-state">
             {resultsViewMode === "season" ? "No event results found for this season." : "No event results found."}
           </div>
@@ -354,23 +339,31 @@ export default function PlayerPage({
                 </tr>
               </thead>
               <tbody>
-                {results.map((event) => {
+                {visibleResults.map((event) => {
                   const s = event.series[0];
                   const won = s?.wonSeries ?? false;
+                  const isLanResult = event.scope === "international";
                   const eventLabel = [event.split, event.event].filter(Boolean).join(" / ");
-                  const eventHref = event.event
-                    ? buildEventPath(event.event, { season: event.season, split: event.split })
+                  const eventHref = event.eventId
+                    ? buildEventPath(event.eventId)
                     : null;
-                  const placement = formatPlacement(
-                    event.placement,
-                    event.placementStart,
-                    event.placementEnd
-                  );
+                  const placement = isLanResult
+                    ? "—"
+                    : formatPlacement(
+                        event.placement,
+                        event.placementStart,
+                        event.placementEnd
+                      );
                   const isChampion =
-                    (event.placementStart === 1 && event.placementEnd === 1) || placement === "1st";
+                    !isLanResult && (
+                      (event.placementStart === 1 && event.placementEnd === 1) || placement === "1st"
+                    );
                   return (
                     <tr
-                      key={`${event.season}-${event.split}-${event.event}`}
+                      key={
+                        event.eventId ??
+                        `${event.season}-${event.split}-${event.mode}-${event.scope}-${event.tier}-${event.event}`
+                      }
                       className={won ? "results-row--win" : "results-row--loss"}
                     >
                       <td className="results-cell-event">
@@ -388,7 +381,7 @@ export default function PlayerPage({
                         </span>
                       </td>
                       <td className="results-cell-opponent">
-                        {s?.opponent ? <TeamNameWithLogo team={s.opponent} /> : "—"}
+                        {s?.opponent ? <TeamNameWithLogo team={s.opponent} link={!isLanResult} /> : "—"}
                       </td>
                       <td className="results-cell-score">
                         {s ? (

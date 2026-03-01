@@ -1,8 +1,5 @@
-import { useState } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { useMeta } from "./hooks/useMeta";
-import type { SearchResult } from "./types/api";
-import type { Filters } from "./types/ui";
 import HomePage from "./pages/HomePage";
 import ComparePage from "./pages/ComparePage";
 import PlayerPage from "./pages/PlayerPage";
@@ -14,38 +11,22 @@ import FeedbackPage from "./pages/FeedbackPage";
 import FeedbackWidget from "./components/FeedbackWidget";
 
 export default function App() {
-  const [filters, setFilters] = useState<Filters>({ season: "", split: "", event: "" });
-  const [compareMode, setCompareMode] = useState<"players" | "rosters">("players");
-  const [compareSelection, setCompareSelection] = useState<SearchResult[]>([]);
-  const navigate = useNavigate();
-
-  const { meta } = useMeta(filters);
-  const { meta: rootMeta } = useMeta({ season: "", split: "", event: "" });
-  const latestSeason = rootMeta?.seasons?.length
-    ? [...rootMeta.seasons].sort((a, b) => {
+  const { meta: baseMeta } = useMeta({
+    mode: "3s",
+    scope: "regional",
+    tier: "none",
+    season: "",
+    split: "",
+    event: ""
+  });
+  const latestSeason = baseMeta?.seasons?.length
+    ? [...baseMeta.seasons].sort((a, b) => {
         const yearA = Number.parseInt(a, 10);
         const yearB = Number.parseInt(b, 10);
         if (Number.isFinite(yearA) && Number.isFinite(yearB)) return yearA - yearB;
         return a.localeCompare(b);
-      })[rootMeta.seasons.length - 1]
+      })[baseMeta.seasons.length - 1]
     : null;
-
-  const addCompareSelection = (item: SearchResult) => {
-    if (item.type === "stat") return;
-    setCompareMode(item.type === "player" ? "players" : "rosters");
-    setCompareSelection((prev) => {
-      if (prev.some((existing) => existing.id === item.id)) return prev;
-      return [...prev, item];
-    });
-  };
-
-  const removeCompareSelection = (id: string) => {
-    setCompareSelection((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const clearCompareSelection = () => {
-    setCompareSelection([]);
-  };
 
   return (
     <div className="app-shell">
@@ -55,32 +36,16 @@ export default function App() {
             path="/"
             element={
               <HomePage
-                filters={filters}
                 latestSeason={latestSeason}
-                featuredOptions={meta?.featuredOptions ?? []}
+                featuredOptions={baseMeta?.featuredOptions ?? []}
               />
             }
           />
-          <Route
-            path="/compare"
-            element={
-              <ComparePage
-                filters={filters}
-                onFiltersChange={setFilters}
-                meta={meta}
-                compareMode={compareMode}
-                compareSelection={compareSelection}
-                onAddCompare={addCompareSelection}
-                onRemoveCompare={removeCompareSelection}
-                onClearCompare={clearCompareSelection}
-                statOptions={meta?.statOptions ?? []}
-              />
-            }
-          />
-          <Route path="/players/:uniqueId" element={<PlayerPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
-          <Route path="/rosters/:rosterId" element={<RosterPage filters={filters} meta={meta} onFiltersChange={setFilters} />} />
+          <Route path="/compare" element={<ComparePage />} />
+          <Route path="/players/:uniqueId" element={<PlayerPage />} />
+          <Route path="/rosters/:rosterId" element={<RosterPage />} />
           <Route path="/stats/:statKey" element={<StatPage />} />
-          <Route path="/events/:eventName" element={<EventPage />} />
+          <Route path="/events/:eventId" element={<EventPage />} />
           <Route path="/series" element={<SeriesPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
         </Routes>

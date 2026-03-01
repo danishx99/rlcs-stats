@@ -1,6 +1,7 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
+import { buildFilterClauses } from "../utils/filters";
 import { formatSql, loadSql } from "../utils/sql";
 import { getAllStatOptions } from "../utils/stats";
 import { playerKeyExpr, rosterCtes } from "../utils/roster";
@@ -21,6 +22,19 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
 
   try {
     const like = `%${trimmed}%`;
+    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const extraWhere = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
+
+    const playersLikeIndex = values.length + 1;
+    const playersLimitIndex = playersLikeIndex + 1;
+    const rostersLikeIndex = values.length + 1;
+    const rostersLimitIndex = rostersLikeIndex + 1;
+    const eventsLikeIndex = values.length + 1;
+    const eventsLimitIndex = eventsLikeIndex + 1;
+    const teamsLikeIndex = values.length + 1;
+    const teamsLimitIndex = teamsLikeIndex + 1;
+
     const [
       statOptions,
       playersResult,
@@ -31,18 +45,37 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
       getAllStatOptions(),
       pool.query(
         formatSql(playersSql, {
-          playerKeyExpr: playerKeyExpr("s")
+          playerKeyExpr: playerKeyExpr("s"),
+          where,
+          likeParam: `$${playersLikeIndex}`,
+          limitParam: `$${playersLimitIndex}`
         }),
-        [like, limit]
+        [...values, like, limit]
       ),
       pool.query(
         formatSql(rostersSql, {
-          rosterCtes: rosterCtes("")
+          rosterCtes: rosterCtes(where),
+          likeParam: `$${rostersLikeIndex}`,
+          limitParam: `$${rostersLimitIndex}`
         }),
-        [like, limit]
+        [...values, like, limit]
       ),
-      pool.query(eventsSql, [like, limit]),
-      pool.query(teamsSql, [like, limit])
+      pool.query(
+        formatSql(eventsSql, {
+          where: extraWhere,
+          likeParam: `$${eventsLikeIndex}`,
+          limitParam: `$${eventsLimitIndex}`
+        }),
+        [...values, like, limit]
+      ),
+      pool.query(
+        formatSql(teamsSql, {
+          where: extraWhere,
+          likeParam: `$${teamsLikeIndex}`,
+          limitParam: `$${teamsLimitIndex}`
+        }),
+        [...values, like, limit]
+      )
     ]);
 
     const lowerTrimmed = trimmed.toLowerCase();
@@ -86,12 +119,15 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
       })),
       stats: statsResults,
       events: eventsResult.rows.map((row) => ({
-        id: row.label,
+        id: row.event_id,
         label: row.label,
         type: "event",
         meta: {
           season: row.season,
-          split: row.split
+          split: row.split,
+          mode: row.mode ?? null,
+          scope: row.scope ?? null,
+          tier: row.tier ?? null
         }
       }))
     });

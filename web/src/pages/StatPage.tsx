@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { LeaderboardResponse, MetaColumnsResponse, MetaResponse } from "../types/api";
 import Leaderboard from "../components/Leaderboard";
 import StatPicker from "../components/StatPicker";
+import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
 
 export default function StatPage() {
   const { statKey } = useParams();
@@ -16,21 +17,35 @@ export default function StatPage() {
   const season = searchParams.get("season") ?? "";
   const split = searchParams.get("split") ?? "";
   const event = searchParams.get("event") ?? "";
+  const gameMode = searchParams.get("gameMode") ?? "3s";
+  const includeLans = searchParams.get("includeLans") === "1";
+  const teamsDisabled = gameMode === "1s";
 
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [columns, setColumns] = useState<MetaColumnsResponse | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const internationalEvents = meta?.internationalEvents ?? [];
+  const forceIncludeLansForEvent = gameMode === "3s" && Boolean(event) && isInternationalEvent(event, internationalEvents);
+  const effectiveIncludeLans = includeLans || forceIncludeLansForEvent;
+  const scope = gameMode === "3s" && !effectiveIncludeLans ? "regional" : "";
+  const tier = gameMode === "3s" && !effectiveIncludeLans ? "none" : "";
 
   // Load meta (cascading filters)
   useEffect(() => {
     let cancelled = false;
-    api.meta({ season: season || undefined, split: split || undefined }).then((res) => {
+    api.meta({
+      gameMode: gameMode || undefined,
+      scope: scope || undefined,
+      tier: tier || undefined,
+      season: season || undefined,
+      split: split || undefined
+    }).then((res) => {
       if (!cancelled) setMeta(res);
     }).catch(console.error);
     return () => { cancelled = true; };
-  }, [season, split]);
+  }, [gameMode, scope, season, split, tier]);
 
   // Load stat categories
   useEffect(() => {
@@ -52,6 +67,10 @@ export default function StatPage() {
       mode,
       type,
       sort: sort === "asc" ? "asc" : undefined,
+      ssaOnly: type === "player" ? "1" : undefined,
+      gameMode: gameMode || undefined,
+      scope: scope || undefined,
+      tier: tier || undefined,
       season: season || undefined,
       split: split || undefined,
       event: event || undefined,
@@ -65,7 +84,7 @@ export default function StatPage() {
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [statKey, mode, type, sort, season, split, event]);
+  }, [event, gameMode, mode, scope, season, sort, split, statKey, tier, type]);
 
   const updateParam = useCallback((key: string, value: string) => {
     setSearchParams((prev) => {
@@ -80,6 +99,12 @@ export default function StatPage() {
         next.delete("event");
       } else if (key === "split") {
         next.delete("event");
+      } else if (key === "gameMode") {
+        if (value !== "3s") next.delete("includeLans");
+        if (value === "1s") next.delete("type");
+        next.delete("season");
+        next.delete("split");
+        next.delete("event");
       }
       return next;
     });
@@ -91,6 +116,10 @@ export default function StatPage() {
   }, [navigate, searchParams]);
 
   const categories = columns?.categories ?? [];
+  const eventOptions = useMemo(
+    () => sortEventsLanLast(meta?.events ?? [], internationalEvents),
+    [internationalEvents, meta?.events]
+  );
   const selectedStatLabel = useMemo(() => {
     for (const cat of categories) {
       const found = cat.stats.find((s) => s.key === statKey);
@@ -129,6 +158,7 @@ export default function StatPage() {
             type="button"
             className={`tab${type === "team" ? " active" : ""}`}
             onClick={() => updateParam("type", "team")}
+            disabled={teamsDisabled}
           >
             Teams
           </button>
@@ -178,6 +208,23 @@ export default function StatPage() {
         </button>
 
         <div className="stat-page-filters">
+          <label className="checkbox-inline">
+            <input
+              type="checkbox"
+              checked={effectiveIncludeLans}
+              onChange={(e) => updateParam("includeLans", e.target.checked ? "1" : "")}
+              disabled={gameMode !== "3s" || forceIncludeLansForEvent}
+            />
+            Include LAN Events
+          </label>
+          <select
+            value={gameMode}
+            onChange={(e) => updateParam("gameMode", e.target.value)}
+          >
+            {(meta?.modes ?? ["1s", "2s", "3s"]).map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
           <select
             value={season}
             onChange={(e) => updateParam("season", e.target.value)}
@@ -199,11 +246,25 @@ export default function StatPage() {
           </select>
           <select
             value={event}
-            onChange={(e) => updateParam("event", e.target.value)}
+            onChange={(e) => {
+              const selectedEvent = e.target.value;
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                if (selectedEvent) {
+                  next.set("event", selectedEvent);
+                } else {
+                  next.delete("event");
+                }
+                if (gameMode === "3s" && selectedEvent && isInternationalEvent(selectedEvent, internationalEvents)) {
+                  next.set("includeLans", "1");
+                }
+                return next;
+              });
+            }}
             disabled={!season}
           >
             <option value="">All Events</option>
-            {(meta?.events ?? []).map((e) => (
+            {eventOptions.map((e) => (
               <option key={e} value={e}>{e}</option>
             ))}
           </select>

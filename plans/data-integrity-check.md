@@ -2,6 +2,7 @@
 
 ## Purpose
 Run a repeatable, audit-only integrity check over the `stats` table to detect structural and winner-consistency issues in RLCS match data.
+The default audit scope is **regional 3s only** (`mode = '3s'`, `scope = 'regional'`), excluding LAN/international and 1s/2s.
 
 This check does **not** mutate data and does **not** block ingestion yet. It is used to decide whether a dataset passes integrity standards.
 
@@ -81,3 +82,4 @@ After each major dataset refresh:
 ## Notes
 - This suite intentionally audits by raw `Match ID` for 3v3 shape checks because that is the unit used to encode a game row set.
 - Derived series checks (`C08`, `C09`) use metadata + team pairing and are audit signals, not authoritative source truth.
+- To audit other tracks/scopes, temporarily adjust the `base_stats` filter in `sql/data-integrity.sql`.

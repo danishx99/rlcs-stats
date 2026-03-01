@@ -17,24 +17,34 @@ export function parseListParam(value: string | null) {
     .filter(Boolean);
 }
 
-export function buildFilterClauses(params: URLSearchParams, alias = "s") {
+type FilterKey = "season" | "split" | "event" | "gameMode" | "scope" | "tier";
+
+const FILTER_COLUMNS: Record<FilterKey, string> = {
+  season: "Season",
+  split: "Split",
+  event: "Event",
+  gameMode: "mode",
+  scope: "scope",
+  tier: "tier"
+};
+
+function columnRef(alias: string, column: string) {
+  return alias ? `${alias}."${column}"` : `"${column}"`;
+}
+
+export function buildFilterClauses(
+  params: URLSearchParams,
+  alias = "s",
+  keys: FilterKey[] = ["season", "split", "event", "gameMode", "scope", "tier"]
+) {
   const clauses: string[] = [];
   const values: string[] = [];
-  const season = normalizeFilter(params.get("season"));
-  const split = normalizeFilter(params.get("split"));
-  const event = normalizeFilter(params.get("event"));
 
-  if (season) {
-    clauses.push(`LOWER(TRIM(${alias}."Season")) = LOWER($${values.length + 1})`);
-    values.push(season);
-  }
-  if (split) {
-    clauses.push(`LOWER(TRIM(${alias}."Split")) = LOWER($${values.length + 1})`);
-    values.push(split);
-  }
-  if (event) {
-    clauses.push(`LOWER(TRIM(${alias}."Event")) = LOWER($${values.length + 1})`);
-    values.push(event);
+  for (const key of keys) {
+    const value = normalizeFilter(params.get(key));
+    if (!value) continue;
+    clauses.push(`LOWER(TRIM(${columnRef(alias, FILTER_COLUMNS[key])})) = LOWER($${values.length + 1})`);
+    values.push(value);
   }
 
   return { clauses, values };

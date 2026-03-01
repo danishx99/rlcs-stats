@@ -29,6 +29,13 @@ player_stats AS (
   FROM stats_base
   WHERE player_key = {{playerIdParam}}
 ),
+player_stats_3s AS (
+  SELECT *
+  FROM player_stats
+  WHERE LOWER(TRIM("mode")) = '3s'
+    AND "Team" IS NOT NULL
+    AND TRIM("Team") <> ''
+),
 first_appearance AS (
   SELECT
     "Season" AS debut_season,
@@ -280,7 +287,7 @@ stats_summary AS (
     (SELECT placement FROM best_result) AS best_result,
     (SELECT ARRAY_AGG(sub.team ORDER BY sub.latest_date DESC NULLS LAST) FROM (
       SELECT "Team" AS team, MAX("Date") AS latest_date
-      FROM player_stats
+      FROM player_stats_3s
       GROUP BY "Team"
     ) sub) AS teams,
     COUNT(*) AS games,

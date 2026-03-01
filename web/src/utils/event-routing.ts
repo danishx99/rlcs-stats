@@ -1,14 +1,5 @@
-export type EventRouteOptions = {
-  season?: string | null;
-  split?: string | null;
-};
-
-export function buildEventPath(eventName: string, options?: EventRouteOptions) {
-  const params = new URLSearchParams();
-  if (options?.season) params.set("season", options.season);
-  if (options?.split) params.set("split", options.split);
-  const query = params.toString();
-  return `/events/${encodeURIComponent(eventName)}${query ? `?${query}` : ""}`;
+export function buildEventPath(eventId: string) {
+  return `/events/${encodeURIComponent(eventId)}`;
 }
 
 export function parseDebutEvent(value: string | null | undefined) {

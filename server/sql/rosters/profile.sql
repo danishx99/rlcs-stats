@@ -43,6 +43,7 @@ series_meta AS (
   WHERE s.series_id IS NOT NULL
     AND s."Team" IS NOT NULL
     AND TRIM(s."Team") <> ''
+    {{where}}
   GROUP BY s.series_id, UPPER(TRIM(s."Team"))
 ),
 grouped_series AS (

@@ -125,7 +125,6 @@ export async function handlePlayerResults(
   try {
     const result = await pool.query(
       formatSql(playerResultsSql, {
-        playerKeyExpr: playerKeyExpr("s"),
         where,
         playerIdParam: `$${playerIndex}`
       }),
@@ -140,7 +139,11 @@ export async function handlePlayerResults(
       season: row.season,
       split: row.split,
       event: row.event,
+      eventId: row.event_id ?? null,
       team: row.team ?? null,
+      mode: row.mode ?? null,
+      scope: row.scope ?? null,
+      tier: row.tier ?? null,
       placementStart:
         row.placement_start === null || row.placement_start === undefined
           ? null

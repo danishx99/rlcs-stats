@@ -25,18 +25,21 @@ function normalizeTeamGroupId(rawId: string) {
 export async function handleRosterProfile(
   _req: IncomingMessage,
   res: ServerResponse,
-  _url: URL,
+  url: URL,
   rosterId: string
 ) {
   const rosterKey = normalizeTeamGroupId(rosterId);
-  const rosterIndex = 1;
+  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const where = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
+  const rosterIndex = values.length + 1;
 
   try {
     const result = await pool.query(
       formatSql(rosterProfileSql, {
-        rosterIdParam: `$${rosterIndex}`
+        rosterIdParam: `$${rosterIndex}`,
+        where
       }),
-      [rosterKey]
+      [...values, rosterKey]
     );
 
     if (!result.rows.length) {

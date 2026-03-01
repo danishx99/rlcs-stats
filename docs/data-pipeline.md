@@ -54,7 +54,7 @@ For each dataset, lists files in `<dir>/<dataSubdir>/` matching the glob pattern
 
 ### 5. File-Level Deduplication / Replacement
 
-Before processing a file, the loader computes its SHA-256 hash and checks `file_ingest` for a matching `(table_name, file_name, file_hash)` tuple. If found, the file is skipped entirely. This check is bypassed when `--limit` is set.
+Before processing a file, the loader computes its SHA-256 hash and checks `file_ingest` for a matching `(table_name, file_name, file_hash, ingest_version)` tuple. If found, the file is skipped entirely. This check is bypassed when `--limit` is set.
 
 For non-custom datasets (`matches`, `players`, `teams`), changed files are treated as replacements:
 - Existing rows for the same canonical source file are deleted first (`source_file`, normalizing copy suffixes like ` (3)`).
@@ -67,7 +67,7 @@ When `--sync` is enabled, rows/files that no longer exist on disk are removed so
 
 Each file is streamed row-by-row using `csv-parse` (via `src/util/csv.ts`). On the first row:
 
-1. **Header normalization** — The players dataset applies alias mapping (e.g., `playerid` → `Player ID`, `photourl` → `Photo URL`). The matches dataset uses headers as-is.
+1. **Header normalization** — The players dataset applies alias mapping (e.g., `playerid` → `Unique ID`, `photourl` → `Photo URL`). The matches dataset uses headers as-is.
 2. **Header truncation** — The players dataset stops at the `Photo URL` column, discarding anything after it.
 3. **Empty header filtering** — Columns with blank headers are dropped.
 4. **Duplicate detection** — Throws if normalized headers contain duplicates.
@@ -86,7 +86,7 @@ Rows are inserted in batches via multi-row `INSERT ... ON CONFLICT (row_hash) DO
 
 ### 7. Record File Ingest
 
-After successfully processing a file (not in dry-run or limit mode), `file_ingest` is upserted with the file name, SHA-256 hash, size, and row counts.
+After successfully processing a file (not in dry-run or limit mode), `file_ingest` is upserted with the file name, SHA-256 hash, ingest version, size, and row counts.
 
 ### 8. Series ID Backfill
 
@@ -118,7 +118,8 @@ The pipeline deduplicates at two levels:
 
 ### File-Level
 
-Each CSV file is hashed with SHA-256. Before processing, the hash is checked against `file_ingest(table_name, file_hash)`. If the file was already ingested, it is skipped. This prevents re-processing the same file across multiple runs.
+Each CSV file is hashed with SHA-256. Before processing, the hash is checked against `file_ingest(table_name, file_name, file_hash, ingest_version)`. If the file was already ingested for the current ingest version, it is skipped.
+`ingest_version` is generated from loader/schema source files (or overridden via `INGEST_VERSION`) so parser logic changes can trigger automatic re-processing even when CSV bytes are unchanged.
 
 ### Row-Level
 
@@ -233,7 +234,7 @@ The remaining ~260 columns are performance metrics partitioned by zone (`_All Zo
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | `BIGSERIAL` | Primary key |
-| `Player ID` | `TEXT` | Platform player ID |
+| `Unique ID` | `TEXT` | RLCS unique player identifier used for stats joins |
 | `Primary Handle` | `TEXT` | Primary in-game handle |
 | `All Aliases` | `TEXT` | Other known handles |
 | `Real Name` | `TEXT` | Real name |
@@ -255,6 +256,7 @@ The remaining ~260 columns are performance metrics partitioned by zone (`_All Zo
 | `table_name` | `TEXT` | Target table (`stats` or `players`) |
 | `file_name` | `TEXT` | Source CSV filename |
 | `file_hash` | `TEXT` | SHA-256 of the file contents |
+| `ingest_version` | `TEXT` | Loader/schema fingerprint used for skip decisions |
 | `file_size` | `BIGINT` | File size in bytes |
 | `row_count` | `INTEGER` | Total rows in the file |
 | `inserted` | `INTEGER` | Rows inserted |
@@ -262,7 +264,7 @@ The remaining ~260 columns are performance metrics partitioned by zone (`_All Zo
 | `errored` | `INTEGER` | Rows with coercion errors |
 | `ingested_at` | `TIMESTAMPTZ` | Ingestion timestamp |
 
-Unique index on `(table_name, file_hash)` prevents re-ingesting the same file.
+Unique index on `(table_name, file_name)` stores the latest ingest metadata per source file.
 
 ## Source Files
 

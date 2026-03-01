@@ -2,6 +2,9 @@ WITH base AS (
   SELECT
     s.series_id,
     s."Date"::date AS match_date,
+    TRIM(s."mode") AS mode,
+    TRIM(s."scope") AS scope,
+    TRIM(s."tier") AS tier,
     TRIM(s."Season") AS season,
     TRIM(s."Split") AS split,
     TRIM(s."Event") AS event,
@@ -24,6 +27,9 @@ series_meta AS (
   SELECT
     b.series_id,
     MIN(b.match_date) AS date,
+    MIN(NULLIF(b.mode, '')) AS mode,
+    MIN(NULLIF(b.scope, '')) AS scope,
+    MIN(NULLIF(b.tier, '')) AS tier,
     MIN(NULLIF(b.season, '')) AS season,
     MIN(NULLIF(b.split, '')) AS split,
     MIN(NULLIF(b.event, '')) AS event,
@@ -108,6 +114,9 @@ series_totals AS (
   SELECT
     sm.series_id,
     sm.date,
+    sm.mode,
+    sm.scope,
+    sm.tier,
     sm.season,
     sm.split,
     sm.event,
@@ -125,6 +134,9 @@ series_totals AS (
   GROUP BY
     sm.series_id,
     sm.date,
+    sm.mode,
+    sm.scope,
+    sm.tier,
     sm.season,
     sm.split,
     sm.event,
@@ -174,7 +186,18 @@ games_json AS (
 )
 SELECT
   st.series_id,
+  md5(
+    LOWER(TRIM(COALESCE(st.season, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(st.split, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(st.event, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(st.mode, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(st.scope, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(st.tier, '')))
+  ) AS event_id,
   st.date,
+  st.mode,
+  st.scope,
+  st.tier,
   st.season,
   st.split,
   st.event,

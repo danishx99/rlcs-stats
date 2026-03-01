@@ -203,8 +203,8 @@ export const api = {
   standings(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<StandingsResponse>("/api/standings", params);
   },
-  eventDetail(eventName: string, params?: Record<string, string | number | boolean | null | undefined>) {
-    return fetchJson<EventDetailResponse>(`/api/events/${encodeURIComponent(eventName)}`, params);
+  eventDetail(eventId: string, params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<EventDetailResponse>(`/api/events/${encodeURIComponent(eventId)}`, params);
   },
   insights(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<InsightsResponse>("/api/insights", params);

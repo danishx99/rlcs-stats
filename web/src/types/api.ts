@@ -4,27 +4,43 @@ export type StatOption = {
   format?: "int" | "float" | "pct";
 };
 
+export type TrackMode = "1s" | "2s" | "3s";
+export type TrackScope = "regional" | "international";
+export type TrackTier = "none" | "major" | "worlds";
+
 export type MetaResponse = {
   generatedAt: string;
+  modes: TrackMode[];
+  scopes: TrackScope[];
+  tiers: TrackTier[];
   seasons: string[];
   splits: string[];
   events: string[];
+  internationalEvents?: string[];
   statOptions: StatOption[];
   featuredOptions?: StatOption[];
 };
 
 export type SeriesMetaResponse = {
   generatedAt: string;
+  mode?: string | null;
+  scope?: string | null;
+  tier?: string | null;
   seasons: string[];
   splits: string[];
   events: string[];
+  internationalEvents?: string[];
   stages: string[];
   teams: string[];
 };
 
 export type SeriesListRow = {
   seriesId: string;
+  eventId: string | null;
   date: string | null;
+  mode: string | null;
+  scope: string | null;
+  tier: string | null;
   season: string | null;
   split: string | null;
   event: string | null;
@@ -70,6 +86,9 @@ export type SearchResult = {
     realName?: string | null;
     season?: string | null;
     split?: string | null;
+    mode?: string | null;
+    scope?: string | null;
+    tier?: string | null;
   };
 };
 
@@ -185,6 +204,7 @@ export type CompareHistoryRow = {
   season: string | null;
   split: string | null;
   event: string | null;
+  event_id?: string | null;
   stage: string | null;
   round: string | null;
   teams: CompareHistoryTeam[] | null;
@@ -287,6 +307,10 @@ export type PlayerResultEvent = {
   season: string;
   split: string;
   event: string;
+  eventId?: string | null;
+  mode?: string | null;
+  scope?: string | null;
+  tier?: string | null;
   placementStart: number | null;
   placementEnd: number | null;
   placement: string | null;
@@ -299,9 +323,13 @@ export type PlayerResultsResponse = {
 };
 
 export type EventDetail = {
+  id: string;
   name: string;
   season: string | null;
   split: string | null;
+  mode: string | null;
+  scope: string | null;
+  tier: string | null;
   minDate: string | null;
   maxDate: string | null;
   totalSeries: number;
@@ -310,6 +338,8 @@ export type EventDetail = {
 
 export type EventTeam = {
   team: string;
+  uniqueId?: string | null;
+  photoUrl?: string | null;
   deepRound: string | null;
   roundDepth: number;
   wonDeepest: boolean;

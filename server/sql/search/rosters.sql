@@ -5,7 +5,7 @@ roster_match AS (
     team,
     COUNT(*) AS series_count
   FROM series_roster
-  WHERE team ILIKE $1
+  WHERE team ILIKE {{likeParam}}
   GROUP BY roster_id, team
 ),
 roster_starters AS (
@@ -34,4 +34,4 @@ SELECT DISTINCT ON (roster_id)
    LIMIT 1) AS logo_url
 FROM roster_match
 ORDER BY roster_id, series_count DESC, team
-LIMIT $2;
+LIMIT {{limitParam}};

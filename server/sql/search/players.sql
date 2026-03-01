@@ -9,6 +9,7 @@ WITH base AS (
     s."Player Name" AS player_name
   FROM stats s
   LEFT JOIN players p ON p."Unique ID" = {{playerKeyExpr}}
+  {{where}}
 )
 SELECT DISTINCT ON (player_key)
   player_key AS id,
@@ -17,9 +18,9 @@ SELECT DISTINCT ON (player_key)
   photo_url,
   country
 FROM base
-WHERE label ILIKE $1
-   OR aliases ILIKE $1
-   OR real_name ILIKE $1
-   OR player_name ILIKE $1
+WHERE label ILIKE {{likeParam}}
+   OR aliases ILIKE {{likeParam}}
+   OR real_name ILIKE {{likeParam}}
+   OR player_name ILIKE {{likeParam}}
 ORDER BY player_key, label
-LIMIT $2;
+LIMIT {{limitParam}};

@@ -5,25 +5,23 @@ import type { Filters } from "../types/ui";
 
 export function useMeta(filters: Filters) {
   const [meta, setMeta] = useState<MetaResponse | null>(null);
-  const [metaError, setMetaError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function loadMeta() {
       try {
         const response = await api.meta({
+          gameMode: filters.mode || undefined,
+          scope: filters.scope || undefined,
+          tier: filters.tier || undefined,
           season: filters.season || undefined,
           split: filters.split || undefined
         });
         if (!cancelled) {
           setMeta(response);
-          setMetaError(null);
         }
       } catch (error) {
         console.error(error);
-        if (!cancelled) {
-          setMetaError("Failed to load metadata");
-        }
       }
     }
 
@@ -32,7 +30,7 @@ export function useMeta(filters: Filters) {
     return () => {
       cancelled = true;
     };
-  }, [filters.season, filters.split]);
+  }, [filters.mode, filters.scope, filters.tier, filters.season, filters.split]);
 
-  return { meta, metaError };
+  return { meta };
 }

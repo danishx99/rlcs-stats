@@ -29,7 +29,7 @@ export default function CompareHistory({ rows, page, totalPages, onPageChange }:
           const teams = row.teams ?? [];
           const teamA = teams[0];
           const teamB = teams[1];
-          const eventHref = row.event ? buildEventPath(row.event, { season: row.season, split: row.split }) : null;
+          const eventHref = row.event_id ? buildEventPath(row.event_id) : null;
           const { prefix, event, suffix } = seriesLabelParts(row);
           return (
             <div key={row.series_id} className="history-card">

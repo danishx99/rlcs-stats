@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS stats (
   "Season" TEXT,
   "Split" TEXT,
   "Event" TEXT,
+  "mode" TEXT NOT NULL DEFAULT '3s',
+  "scope" TEXT NOT NULL DEFAULT 'regional',
+  "tier" TEXT NOT NULL DEFAULT 'none',
   "Day" INTEGER,
   "Stage" TEXT,
   "Round" TEXT,
@@ -287,7 +290,66 @@ CREATE TABLE IF NOT EXISTS stats (
 
 export const addStatsColumnsSql = `
 ALTER TABLE stats
-  ADD COLUMN IF NOT EXISTS "Event" TEXT;
+  ADD COLUMN IF NOT EXISTS "Event" TEXT,
+  ADD COLUMN IF NOT EXISTS "mode" TEXT NOT NULL DEFAULT '3s',
+  ADD COLUMN IF NOT EXISTS "scope" TEXT NOT NULL DEFAULT 'regional',
+  ADD COLUMN IF NOT EXISTS "tier" TEXT NOT NULL DEFAULT 'none';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'stats_mode_check'
+      AND conrelid = 'stats'::regclass
+  ) THEN
+    ALTER TABLE stats
+      ADD CONSTRAINT stats_mode_check CHECK ("mode" IN ('1s', '2s', '3s'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'stats_scope_check'
+      AND conrelid = 'stats'::regclass
+  ) THEN
+    ALTER TABLE stats
+      ADD CONSTRAINT stats_scope_check CHECK ("scope" IN ('regional', 'international'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'stats_tier_check'
+      AND conrelid = 'stats'::regclass
+  ) THEN
+    ALTER TABLE stats
+      ADD CONSTRAINT stats_tier_check CHECK ("tier" IN ('none', 'major', 'worlds'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'stats_scope_tier_check'
+      AND conrelid = 'stats'::regclass
+  ) THEN
+    ALTER TABLE stats
+      ADD CONSTRAINT stats_scope_tier_check CHECK (
+        ("scope" = 'regional' AND "tier" = 'none')
+        OR
+        ("scope" = 'international' AND "tier" IN ('major', 'worlds'))
+      );
+  END IF;
+END $$;
 `;
 
 export const addStatsTableCommentsSql = `
@@ -301,6 +363,9 @@ COMMENT ON COLUMN stats."Match ID" IS 'Match identifier from source data.';
 COMMENT ON COLUMN stats."Season" IS 'Season label.';
 COMMENT ON COLUMN stats."Split" IS 'Season split label.';
 COMMENT ON COLUMN stats."Event" IS 'Event name for LAN or special tournaments.';
+COMMENT ON COLUMN stats."mode" IS 'Competition mode: 1s, 2s, or 3s.';
+COMMENT ON COLUMN stats."scope" IS 'Competition scope: regional or international.';
+COMMENT ON COLUMN stats."tier" IS 'International tier: major/worlds, or none for regional scope.';
 COMMENT ON COLUMN stats."Day" IS 'Event day number.';
 COMMENT ON COLUMN stats."Stage" IS 'Event stage name.';
 COMMENT ON COLUMN stats."Round" IS 'Round number or label.';
@@ -569,7 +634,7 @@ COMMENT ON COLUMN stats."Boost Gained from Big Boosts_All Zones" IS 'Boost gaine
 COMMENT ON COLUMN stats."Boost Gained from Big Boosts_Defense Zone" IS 'Boost gained from big boosts after overfill in the defense zone.';
 COMMENT ON COLUMN stats."Boost Gained from Big Boosts_Neutral Zone" IS 'Boost gained from big boosts after overfill in the neutral zone.';
 COMMENT ON COLUMN stats."Boost Gained from Big Boosts_Offense Zone" IS 'Boost gained from big boosts after overfill in the offense zone.';
-COMMENT ON COLUMN stats."series_id" IS 'Materialized semantic series identifier: md5 of (Season|Split|Event|Day|Stage|Round|Best of|team_a|team_b).';
+COMMENT ON COLUMN stats."series_id" IS 'Materialized semantic series identifier: md5 of (mode|scope|tier|Season|Split|Event|Day|Stage|Round|Best of|team_a|team_b).';
 COMMENT ON COLUMN stats."source_file" IS 'Source filename for the ingested row.';
 COMMENT ON COLUMN stats."ingested_at" IS 'Timestamp when the row was ingested.';
 COMMENT ON COLUMN stats."row_hash" IS 'Deterministic hash for the row contents.';

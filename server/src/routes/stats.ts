@@ -22,6 +22,10 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
   }
 
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const ssaOnly = url.searchParams.get("ssaOnly") === "1";
+  if (ssaOnly && type === "player") {
+    clauses.push(`UPPER(TRIM(s."Unique ID")) LIKE 'SSA-%'`);
+  }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
   const minSeries = Number.parseInt(url.searchParams.get("minSeries") ?? "0", 10);

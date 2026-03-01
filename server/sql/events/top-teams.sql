@@ -4,6 +4,9 @@ WITH base_scope AS (
   WHERE LOWER(TRIM("Event")) = LOWER($1)
     AND ($2::text IS NULL OR LOWER(TRIM("Season")) = LOWER($2))
     AND ($3::text IS NULL OR LOWER(TRIM("Split")) = LOWER($3))
+    AND ($4::text IS NULL OR LOWER(TRIM("mode")) = LOWER($4))
+    AND ($5::text IS NULL OR LOWER(TRIM("scope")) = LOWER($5))
+    AND ($6::text IS NULL OR LOWER(TRIM("tier")) = LOWER($6))
     AND "Team" IS NOT NULL
     AND TRIM("Team") <> ''
 ),
@@ -14,6 +17,13 @@ has_playoffs AS (
     WHERE LOWER(TRIM("Stage")) = 'playoffs'
   ) AS yes
 ),
+event_meta AS (
+  SELECT
+    MIN(LOWER(TRIM("mode"))) AS mode,
+    MIN(LOWER(TRIM("scope"))) AS scope,
+    MIN(LOWER(TRIM("tier"))) AS tier
+  FROM base_scope
+),
 scoped_playoff AS (
   SELECT b.*
   FROM base_scope b
@@ -23,7 +33,16 @@ scoped_playoff AS (
 ),
 team_rounds AS (
   SELECT
-    UPPER(TRIM("Team")) AS team_norm,
+    CASE
+      WHEN LOWER(TRIM("mode")) = '1s' AND COALESCE(TRIM("Unique ID"), '') <> '' THEN UPPER(TRIM("Unique ID"))
+      ELSE UPPER(TRIM("Team"))
+    END AS participant_norm,
+    MIN(
+      CASE
+        WHEN LOWER(TRIM("mode")) = '1s' THEN NULLIF(TRIM("Unique ID"), '')
+        ELSE NULL
+      END
+    ) AS unique_id,
     MIN(TRIM("Team")) AS team,
     UPPER(TRIM("Round")) AS rnd,
     MAX("Date") AS round_date,
@@ -76,18 +95,24 @@ team_rounds AS (
   FROM scoped_playoff
   WHERE "Round" IS NOT NULL
     AND TRIM("Round") <> ''
-  GROUP BY UPPER(TRIM("Team")), UPPER(TRIM("Round"))
+  GROUP BY
+    CASE
+      WHEN LOWER(TRIM("mode")) = '1s' AND COALESCE(TRIM("Unique ID"), '') <> '' THEN UPPER(TRIM("Unique ID"))
+      ELSE UPPER(TRIM("Team"))
+    END,
+    UPPER(TRIM("Round"))
 ),
 team_latest AS (
-  SELECT DISTINCT ON (team_norm)
-    team_norm,
+  SELECT DISTINCT ON (participant_norm)
+    participant_norm,
+    unique_id,
     team,
     rnd AS deep_round,
     depth AS round_depth,
     round_date,
     won_round AS won_deepest
   FROM team_rounds
-  ORDER BY team_norm, depth DESC, round_date DESC NULLS LAST
+  ORDER BY participant_norm, depth DESC, round_date DESC NULLS LAST
 ),
 classified AS (
   SELECT
@@ -140,7 +165,8 @@ elim_ranges AS (
 ),
 playoff_placed AS (
   SELECT
-    pb.team_norm,
+    pb.participant_norm,
+    pb.unique_id,
     pb.team,
     pb.deep_round,
     pb.round_depth,
@@ -165,7 +191,16 @@ playoff_anchor AS (
 ),
 non_playoff_game_results AS (
   SELECT
-    UPPER(TRIM(bs."Team")) AS team_norm,
+    CASE
+      WHEN LOWER(TRIM(bs."mode")) = '1s' AND COALESCE(TRIM(bs."Unique ID"), '') <> '' THEN UPPER(TRIM(bs."Unique ID"))
+      ELSE UPPER(TRIM(bs."Team"))
+    END AS participant_norm,
+    MIN(
+      CASE
+        WHEN LOWER(TRIM(bs."mode")) = '1s' THEN NULLIF(TRIM(bs."Unique ID"), '')
+        ELSE NULL
+      END
+    ) AS unique_id,
     MIN(TRIM(bs."Team")) AS team,
     UPPER(TRIM(bs."Round")) AS rnd,
     bs.series_id,
@@ -218,21 +253,28 @@ non_playoff_game_results AS (
   JOIN has_playoffs hp
     ON hp.yes
   LEFT JOIN playoff_placed pp
-    ON pp.team_norm = UPPER(TRIM(bs."Team"))
+    ON pp.participant_norm = CASE
+      WHEN LOWER(TRIM(bs."mode")) = '1s' AND COALESCE(TRIM(bs."Unique ID"), '') <> '' THEN UPPER(TRIM(bs."Unique ID"))
+      ELSE UPPER(TRIM(bs."Team"))
+    END
   WHERE bs.series_id IS NOT NULL
     AND bs."Round" IS NOT NULL
     AND TRIM(bs."Round") <> ''
-    AND pp.team_norm IS NULL
+    AND pp.participant_norm IS NULL
     AND NOT (LOWER(TRIM(bs."Stage")) LIKE '%playoff%')
   GROUP BY
-    UPPER(TRIM(bs."Team")),
+    CASE
+      WHEN LOWER(TRIM(bs."mode")) = '1s' AND COALESCE(TRIM(bs."Unique ID"), '') <> '' THEN UPPER(TRIM(bs."Unique ID"))
+      ELSE UPPER(TRIM(bs."Team"))
+    END,
     UPPER(TRIM(bs."Round")),
     bs.series_id,
     bs."Game Number"
 ),
 non_playoff_series_results AS (
   SELECT
-    team_norm,
+    participant_norm,
+    MAX(unique_id) AS unique_id,
     team,
     rnd,
     depth,
@@ -241,11 +283,12 @@ non_playoff_series_results AS (
     MAX(match_date) AS match_date,
     SUM(CASE WHEN game_won THEN 1 ELSE 0 END) AS wins
   FROM non_playoff_game_results
-  GROUP BY team_norm, team, rnd, depth, series_id
+  GROUP BY participant_norm, team, rnd, depth, series_id
 ),
 non_playoff_losses AS (
   SELECT
-    team_norm,
+    participant_norm,
+    unique_id,
     team,
     rnd,
     depth,
@@ -257,7 +300,8 @@ non_playoff_losses AS (
 ),
 non_playoff_elimination AS (
   SELECT
-    ranked.team_norm,
+    ranked.participant_norm,
+    ranked.unique_id,
     ranked.team,
     ranked.rnd AS deep_round,
     ranked.depth AS round_depth
@@ -265,8 +309,8 @@ non_playoff_elimination AS (
     SELECT
       npl.*,
       ROW_NUMBER() OVER (
-        PARTITION BY npl.team_norm
-        ORDER BY npl.match_date DESC NULLS LAST, npl.depth DESC, npl.series_id DESC
+        PARTITION BY npl.participant_norm
+        ORDER BY npl.depth DESC, npl.match_date DESC NULLS LAST, npl.series_id DESC
       ) AS rn
     FROM non_playoff_losses npl
   ) ranked
@@ -294,7 +338,8 @@ non_playoff_ranges AS (
 ),
 non_playoff_placed AS (
   SELECT
-    npe.team_norm,
+    npe.participant_norm,
+    npe.unique_id,
     npe.team,
     npe.deep_round,
     npe.round_depth,
@@ -306,14 +351,54 @@ non_playoff_placed AS (
     ON npr.round_depth = npe.round_depth
 ),
 all_placed AS (
-  SELECT team_norm, team, deep_round, round_depth, won_deepest, placement_start, placement_end
+  SELECT participant_norm, unique_id, team, deep_round, round_depth, won_deepest, placement_start, placement_end
   FROM playoff_placed
   UNION ALL
-  SELECT team_norm, team, deep_round, round_depth, won_deepest, placement_start, placement_end
+  SELECT participant_norm, unique_id, team, deep_round, round_depth, won_deepest, placement_start, placement_end
   FROM non_playoff_placed
+),
+lan_group_overrides AS (
+  SELECT
+    ap.participant_norm,
+    CASE ap.round_depth
+      WHEN 26 THEN 13
+      WHEN 28 THEN 9
+      WHEN 30 THEN 5
+      ELSE NULL
+    END AS placement_start,
+    CASE ap.round_depth
+      WHEN 26 THEN 16
+      WHEN 28 THEN 12
+      WHEN 30 THEN 8
+      ELSE NULL
+    END AS placement_end
+  FROM all_placed ap
+  CROSS JOIN has_playoffs hp
+  CROSS JOIN event_meta em
+  WHERE NOT hp.yes
+    AND em.mode = '3s'
+    AND em.scope = 'international'
+    AND em.tier IN ('major', 'worlds')
+    AND ap.won_deepest = false
+    AND ap.round_depth IN (26, 28, 30)
+),
+final_placed AS (
+  SELECT
+    ap.participant_norm,
+    ap.unique_id,
+    ap.team,
+    ap.deep_round,
+    ap.round_depth,
+    ap.won_deepest,
+    COALESCE(lgo.placement_start, ap.placement_start) AS placement_start,
+    COALESCE(lgo.placement_end, ap.placement_end) AS placement_end
+  FROM all_placed ap
+  LEFT JOIN lan_group_overrides lgo
+    ON lgo.participant_norm = ap.participant_norm
 )
 SELECT
   p.team,
+  p.unique_id,
   p.deep_round,
   p.round_depth,
   p.won_deepest,
@@ -324,8 +409,14 @@ SELECT
     FROM team_profiles tp
     WHERE UPPER(tp."Team Name") = UPPER(p.team)
     LIMIT 1
-  ) AS logo_url
-FROM all_placed p
+  ) AS logo_url,
+  (
+    SELECT pl."Photo URL"
+    FROM players pl
+    WHERE UPPER(TRIM(pl."Unique ID")) = UPPER(TRIM(p.unique_id))
+    LIMIT 1
+  ) AS photo_url
+FROM final_placed p
 WHERE p.placement_start < 999
 ORDER BY p.placement_start ASC, p.placement_end ASC, p.round_depth DESC, p.team ASC
-LIMIT $4;
+LIMIT $7;

@@ -39,7 +39,7 @@ export type DatasetConfig = {
 };
 
 const playerHeaderAliases = new Map<string, string>([
-  ["playerid", "Player ID"],
+  ["playerid", "Unique ID"],
   ["primaryhandle", "Primary Handle"],
   ["aka", "aka"],
   ["allaliases", "All Aliases"],

@@ -14,12 +14,13 @@ import { formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
 import PlayerNameWithPhoto from "./PlayerNameWithPhoto";
 import TeamNameWithLogo from "./TeamNameWithLogo";
+import type { Filters } from "../types/ui";
 
 export type ComparePanelProps = {
   compareMode: "players" | "rosters";
   compareSelection: SearchResult[];
   onRemove: (id: string) => void;
-  filters: { season: string; split: string; event: string };
+  filters: Filters;
   statOptions: StatOption[];
   compareMetrics: string[];
 };
@@ -86,6 +87,9 @@ export default function ComparePanel({
           ids: compareIds.join(","),
           metrics: compareMetricsList,
           mode: "avg",
+          gameMode: filters.mode || undefined,
+          scope: filters.scope || undefined,
+          tier: filters.tier || undefined,
           season: filters.season || undefined,
           split: filters.split || undefined,
           event: filters.event || undefined
@@ -100,7 +104,7 @@ export default function ComparePanel({
     }
 
     loadCompare();
-  }, [compareIds, compareMetricsList, compareMode, filters.event, filters.season, filters.split]);
+  }, [compareIds, compareMetricsList, compareMode, filters.event, filters.mode, filters.scope, filters.season, filters.split, filters.tier]);
 
   useEffect(() => {
     async function loadHistory() {
@@ -115,6 +119,9 @@ export default function ComparePanel({
         const response = await api.compareHistory({
           type: compareMode,
           ids: compareIdsKey,
+          gameMode: filters.mode || undefined,
+          scope: filters.scope || undefined,
+          tier: filters.tier || undefined,
           season: filters.season || undefined,
           split: filters.split || undefined,
           event: filters.event || undefined,
@@ -139,8 +146,11 @@ export default function ComparePanel({
     compareMode,
     compareSelection.length,
     filters.event,
+    filters.mode,
+    filters.scope,
     filters.season,
-    filters.split
+    filters.split,
+    filters.tier
   ]);
 
   const bestValues = useMemo(() => {
@@ -265,7 +275,9 @@ export default function ComparePanel({
                     const teams = row.teams ?? [];
                     const teamA = teams[0];
                     const teamB = teams[1];
-                    const eventHref = row.event ? buildEventPath(row.event, { season: row.season, split: row.split }) : null;
+                    const eventHref = row.event_id
+                      ? buildEventPath(row.event_id)
+                      : null;
                     const { prefix, event, suffix } = seriesLabelParts(row);
                     const eventMetaLabel = [row.season, row.split, row.event].filter(Boolean).join(" · ");
                     const entityLabel = (team?: CompareHistoryTeam) => {

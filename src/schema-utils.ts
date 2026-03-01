@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS file_ingest (
   table_name TEXT NOT NULL DEFAULT 'stats',
   file_name TEXT NOT NULL,
   file_hash TEXT NOT NULL,
+  ingest_version TEXT NOT NULL DEFAULT '',
   file_size BIGINT NOT NULL,
   row_count INTEGER NOT NULL,
   inserted INTEGER NOT NULL,
@@ -40,6 +41,8 @@ CREATE TABLE IF NOT EXISTS file_ingest (
 
 ALTER TABLE file_ingest
   ADD COLUMN IF NOT EXISTS table_name TEXT NOT NULL DEFAULT 'stats';
+ALTER TABLE file_ingest
+  ADD COLUMN IF NOT EXISTS ingest_version TEXT NOT NULL DEFAULT '';
 
 DROP INDEX IF EXISTS file_ingest_hash_uq;
 DROP INDEX IF EXISTS file_ingest_table_hash_uq;

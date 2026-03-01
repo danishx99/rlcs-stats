@@ -13,7 +13,7 @@ roster_scope AS (
 SELECT
   roster_scope.roster_id AS id,
   roster_names.roster_name AS label,
-  COUNT(*) AS games,
+  COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game Number")) AS games,
   {{metricSelect}}
 FROM roster_scope
 LEFT JOIN roster_names ON roster_names.roster_id = roster_scope.roster_id

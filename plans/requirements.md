@@ -86,7 +86,7 @@
 
 ## Data Integrity & Ingestion
 - ✅ Full data reload approach accepted for `Event` migration (no legacy backfill requirement for production)
-- [ ] Zero-out known series completeness anomalies in source data before final production publish
+- ✅ Zero-out known series completeness anomalies in source data before final production publish
 - ✅ Fix incorrect placement calculations on player profile page (event placement and best result are currently wrong)
 - ✅ Fix event page result placements (e.g. `/events/Regional%20Event%201?season=2021-22&split=Fall` shows incorrect placements)
 
@@ -96,11 +96,12 @@
 - [ ] Make overall UI more compact
 - ✅ Add better placeholder icons for missing team logos and player photos
 - [ ] Redesign the Team page UI
-- [ ] Improve general UX across the app
+- [ ] Improve general UX across the app (especially loading experience)
 
 ### Data & Content
-- [ ] Add 1v1 and Majors data to the database
+- ✅ Add 1v1 and Majors data to the database
 - ✅ Ensure player aliases are listed (sourced from CSV `AKA` column)
+- ✅ Add Stat page filter to exclude non-SSA players (currently included by default; default should be SSA-only)
 
 ### Home Additions
 - ✅ Rotating featured players from common stats (rating, goals, saves, demos, shots, assists)
@@ -124,9 +125,13 @@
 - ✅ Show current team with clickable link
 - ✅ Results view should support season-specific and all-time mode
 - ✅ Player results and best result placement now use event-team placement logic (aligned with Event page placements)
+- [ON HOLD] Fix player placement accuracy for LAN events when only SSA-involved match slices are available
 
 ### Admin
 - [ ] Admin option to update player/team info
+
+### New Pages
+- [ ] Add a dedicated LAN events page view
 
 ### Infrastructure
 - ✅ Universal linking across app content:

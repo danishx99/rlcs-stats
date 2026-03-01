@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
-import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { basename, join, relative } from "node:path";
 import { createHash } from "node:crypto";
 import type { Client } from "pg";
 import { connectDb } from "./db";
@@ -16,6 +16,16 @@ import type { ColumnSpec, ColumnType, FileReport } from "./util/types";
 
 const DEFAULT_DIR = "./data";
 const DEFAULT_PATTERN = "*.csv";
+const INGEST_FINGERPRINT_SOURCES = [
+  "src/run.ts",
+  "src/load-csv.ts",
+  "src/datasets.ts",
+  "src/stats-schema.ts",
+  "src/players-schema.ts",
+  "src/teams-schema.ts",
+  "src/standings-schema.ts",
+  "src/brackets-schema.ts"
+];
 
 type CliOptions = {
   dir: string;
@@ -28,6 +38,12 @@ type CliOptions = {
   sync: boolean;
   allowNewColumns: boolean;
   dataset?: string;
+};
+
+type StatsTrack = {
+  mode: "1s" | "2s" | "3s";
+  scope: "regional" | "international";
+  tier: "none" | "major" | "worlds";
 };
 
 function parseArgs(argv: string[]): CliOptions {
@@ -145,11 +161,12 @@ async function isFileIngested(
   client: Client,
   tableName: string,
   fileName: string,
-  fileHash: string
+  fileHash: string,
+  ingestVersion: string
 ): Promise<boolean> {
   const result = await client.query(
-    "SELECT 1 FROM file_ingest WHERE table_name = $1 AND file_name = $2 AND file_hash = $3 LIMIT 1;",
-    [tableName, fileName, fileHash]
+    "SELECT 1 FROM file_ingest WHERE table_name = $1 AND file_name = $2 AND file_hash = $3 AND ingest_version = $4 LIMIT 1;",
+    [tableName, fileName, fileHash, ingestVersion]
   );
   return (result.rowCount ?? 0) > 0;
 }
@@ -160,15 +177,17 @@ async function recordFileIngest(
   fileName: string,
   report: FileReport,
   fileHash: string,
-  fileSize: number
+  fileSize: number,
+  ingestVersion: string
 ): Promise<void> {
   await client.query(
     `
-    INSERT INTO file_ingest (table_name, file_name, file_hash, file_size, row_count, inserted, skipped, errored)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO file_ingest (table_name, file_name, file_hash, ingest_version, file_size, row_count, inserted, skipped, errored)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     ON CONFLICT (table_name, file_name) DO UPDATE
     SET
       file_hash = EXCLUDED.file_hash,
+      ingest_version = EXCLUDED.ingest_version,
       file_size = EXCLUDED.file_size,
       row_count = EXCLUDED.row_count,
       inserted = EXCLUDED.inserted,
@@ -180,6 +199,7 @@ async function recordFileIngest(
       tableName,
       fileName,
       fileHash,
+      ingestVersion,
       fileSize,
       report.totalRows,
       report.inserted,
@@ -187,6 +207,32 @@ async function recordFileIngest(
       report.errored
     ]
   );
+}
+
+async function resolveIngestVersion(): Promise<string> {
+  const explicit = (process.env.INGEST_VERSION ?? "").trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const hash = createHash("sha256");
+  for (const filePath of INGEST_FINGERPRINT_SOURCES) {
+    try {
+      const content = await readFile(filePath);
+      hash.update(filePath);
+      hash.update("\u0000");
+      hash.update(content);
+      hash.update("\u0000");
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (code === "ENOENT") {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return `auto-${hash.digest("hex").slice(0, 12)}`;
 }
 
 type SeriesIdCoverage = {
@@ -332,18 +378,92 @@ async function syncDatasetSources(
 }
 
 async function listFiles(dir: string, pattern: string): Promise<string[]> {
-  let entries: string[] = [];
-  try {
-    entries = await readdir(dir);
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException)?.code;
-    if (code === "ENOENT") {
-      return [];
-    }
-    throw error;
-  }
   const regex = patternToRegex(pattern);
-  return entries.filter((name) => regex.test(name)).map((name) => join(dir, name));
+  async function walk(currentDir: string): Promise<string[]> {
+    let entries: string[] = [];
+    try {
+      entries = await readdir(currentDir, { encoding: "utf8" });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (code === "ENOENT") {
+        return [];
+      }
+      throw error;
+    }
+
+    const files: string[] = [];
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry);
+      const entryStat = await stat(fullPath);
+      if (entryStat.isDirectory()) {
+        files.push(...(await walk(fullPath)));
+        continue;
+      }
+      if (entryStat.isFile() && regex.test(entry)) {
+        files.push(fullPath);
+      }
+    }
+    return files;
+  }
+
+  const files = await walk(dir);
+  files.sort((a, b) => a.localeCompare(b));
+  return files;
+}
+
+function normalizePathForDb(path: string): string {
+  return path.replace(/\\/g, "/");
+}
+
+function getSourceFileName(datasetDir: string, filePath: string): string {
+  const relPath = normalizePathForDb(relative(datasetDir, filePath));
+  return normalizeSourceFileName(relPath);
+}
+
+function classifyInternationalTier(pathOrName: string): "major" | "worlds" | null {
+  const lowered = pathOrName.toLowerCase();
+  if (lowered.includes("worlds")) return "worlds";
+  if (lowered.includes("major")) return "major";
+  return null;
+}
+
+function getStatsTrack(datasetDir: string, filePath: string): StatsTrack {
+  const relPath = normalizePathForDb(relative(datasetDir, filePath));
+  const parts = relPath.split("/").filter(Boolean);
+  if (parts.length === 0) {
+    throw new Error(`Unable to classify stats track for file: ${filePath}`);
+  }
+
+  const modePart = parts[0]?.toLowerCase();
+  if (modePart === "1s") {
+    return { mode: "1s", scope: "regional", tier: "none" };
+  }
+  if (modePart === "2s") {
+    return { mode: "2s", scope: "regional", tier: "none" };
+  }
+  if (modePart !== "3s") {
+    throw new Error(
+      `Unrecognized mode folder "${parts[0]}" for stats file "${relPath}". Expected 1s, 2s, or 3s.`
+    );
+  }
+
+  const scopePart = parts[1]?.toLowerCase();
+  if (scopePart === "regional") {
+    return { mode: "3s", scope: "regional", tier: "none" };
+  }
+  if (scopePart !== "international") {
+    throw new Error(
+      `Unrecognized 3s scope folder "${parts[1] ?? ""}" for stats file "${relPath}". Expected 3s/regional or 3s/international.`
+    );
+  }
+
+  const tier = classifyInternationalTier(relPath);
+  if (!tier) {
+    throw new Error(
+      `Could not classify international tier (major/worlds) for stats file "${relPath}". Include "major" or "worlds" in path or filename.`
+    );
+  }
+  return { mode: "3s", scope: "international", tier };
 }
 
 async function main(): Promise<void> {
@@ -351,12 +471,14 @@ async function main(): Promise<void> {
   const datasets = resolveDatasets(options.dataset);
   const hasStatsDataset = datasets.some((dataset) => dataset.tableName === "stats");
   const client = await connectDb();
+  const ingestVersion = await resolveIngestVersion();
 
   try {
     console.log("Connected to DB");
     console.log(
       `Ingestion start: datasets=${datasets.map((dataset) => dataset.key).join(", ")}, dryRun=${options.dryRun}, truncate=${options.truncate}, sync=${options.sync}`
     );
+    console.log(`Ingest version: ${ingestVersion}`);
     console.log("Ensuring schema...");
     await client.query(createFileIngestTableSql);
     for (const dataset of datasets) {
@@ -374,6 +496,13 @@ async function main(): Promise<void> {
       if (dataset.tableName === "stats") {
         await client.query(`ALTER TABLE stats ADD COLUMN IF NOT EXISTS series_id TEXT`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_series_id ON stats (series_id)`);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_stats_pending_series_match
+          ON stats ("Match ID")
+          WHERE series_id IS NULL
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_track ON stats ("mode", "scope", "tier")`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_track_event ON stats ("mode", "scope", "tier", "Season", "Split", "Event")`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_match_team ON stats ("Match ID", "Team")`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_unique_id ON stats ("Unique ID")`);
         await client.query(`
@@ -429,7 +558,7 @@ async function main(): Promise<void> {
       const datasetDir = join(options.dir, dataset.dataSubdir);
       const files = await listFiles(datasetDir, options.pattern);
       const canonicalSourceFiles = Array.from(
-        new Set(files.map((filePath) => normalizeSourceFileName(basename(filePath))))
+        new Set(files.map((filePath) => getSourceFileName(datasetDir, filePath)))
       );
       console.log(`[${dataset.label}] scanning ${datasetDir}: ${files.length} files matched`);
 
@@ -462,13 +591,16 @@ async function main(): Promise<void> {
         const fileStats = await stat(filePath);
         const fileHash = await computeFileHash(filePath);
         const fileName = basename(filePath);
-        const sourceFileName = normalizeSourceFileName(fileName);
+        const sourceFileName = getSourceFileName(datasetDir, filePath);
+        const statsTrack = dataset.tableName === "stats"
+          ? getStatsTrack(datasetDir, filePath)
+          : undefined;
 
-        if (!options.limit && (await isFileIngested(client, dataset.tableName, sourceFileName, fileHash))) {
+        if (!options.limit && (await isFileIngested(client, dataset.tableName, sourceFileName, fileHash, ingestVersion))) {
           const skippedReport: FileReport = {
             fileName,
             status: "skipped",
-            skipReason: "already ingested",
+            skipReason: `already ingested (${ingestVersion})`,
             fileHash,
             totalRows: 0,
             inserted: 0,
@@ -517,7 +649,8 @@ async function main(): Promise<void> {
             headerNormalizer: dataset.headerNormalizer,
             ignoreCoercionErrors: dataset.ignoreCoercionErrors,
             stopAfterHeader: dataset.stopAfterHeader,
-            denormalize: dataset.denormalize
+            denormalize: dataset.denormalize,
+            statsTrack
           });
           report.fileHash = fileHash;
           report.dataset = dataset.key;
@@ -533,7 +666,8 @@ async function main(): Promise<void> {
               sourceFileName,
               report,
               fileHash,
-              fileStats.size
+              fileStats.size,
+              ingestVersion
             );
             if (dataset.tableName === "stats") {
               statsMutated = true;

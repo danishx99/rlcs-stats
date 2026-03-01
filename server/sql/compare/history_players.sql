@@ -10,6 +10,9 @@ WITH player_rows AS (
     s."Season",
     s."Split",
     s."Event",
+    s."mode",
+    s."scope",
+    s."tier",
     s."Best of ",
     s."Game Number",
     s."Victory",
@@ -30,6 +33,9 @@ h2h_series AS (
     a."Season",
     a."Split",
     a."Event",
+    TRIM(a."mode") AS mode,
+    TRIM(a."scope") AS scope,
+    TRIM(a."tier") AS tier,
     MAX(a."Best of ") OVER (PARTITION BY a.series_id) AS best_of,
     LEAST(a.team, b.team) AS team_a,
     GREATEST(a.team, b.team) AS team_b
@@ -115,6 +121,9 @@ totals AS (
     h."Season",
     h."Split",
     h."Event",
+    h.mode,
+    h.scope,
+    h.tier,
     h.team_a,
     h.team_b,
     COUNT(*) FILTER (WHERE gw.winner_team = h.team_a) AS team_a_wins,
@@ -123,7 +132,19 @@ totals AS (
   FROM h2h_series h
   LEFT JOIN game_winners gw
     ON gw.series_id = h.series_id
-  GROUP BY h.series_id, h.match_date, h."Round", h."Stage", h."Season", h."Split", h."Event", h.team_a, h.team_b
+  GROUP BY
+    h.series_id,
+    h.match_date,
+    h."Round",
+    h."Stage",
+    h."Season",
+    h."Split",
+    h."Event",
+    h.mode,
+    h.scope,
+    h.tier,
+    h.team_a,
+    h.team_b
 ),
 series_entities AS (
   SELECT
@@ -150,6 +171,14 @@ SELECT
   t."Season" AS season,
   t."Split" AS split,
   t."Event" AS event,
+  md5(
+    LOWER(TRIM(COALESCE(t."Season", ''))) || '|' ||
+    LOWER(TRIM(COALESCE(t."Split", ''))) || '|' ||
+    LOWER(TRIM(COALESCE(t."Event", ''))) || '|' ||
+    LOWER(TRIM(COALESCE(t.mode, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(t.scope, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(t.tier, '')))
+  ) AS event_id,
   t."Stage" AS stage,
   t."Round" AS round,
   t.team_a,

@@ -1,16 +1,14 @@
 -- Per-event tournament results for a player
 -- Returns placement + series detail for each event, grouped by season
 WITH stats_base AS (
-  SELECT
-    s.*,
-    {{playerKeyExpr}} AS player_key
+  SELECT s.*
   FROM stats s
   {{where}}
 ),
 player_stats AS (
   SELECT *
   FROM stats_base
-  WHERE player_key = {{playerIdParam}}
+  WHERE UPPER(TRIM("Unique ID")) = UPPER(TRIM({{playerIdParam}}))
     AND series_id IS NOT NULL
 ),
 available_seasons AS (
@@ -56,23 +54,36 @@ player_events AS (
     TRIM(event) AS event
   FROM series_summary
 ),
-player_event_team AS (
+player_event_participant AS (
   SELECT
     season,
     split,
     event,
+    (ARRAY_AGG(participant_norm ORDER BY latest_date DESC NULLS LAST, participant_norm))[1] AS participant_norm,
     (ARRAY_AGG(team ORDER BY latest_date DESC NULLS LAST, team))[1] AS team
   FROM (
     SELECT
-      season,
-      split,
-      event,
-      TRIM(team) AS team,
-      MAX(match_date) AS latest_date
-    FROM series_summary
-    WHERE team IS NOT NULL
-      AND TRIM(team) <> ''
-    GROUP BY season, split, event, TRIM(team)
+      TRIM("Season") AS season,
+      TRIM("Split") AS split,
+      TRIM("Event") AS event,
+      CASE
+        WHEN LOWER(TRIM("mode")) = '1s' AND COALESCE(TRIM("Unique ID"), '') <> '' THEN UPPER(TRIM("Unique ID"))
+        ELSE UPPER(TRIM("Team"))
+      END AS participant_norm,
+      TRIM("Team") AS team,
+      MAX("Date") AS latest_date
+    FROM player_stats
+    WHERE "Team" IS NOT NULL
+      AND TRIM("Team") <> ''
+    GROUP BY
+      TRIM("Season"),
+      TRIM("Split"),
+      TRIM("Event"),
+      CASE
+        WHEN LOWER(TRIM("mode")) = '1s' AND COALESCE(TRIM("Unique ID"), '') <> '' THEN UPPER(TRIM("Unique ID"))
+        ELSE UPPER(TRIM("Team"))
+      END,
+      TRIM("Team")
   ) t
   GROUP BY season, split, event
 ),
@@ -95,6 +106,17 @@ event_has_playoffs AS (
   FROM event_base_scope
   GROUP BY TRIM("Season"), TRIM("Split"), TRIM("Event")
 ),
+event_meta AS (
+  SELECT
+    TRIM("Season") AS season,
+    TRIM("Split") AS split,
+    TRIM("Event") AS event,
+    MIN(LOWER(TRIM("mode"))) AS mode,
+    MIN(LOWER(TRIM("scope"))) AS scope,
+    MIN(LOWER(TRIM("tier"))) AS tier
+  FROM event_base_scope
+  GROUP BY TRIM("Season"), TRIM("Split"), TRIM("Event")
+),
 event_scoped AS (
   SELECT ebs.*
   FROM event_base_scope ebs
@@ -110,7 +132,10 @@ event_team_rounds AS (
     TRIM("Season") AS season,
     TRIM("Split") AS split,
     TRIM("Event") AS event,
-    UPPER(TRIM("Team")) AS team_norm,
+    CASE
+      WHEN LOWER(TRIM("mode")) = '1s' AND COALESCE(TRIM("Unique ID"), '') <> '' THEN UPPER(TRIM("Unique ID"))
+      ELSE UPPER(TRIM("Team"))
+    END AS participant_norm,
     MIN(TRIM("Team")) AS team,
     UPPER(TRIM("Round")) AS rnd,
     MAX("Date") AS round_date,
@@ -163,21 +188,29 @@ event_team_rounds AS (
   FROM event_scoped
   WHERE "Round" IS NOT NULL
     AND TRIM("Round") <> ''
-  GROUP BY TRIM("Season"), TRIM("Split"), TRIM("Event"), UPPER(TRIM("Team")), UPPER(TRIM("Round"))
+  GROUP BY
+    TRIM("Season"),
+    TRIM("Split"),
+    TRIM("Event"),
+    CASE
+      WHEN LOWER(TRIM("mode")) = '1s' AND COALESCE(TRIM("Unique ID"), '') <> '' THEN UPPER(TRIM("Unique ID"))
+      ELSE UPPER(TRIM("Team"))
+    END,
+    UPPER(TRIM("Round"))
 ),
 event_team_latest AS (
-  SELECT DISTINCT ON (season, split, event, team_norm)
+  SELECT DISTINCT ON (season, split, event, participant_norm)
     season,
     split,
     event,
-    team_norm,
+    participant_norm,
     team,
     rnd AS deep_round,
     depth AS round_depth,
     round_date,
     won_round AS won_deepest
   FROM event_team_rounds
-  ORDER BY season, split, event, team_norm, depth DESC, round_date DESC NULLS LAST
+  ORDER BY season, split, event, participant_norm, depth DESC, round_date DESC NULLS LAST
 ),
 event_classified AS (
   SELECT
@@ -243,7 +276,7 @@ event_team_placements AS (
     epb.season,
     epb.split,
     epb.event,
-    epb.team_norm,
+    epb.participant_norm,
     epb.team,
     CASE
       WHEN epb.is_champion THEN 1
@@ -276,7 +309,10 @@ event_non_playoff_game_results AS (
     TRIM(ebs."Season") AS season,
     TRIM(ebs."Split") AS split,
     TRIM(ebs."Event") AS event,
-    UPPER(TRIM(ebs."Team")) AS team_norm,
+    CASE
+      WHEN LOWER(TRIM(ebs."mode")) = '1s' AND COALESCE(TRIM(ebs."Unique ID"), '') <> '' THEN UPPER(TRIM(ebs."Unique ID"))
+      ELSE UPPER(TRIM(ebs."Team"))
+    END AS participant_norm,
     MIN(TRIM(ebs."Team")) AS team,
     UPPER(TRIM(ebs."Round")) AS rnd,
     ebs.series_id,
@@ -335,17 +371,23 @@ event_non_playoff_game_results AS (
     ON etp.season IS NOT DISTINCT FROM TRIM(ebs."Season")
    AND etp.split IS NOT DISTINCT FROM TRIM(ebs."Split")
    AND etp.event IS NOT DISTINCT FROM TRIM(ebs."Event")
-   AND etp.team_norm = UPPER(TRIM(ebs."Team"))
+   AND etp.participant_norm = CASE
+     WHEN LOWER(TRIM(ebs."mode")) = '1s' AND COALESCE(TRIM(ebs."Unique ID"), '') <> '' THEN UPPER(TRIM(ebs."Unique ID"))
+     ELSE UPPER(TRIM(ebs."Team"))
+   END
   WHERE ebs.series_id IS NOT NULL
     AND ebs."Round" IS NOT NULL
     AND TRIM(ebs."Round") <> ''
-    AND etp.team_norm IS NULL
+    AND etp.participant_norm IS NULL
     AND NOT (LOWER(TRIM(ebs."Stage")) LIKE '%playoff%')
   GROUP BY
     TRIM(ebs."Season"),
     TRIM(ebs."Split"),
     TRIM(ebs."Event"),
-    UPPER(TRIM(ebs."Team")),
+    CASE
+      WHEN LOWER(TRIM(ebs."mode")) = '1s' AND COALESCE(TRIM(ebs."Unique ID"), '') <> '' THEN UPPER(TRIM(ebs."Unique ID"))
+      ELSE UPPER(TRIM(ebs."Team"))
+    END,
     UPPER(TRIM(ebs."Round")),
     ebs.series_id,
     ebs."Game Number"
@@ -355,7 +397,7 @@ event_non_playoff_series_results AS (
     season,
     split,
     event,
-    team_norm,
+    participant_norm,
     team,
     rnd,
     depth,
@@ -364,14 +406,14 @@ event_non_playoff_series_results AS (
     MAX(match_date) AS match_date,
     SUM(CASE WHEN game_won THEN 1 ELSE 0 END) AS wins
   FROM event_non_playoff_game_results
-  GROUP BY season, split, event, team_norm, team, rnd, depth, series_id
+  GROUP BY season, split, event, participant_norm, team, rnd, depth, series_id
 ),
 event_non_playoff_losses AS (
   SELECT
     season,
     split,
     event,
-    team_norm,
+    participant_norm,
     team,
     rnd,
     depth,
@@ -385,15 +427,15 @@ event_non_playoff_elimination AS (
     ranked.season,
     ranked.split,
     ranked.event,
-    ranked.team_norm,
+    ranked.participant_norm,
     ranked.team,
     ranked.depth AS elimination_depth
   FROM (
     SELECT
       enl.*,
       ROW_NUMBER() OVER (
-        PARTITION BY enl.season, enl.split, enl.event, enl.team_norm
-        ORDER BY enl.match_date DESC NULLS LAST, enl.depth DESC, enl.series_id DESC
+        PARTITION BY enl.season, enl.split, enl.event, enl.participant_norm
+        ORDER BY enl.depth DESC, enl.match_date DESC NULLS LAST, enl.series_id DESC
       ) AS rn
     FROM event_non_playoff_losses enl
     WHERE enl.depth > 0
@@ -436,7 +478,7 @@ event_non_playoff_placements AS (
     enpe.season,
     enpe.split,
     enpe.event,
-    enpe.team_norm,
+    enpe.participant_norm,
     enpe.team,
     enpr.placement_start,
     enpr.placement_start + enpr.team_count - 1 AS placement_end
@@ -448,18 +490,73 @@ event_non_playoff_placements AS (
    AND enpr.elimination_depth = enpe.elimination_depth
 ),
 event_all_placements AS (
-  SELECT season, split, event, team_norm, team, placement_start, placement_end
+  SELECT season, split, event, participant_norm, team, placement_start, placement_end
   FROM event_team_placements
   UNION ALL
-  SELECT season, split, event, team_norm, team, placement_start, placement_end
+  SELECT season, split, event, participant_norm, team, placement_start, placement_end
   FROM event_non_playoff_placements
+),
+event_lan_group_overrides AS (
+  SELECT
+    eap.season,
+    eap.split,
+    eap.event,
+    eap.participant_norm,
+    CASE etl.round_depth
+      WHEN 26 THEN 13
+      WHEN 28 THEN 9
+      WHEN 30 THEN 5
+      ELSE NULL
+    END AS placement_start,
+    CASE etl.round_depth
+      WHEN 26 THEN 16
+      WHEN 28 THEN 12
+      WHEN 30 THEN 8
+      ELSE NULL
+    END AS placement_end
+  FROM event_all_placements eap
+  JOIN event_team_latest etl
+   ON etl.season IS NOT DISTINCT FROM eap.season
+   AND etl.split IS NOT DISTINCT FROM eap.split
+   AND etl.event IS NOT DISTINCT FROM eap.event
+   AND etl.participant_norm = eap.participant_norm
+  JOIN event_has_playoffs ehp
+    ON ehp.season IS NOT DISTINCT FROM eap.season
+   AND ehp.split IS NOT DISTINCT FROM eap.split
+   AND ehp.event IS NOT DISTINCT FROM eap.event
+  JOIN event_meta em
+    ON em.season IS NOT DISTINCT FROM eap.season
+   AND em.split IS NOT DISTINCT FROM eap.split
+   AND em.event IS NOT DISTINCT FROM eap.event
+  WHERE NOT ehp.has_playoffs
+    AND em.mode = '3s'
+    AND em.scope = 'international'
+    AND em.tier IN ('major', 'worlds')
+    AND etl.won_deepest = false
+    AND etl.round_depth IN (26, 28, 30)
+),
+event_final_placements AS (
+  SELECT
+    eap.season,
+    eap.split,
+    eap.event,
+    eap.participant_norm,
+    eap.team,
+    COALESCE(elgo.placement_start, eap.placement_start) AS placement_start,
+    COALESCE(elgo.placement_end, eap.placement_end) AS placement_end
+  FROM event_all_placements eap
+  LEFT JOIN event_lan_group_overrides elgo
+    ON elgo.season IS NOT DISTINCT FROM eap.season
+   AND elgo.split IS NOT DISTINCT FROM eap.split
+   AND elgo.event IS NOT DISTINCT FROM eap.event
+   AND elgo.participant_norm = eap.participant_norm
 ),
 event_placement AS (
   SELECT
-    pet.season,
-    pet.split,
-    pet.event,
-    pet.team,
+    pep.season,
+    pep.split,
+    pep.event,
+    pep.team,
     eap.placement_start,
     eap.placement_end,
     CASE
@@ -469,12 +566,12 @@ event_placement AS (
       WHEN eap.placement_start < eap.placement_end THEN CONCAT('Top ', eap.placement_start::text, '-', eap.placement_end::text)
       ELSE NULL
     END AS placement
-  FROM player_event_team pet
-  LEFT JOIN event_all_placements eap
-    ON eap.season IS NOT DISTINCT FROM pet.season
-   AND eap.split IS NOT DISTINCT FROM pet.split
-   AND eap.event IS NOT DISTINCT FROM pet.event
-   AND eap.team_norm = UPPER(TRIM(pet.team))
+  FROM player_event_participant pep
+  LEFT JOIN event_final_placements eap
+    ON eap.season IS NOT DISTINCT FROM pep.season
+   AND eap.split IS NOT DISTINCT FROM pep.split
+   AND eap.event IS NOT DISTINCT FROM pep.event
+   AND eap.participant_norm = pep.participant_norm
 ),
 series_detail AS (
   SELECT
@@ -536,42 +633,72 @@ series_detail AS (
     ) AS rn
   FROM series_winners sw
   LEFT JOIN opponent_summary os ON sw.series_id = os.series_id
+),
+series_by_event AS (
+  SELECT
+    sd.season,
+    sd.split,
+    sd.event,
+    JSON_AGG(
+      JSON_BUILD_OBJECT(
+        'series_id', sd.series_id,
+        'round', sd.round,
+        'stage', sd.stage,
+        'opponent', sd.opponent,
+        'player_wins', sd.player_wins,
+        'opponent_wins', sd.opponent_wins,
+        'best_of', sd.best_of,
+        'won_series', sd.won_series,
+        'date', sd.match_date
+      )
+      ORDER BY sd.match_date ASC NULLS LAST
+    ) AS series
+  FROM series_detail sd
+  WHERE sd.rn = 1
+  GROUP BY sd.season, sd.split, sd.event
+),
+event_latest_dates AS (
+  SELECT season, split, event, MAX(match_date) AS latest_date
+  FROM series_summary
+  GROUP BY season, split, event
+),
+available_seasons_json AS (
+  SELECT JSON_AGG(a.season) AS available_seasons
+  FROM available_seasons a
 )
 SELECT
   ep.season,
   ep.split,
   ep.event,
+  md5(
+    LOWER(TRIM(COALESCE(ep.season, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(ep.split, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(ep.event, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(em.mode, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(em.scope, ''))) || '|' ||
+    LOWER(TRIM(COALESCE(em.tier, '')))
+  ) AS event_id,
   ep.team,
+  em.mode,
+  em.scope,
+  em.tier,
   ep.placement_start,
   ep.placement_end,
   ep.placement,
-  (
-    SELECT JSON_AGG(sub ORDER BY sub.date ASC NULLS LAST)
-    FROM (
-      SELECT
-        sd.series_id,
-        sd.round,
-        sd.stage,
-        sd.opponent,
-        sd.player_wins,
-        sd.opponent_wins,
-        sd.best_of,
-        sd.won_series,
-        sd.match_date AS date
-      FROM series_detail sd
-      WHERE sd.season IS NOT DISTINCT FROM ep.season
-        AND sd.split IS NOT DISTINCT FROM ep.split
-        AND sd.event IS NOT DISTINCT FROM ep.event
-        AND sd.rn = 1
-    ) sub
-  ) AS series,
-  (SELECT JSON_AGG(a.season) FROM available_seasons a) AS available_seasons
+  sbe.series,
+  asj.available_seasons
 FROM event_placement ep
-LEFT JOIN (
-  SELECT season, split, event, MAX(match_date) AS latest_date
-  FROM series_summary
-  GROUP BY season, split, event
-) ed ON ep.season IS NOT DISTINCT FROM ed.season
+LEFT JOIN series_by_event sbe
+  ON sbe.season IS NOT DISTINCT FROM ep.season
+ AND sbe.split IS NOT DISTINCT FROM ep.split
+ AND sbe.event IS NOT DISTINCT FROM ep.event
+LEFT JOIN event_latest_dates ed
+  ON ep.season IS NOT DISTINCT FROM ed.season
    AND ep.split IS NOT DISTINCT FROM ed.split
    AND ep.event IS NOT DISTINCT FROM ed.event
+LEFT JOIN event_meta em
+  ON em.season IS NOT DISTINCT FROM ep.season
+ AND em.split IS NOT DISTINCT FROM ep.split
+ AND em.event IS NOT DISTINCT FROM ep.event
+CROSS JOIN available_seasons_json asj
 ORDER BY ed.latest_date DESC NULLS LAST;

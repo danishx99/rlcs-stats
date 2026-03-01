@@ -4,85 +4,76 @@ import type { Client } from "pg";
 import { streamCsvRows } from "./util/csv";
 import type { ColumnSpec, ColumnType, FileReport, RowError } from "./util/types";
 
-function buildSeriesScopeClause(scoped: boolean): string {
-  if (!scoped) return "";
-  return ` AND "Match ID" = ANY($1::text[])`;
-}
-
-function buildTwoTeamSeriesUpdateSql(scoped: boolean): string {
-  const scope = buildSeriesScopeClause(scoped);
+function buildSeriesUpdateSql(scoped: boolean): string {
+  const scopeFilter = scoped ? `AND s."Match ID" = ANY($1::text[])` : "";
   return `
-WITH target_matches AS (
-  SELECT DISTINCT "Match ID" AS match_id
-  FROM stats
-  WHERE series_id IS NULL${scope}
+WITH match_agg AS (
+  SELECT
+    s."Match ID" AS match_id,
+    MIN(NULLIF(TRIM(s."Team"), '')) AS team_a,
+    MAX(NULLIF(TRIM(s."Team"), '')) AS team_b,
+    COUNT(DISTINCT UPPER(TRIM(s."Team"))) AS team_count,
+    MIN(NULLIF(s."mode", '')) AS mode,
+    MIN(NULLIF(s."scope", '')) AS scope,
+    MIN(NULLIF(s."tier", '')) AS tier,
+    MIN(s."Season") AS season,
+    MIN(NULLIF(s."Split", '')) AS split,
+    MIN(NULLIF(s."Event", '')) AS event,
+    MIN(s."Day")::text AS day,
+    MIN(NULLIF(s."Stage", '')) AS stage,
+    MIN(NULLIF(s."Round", '')) AS round,
+    MAX(s."Best of ")::text AS best_of
+  FROM stats s
+  WHERE s.series_id IS NULL
+    AND s."Match ID" IS NOT NULL
+    AND TRIM(s."Match ID") <> ''
+    AND s."Team" IS NOT NULL
+    AND TRIM(s."Team") <> ''
+    ${scopeFilter}
+  GROUP BY s."Match ID"
 ),
-match_agg AS (
+match_series AS (
   SELECT
-    "Match ID" AS match_id,
-    MIN("Team") AS team_a,
-    MAX("Team") AS team_b,
-    MIN("Season") AS season,
-    MIN(NULLIF("Split", '')) AS split,
-    MIN(NULLIF("Event", '')) AS event,
-    MIN("Day")::text AS day,
-    MIN(NULLIF("Stage", '')) AS stage,
-    MIN(NULLIF("Round", '')) AS round,
-    MAX("Best of ")::text AS best_of
-  FROM stats
-  WHERE "Match ID" IN (SELECT match_id FROM target_matches)
-    AND "Team" IS NOT NULL
-    AND "Team" <> ''
-  GROUP BY "Match ID"
-  HAVING COUNT(DISTINCT "Team") = 2
+    ma.match_id,
+    CASE
+      WHEN ma.team_count = 2 THEN md5(
+        COALESCE(ma.mode, '') || '|' ||
+        COALESCE(ma.scope, '') || '|' ||
+        COALESCE(ma.tier, '') || '|' ||
+        COALESCE(ma.season, '') || '|' ||
+        COALESCE(ma.split, '') || '|' ||
+        COALESCE(ma.event, '') || '|' ||
+        COALESCE(ma.day, '') || '|' ||
+        COALESCE(ma.stage, '') || '|' ||
+        COALESCE(ma.round, '') || '|' ||
+        COALESCE(ma.best_of, '') || '|' ||
+        COALESCE(ma.team_a, '') || '|' ||
+        COALESCE(ma.team_b, '')
+      )
+      WHEN ma.team_count = 1 THEN md5(
+        COALESCE(ma.mode, '') || '|' ||
+        COALESCE(ma.scope, '') || '|' ||
+        COALESCE(ma.tier, '') || '|' ||
+        COALESCE(ma.season, '') || '|' ||
+        COALESCE(ma.split, '') || '|' ||
+        COALESCE(ma.event, '') || '|' ||
+        COALESCE(ma.day, '') || '|' ||
+        COALESCE(ma.stage, '') || '|' ||
+        COALESCE(ma.round, '') || '|' ||
+        COALESCE(ma.best_of, '') || '|' ||
+        COALESCE(ma.team_a, '') || '|' ||
+        regexp_replace(ma.match_id, '-G[0-9]+$', '')
+      )
+      ELSE NULL
+    END AS series_id
+  FROM match_agg ma
 )
 UPDATE stats s
-SET series_id = md5(
-  COALESCE(ma.season,'') || '|' ||
-  COALESCE(ma.split,'') || '|' ||
-  COALESCE(ma.event,'') || '|' ||
-  COALESCE(ma.day,'') || '|' ||
-  COALESCE(ma.stage,'') || '|' ||
-  COALESCE(ma.round,'') || '|' ||
-  COALESCE(ma.best_of,'') || '|' ||
-  ma.team_a || '|' || ma.team_b
-)
-FROM match_agg ma
-WHERE s."Match ID" = ma.match_id
-  AND s.series_id IS NULL;
-`;
-}
-
-function buildSingleTeamSeriesUpdateSql(scoped: boolean): string {
-  const scope = buildSeriesScopeClause(scoped);
-  return `
-WITH single_team_matches AS (
-  SELECT
-    "Match ID" AS match_id
-  FROM stats
-  WHERE series_id IS NULL${scope}
-    AND "Team" IS NOT NULL
-    AND TRIM("Team") <> ''
-  GROUP BY "Match ID"
-  HAVING COUNT(DISTINCT UPPER(TRIM("Team"))) = 1
-)
-UPDATE stats s
-SET series_id = md5(
-  COALESCE(s."Season", '') || '|' ||
-  COALESCE(NULLIF(s."Split", ''), '') || '|' ||
-  COALESCE(NULLIF(s."Event", ''), '') || '|' ||
-  COALESCE(s."Day"::text, '') || '|' ||
-  COALESCE(NULLIF(s."Stage", ''), '') || '|' ||
-  COALESCE(NULLIF(s."Round", ''), '') || '|' ||
-  COALESCE(s."Best of "::text, '') || '|' ||
-  UPPER(TRIM(s."Team")) || '|' ||
-  regexp_replace(s."Match ID", '-G[0-9]+$', '')
-)
-FROM single_team_matches stm
-WHERE s."Match ID" = stm.match_id
+SET series_id = ms.series_id
+FROM match_series ms
+WHERE s."Match ID" = ms.match_id
   AND s.series_id IS NULL
-  AND s."Team" IS NOT NULL
-  AND TRIM(s."Team") <> '';
+  AND ms.series_id IS NOT NULL;
 `;
 }
 
@@ -98,9 +89,8 @@ export async function computeSeriesIds(client: Client, matchIds?: string[]): Pro
   }
 
   const params = scoped ? [scopedMatchIds] : [];
-  const twoTeamResult = await client.query(buildTwoTeamSeriesUpdateSql(scoped), params);
-  const singleTeamResult = await client.query(buildSingleTeamSeriesUpdateSql(scoped), params);
-  return (twoTeamResult.rowCount ?? 0) + (singleTeamResult.rowCount ?? 0);
+  const result = await client.query(buildSeriesUpdateSql(scoped), params);
+  return result.rowCount ?? 0;
 }
 
 const REFRESH_SERIES_ROSTER_SQL = `
@@ -150,6 +140,11 @@ export type LoadOptions = {
   ignoreCoercionErrors?: boolean;
   stopAfterHeader?: string;
   denormalize?: boolean;
+  statsTrack?: {
+    mode: "1s" | "2s" | "3s";
+    scope: "regional" | "international";
+    tier: "none" | "major" | "worlds";
+  };
 };
 
 const DENORM_BASE_STATS = [
@@ -466,6 +461,14 @@ export async function loadCsvFile(
           headers.push("Forfeit");
           forfeitIndex = headers.length - 1;
         }
+        if (options.tableName === "stats" && options.statsTrack) {
+          for (const trackColumn of ["mode", "scope", "tier"] as const) {
+            if (headers.includes(trackColumn) || !typeMap.has(trackColumn)) {
+              continue;
+            }
+            headers.push(trackColumn);
+          }
+        }
         columnTypes = headers.map((col) => typeMap.get(col) as ColumnType);
         batchLimit = maxBatchRows(headers.length);
       }
@@ -513,6 +516,24 @@ export async function loadCsvFile(
       if (forfeitIndex >= 0 && forfeitIndex >= rawValues.length && victoryIndex >= 0) {
         const rawVictory = rawValues[victoryIndex]?.trim().toLowerCase() ?? "";
         coercedValues.push(rawVictory === "ff");
+      }
+      if (
+        options.tableName === "stats"
+        && options.statsTrack
+        && coercedValues.length < headers.length
+      ) {
+        while (coercedValues.length < headers.length) {
+          const header = headers[coercedValues.length];
+          if (header === "mode") {
+            coercedValues.push(options.statsTrack.mode);
+          } else if (header === "scope") {
+            coercedValues.push(options.statsTrack.scope);
+          } else if (header === "tier") {
+            coercedValues.push(options.statsTrack.tier);
+          } else {
+            coercedValues.push(null);
+          }
+        }
       }
 
       if (options.tableName === "stats") {

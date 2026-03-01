@@ -1,51 +1,51 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { MetaResponse, SearchResult, StatCategory, StatOption } from "../types/api";
+import type { SearchResult, StatCategory, StatOption } from "../types/api";
 import { api } from "../api";
+import type { Filters } from "../types/ui";
+import { useMeta } from "../hooks/useMeta";
 import { proxyImageUrl, DEFAULT_PLAYER_PHOTO, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import ComparePanel from "../components/ComparePanel";
 import StatPicker from "../components/StatPicker";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import PlayerNameWithPhoto from "../components/PlayerNameWithPhoto";
+import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
 const SEARCH_DEBOUNCE_MS = 500;
-
-export type ComparePageProps = {
-  filters: { season: string; split: string; event: string };
-  onFiltersChange: (f: { season: string; split: string; event: string }) => void;
-  meta: MetaResponse | null;
-  compareMode: "players" | "rosters";
-  compareSelection: SearchResult[];
-  onAddCompare: (item: SearchResult) => void;
-  onRemoveCompare: (id: string) => void;
-  onClearCompare: () => void;
-  statOptions: StatOption[];
+const DEFAULT_FILTERS: Filters = {
+  mode: "3s",
+  scope: "regional",
+  tier: "none",
+  season: "",
+  split: "",
+  event: ""
 };
 
-export default function ComparePage({
-  filters,
-  onFiltersChange,
-  meta,
-  compareMode,
-  compareSelection,
-  onAddCompare,
-  onRemoveCompare,
-  onClearCompare,
-  statOptions
-}: ComparePageProps) {
+export default function ComparePage() {
   const navigate = useNavigate();
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [compareMode, setCompareMode] = useState<"players" | "rosters">("players");
+  const [compareSelection, setCompareSelection] = useState<SearchResult[]>([]);
   const [compareMetrics, setCompareMetrics] = useState<string[]>(DEFAULT_COMPARE_STATS);
   const [statCategories, setStatCategories] = useState<StatCategory[]>([]);
   const [addedExtras, setAddedExtras] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const { meta } = useMeta(filters);
+  const statOptions = meta?.statOptions ?? [];
 
   const compareStatsList = useMemo(
     () => statOptions.filter((option) => option.key !== "series_played"),
     [statOptions]
   );
+  const internationalEvents = meta?.internationalEvents ?? [];
+  const eventOptions = useMemo(
+    () => sortEventsLanLast(meta?.events ?? [], internationalEvents),
+    [internationalEvents, meta?.events]
+  );
+  const includeLans = filters.mode === "3s" && !(filters.scope === "regional" && filters.tier === "none");
 
   const toggleCompareMetric = (key: string) => {
     setCompareMetrics((prev) => {
@@ -54,7 +54,6 @@ export default function ComparePage({
       }
       return [...prev, key];
     });
-    // Track added extras so they stay visible when unchecked
     setAddedExtras((prev) => {
       if (prev.includes(key)) return prev;
       return [...prev, key];
@@ -97,7 +96,6 @@ export default function ComparePage({
     ? (compareMode === "players" ? "player" : "roster")
     : null;
 
-  // Inline search for adding players/rosters
   useEffect(() => {
     const trimmed = searchQuery.trim();
     if (!trimmed) {
@@ -108,7 +106,16 @@ export default function ComparePage({
     setSearchLoading(true);
     const handle = window.setTimeout(async () => {
       try {
-        const response = await api.search({ q: trimmed, limit: 8 });
+        const response = await api.search({
+          q: trimmed,
+          limit: 8,
+          gameMode: filters.mode || undefined,
+          scope: filters.scope || undefined,
+          tier: filters.tier || undefined,
+          season: filters.season || undefined,
+          split: filters.split || undefined,
+          event: filters.event || undefined
+        });
         setSearchResults([...response.players, ...response.rosters]);
       } catch (error) {
         console.error(error);
@@ -117,7 +124,7 @@ export default function ComparePage({
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [searchQuery]);
+  }, [filters.event, filters.mode, filters.scope, filters.season, filters.split, filters.tier, searchQuery]);
 
   const filteredResults = useMemo(() => {
     if (!lockedType) return searchResults;
@@ -125,7 +132,12 @@ export default function ComparePage({
   }, [searchResults, lockedType]);
 
   const handleAddResult = (item: SearchResult) => {
-    onAddCompare(item);
+    if (item.type === "stat") return;
+    setCompareMode(item.type === "player" ? "players" : "rosters");
+    setCompareSelection((prev) => {
+      if (prev.some((existing) => existing.id === item.id)) return prev;
+      return [...prev, item];
+    });
     setSearchQuery("");
   };
 
@@ -213,7 +225,7 @@ export default function ComparePage({
                   key={entry.id}
                   type="button"
                   className="chip"
-                  onClick={() => onRemoveCompare(entry.id)}
+                  onClick={() => setCompareSelection((prev) => prev.filter((item) => item.id !== entry.id))}
                 >
                   {entry.type === "player" ? (
                     <PlayerNameWithPhoto
@@ -236,7 +248,7 @@ export default function ComparePage({
                 type="button"
                 className="ghost"
                 style={{ marginLeft: "auto" }}
-                onClick={onClearCompare}
+                onClick={() => setCompareSelection([])}
               >
                 Clear All
               </button>
@@ -292,10 +304,46 @@ export default function ComparePage({
             <h2>{compareSelection.length < 2 ? (compareMode === "rosters" ? "Team Statistics" : "Player Statistics") : "Head-to-Head Comparison"}</h2>
           </div>
           <div className="profile-filter-row">
+            <label className="checkbox-inline">
+              <input
+                type="checkbox"
+                checked={includeLans}
+                onChange={(e) =>
+                  setFilters({
+                    ...filters,
+                    scope: e.target.checked ? "" : "regional",
+                    tier: e.target.checked ? "" : "none",
+                    season: "",
+                    split: "",
+                    event: ""
+                  })
+                }
+                disabled={filters.mode !== "3s"}
+              />
+              Include LAN Events
+            </label>
+            <select
+              value={filters.mode}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  mode: e.target.value,
+                  scope: "regional",
+                  tier: "none",
+                  season: "",
+                  split: "",
+                  event: ""
+                })
+              }
+            >
+              {(meta?.modes ?? ["1s", "2s", "3s"]).map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
             <select
               value={filters.season}
               onChange={(e) =>
-                onFiltersChange({ season: e.target.value, split: "", event: "" })
+                setFilters({ ...filters, season: e.target.value, split: "", event: "" })
               }
             >
               <option value="">All Seasons</option>
@@ -306,7 +354,7 @@ export default function ComparePage({
             <select
               value={filters.split}
               onChange={(e) =>
-                onFiltersChange({ season: filters.season, split: e.target.value, event: "" })
+                setFilters({ ...filters, split: e.target.value, event: "" })
               }
               disabled={!filters.season}
             >
@@ -317,13 +365,20 @@ export default function ComparePage({
             </select>
             <select
               value={filters.event}
-              onChange={(e) =>
-                onFiltersChange({ season: filters.season, split: filters.split, event: e.target.value })
-              }
+              onChange={(e) => {
+                const selectedEvent = e.target.value;
+                const forceIncludeLan = filters.mode === "3s" && selectedEvent && isInternationalEvent(selectedEvent, internationalEvents);
+                setFilters({
+                  ...filters,
+                  event: selectedEvent,
+                  scope: forceIncludeLan ? "" : filters.scope,
+                  tier: forceIncludeLan ? "" : filters.tier
+                });
+              }}
               disabled={!filters.season || !filters.split}
             >
               <option value="">All Events</option>
-              {(meta?.events ?? []).map((s) => (
+              {eventOptions.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
@@ -332,7 +387,7 @@ export default function ComparePage({
         <ComparePanel
           compareMode={compareMode}
           compareSelection={compareSelection}
-          onRemove={onRemoveCompare}
+          onRemove={(id) => setCompareSelection((prev) => prev.filter((item) => item.id !== id))}
           filters={filters}
           statOptions={allStatOptions}
           compareMetrics={compareMetrics}

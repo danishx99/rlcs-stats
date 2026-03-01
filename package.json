@@ -19,6 +19,7 @@
     "prod:ps": "docker compose -f docker-compose.prod.yml --env-file env/.env.api ps",
     "prod:load": "bun run prod:data:sync",
     "prod:data:sync": "./scripts/sync-railway-data.sh",
+    "verify:data": "bun run scripts/verify-data-integrity.ts",
     "deploy:railway": "./scripts/deploy-railway.sh",
     "dev:full": "bun run db:up && bun run dev",
     "dev:api": "nodemon --watch server --ext ts,sql --exec \"bun server/index.ts\"",

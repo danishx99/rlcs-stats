@@ -1,22 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import type { MetaResponse, RosterProfile } from "../types/api";
-import { buildEventPath, parseDebutEvent } from "../utils/event-routing";
+import type { RosterProfile } from "../types/api";
 import { proxyImageUrl, normalizeSocialLink, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import { formatRosterStarters } from "../utils/roster";
 import { resolveTeamRosterId } from "../utils/team-routing";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
-export default function RosterPage({
-  filters: _filters,
-  meta: _meta,
-  onFiltersChange: _onFiltersChange
-}: {
-  filters: { season: string; split: string; event: string };
-  meta: MetaResponse | null;
-  onFiltersChange: (f: { season: string; split: string; event: string }) => void;
-}) {
+const ROSTER_TRACK = {
+  mode: "3s",
+  scope: "regional",
+  tier: "none"
+} as const;
+
+export default function RosterPage() {
   const normalizeTeamName = (value: string | null | undefined) => value?.trim().toUpperCase() ?? "";
   const uniqueTeamNames = (names: string[], excludedNames: Array<string | null | undefined>) => {
     const excluded = new Set(excludedNames.map((name) => normalizeTeamName(name)).filter(Boolean));
@@ -46,7 +43,11 @@ export default function RosterPage({
     async function loadRoster() {
       setRosterProfileLoading(true);
       try {
-        const response = await api.rosterProfile(rosterKey);
+        const response = await api.rosterProfile(rosterKey, {
+          gameMode: ROSTER_TRACK.mode,
+          scope: ROSTER_TRACK.scope,
+          tier: ROSTER_TRACK.tier
+        });
         setRosterProfile(response.roster);
 
         const initialSeason = response.roster.defaultSeason
@@ -100,7 +101,6 @@ export default function RosterPage({
   const tiktokLink = normalizeSocialLink(rosterProfile.tiktok, "tiktok");
   const youtubeLink = normalizeSocialLink(rosterProfile.youtube, "youtube");
   const twitchLink = normalizeSocialLink(rosterProfile.twitch, "twitch");
-  const debutEvent = parseDebutEvent(rosterProfile.debut);
   const navigateToTeam = async (teamName: string) => {
     const rosterId = await resolveTeamRosterId(teamName);
     navigate(`/rosters/${encodeURIComponent(rosterId)}`);
@@ -128,16 +128,7 @@ export default function RosterPage({
               <div>
                 <span>RLCS Debut</span>
                 <strong>
-                  {rosterProfile.debut && debutEvent ? (
-                    <Link
-                      className="inline-link"
-                      to={buildEventPath(debutEvent.event, { season: debutEvent.season, split: debutEvent.split })}
-                    >
-                      {rosterProfile.debut}
-                    </Link>
-                  ) : (
-                    rosterProfile.debut ?? "—"
-                  )}
+                  {rosterProfile.debut ?? "—"}
                 </strong>
               </div>
               <div>

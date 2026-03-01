@@ -4,9 +4,12 @@ import { api } from "../api";
 import type { SeriesDetail, SeriesListRow, SeriesMetaResponse } from "../types/api";
 import { formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
+import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 
 type SeriesFilters = {
+  mode: string;
+  includeLans: boolean;
   season: string;
   split: string;
   event: string;
@@ -16,6 +19,8 @@ type SeriesFilters = {
 };
 
 const DEFAULT_FILTERS: SeriesFilters = {
+  mode: "3s",
+  includeLans: false,
   season: "",
   split: "",
   event: "",
@@ -66,6 +71,11 @@ export default function SeriesPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const teamOptions = meta?.teams ?? [];
+  const internationalEvents = meta?.internationalEvents ?? [];
+  const eventOptions = useMemo(
+    () => sortEventsLanLast(meta?.events ?? [], internationalEvents),
+    [internationalEvents, meta?.events]
+  );
   const team2Options = filters.team
     ? teamOptions.filter((team) => team !== filters.team)
     : teamOptions;
@@ -83,6 +93,10 @@ export default function SeriesPage() {
     async function loadMeta() {
       try {
         const response = await api.seriesMeta({
+          gameMode: filters.mode,
+          includeLans: filters.mode === "3s" && filters.includeLans ? "1" : undefined,
+          scope: filters.mode === "3s" && !filters.includeLans ? "regional" : undefined,
+          tier: filters.mode === "3s" && !filters.includeLans ? "none" : undefined,
           season: filters.season || undefined,
           split: filters.split || undefined,
           event: filters.event || undefined,
@@ -105,7 +119,7 @@ export default function SeriesPage() {
     return () => {
       cancelled = true;
     };
-  }, [filters.event, filters.season, filters.split, filters.stage]);
+  }, [filters.event, filters.includeLans, filters.mode, filters.season, filters.split, filters.stage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +129,10 @@ export default function SeriesPage() {
       setSeriesError(null);
       try {
         const response = await api.seriesList({
+          gameMode: filters.mode,
+          includeLans: filters.mode === "3s" && filters.includeLans ? "1" : undefined,
+          scope: filters.mode === "3s" && !filters.includeLans ? "regional" : undefined,
+          tier: filters.mode === "3s" && !filters.includeLans ? "none" : undefined,
           season: filters.season || undefined,
           split: filters.split || undefined,
           event: filters.event || undefined,
@@ -142,7 +160,7 @@ export default function SeriesPage() {
     return () => {
       cancelled = true;
     };
-  }, [filters.event, filters.season, filters.split, filters.stage, filters.team, filters.team2]);
+  }, [filters.event, filters.includeLans, filters.mode, filters.season, filters.split, filters.stage, filters.team, filters.team2]);
 
   useEffect(() => {
     const maybeSeriesId = selectedSeriesId;
@@ -226,12 +244,57 @@ export default function SeriesPage() {
         {metaError ? <div className="error">{metaError}</div> : null}
 
         <div className="series-filter-row">
+          <label className="checkbox-inline">
+            <input
+              type="checkbox"
+              checked={filters.includeLans}
+              onChange={(event) =>
+                setFilters({
+                  ...filters,
+                  includeLans: event.target.checked,
+                  season: "",
+                  split: "",
+                  event: "",
+                  stage: "",
+                  team: "",
+                  team2: ""
+                })
+              }
+              disabled={filters.mode !== "3s"}
+            />
+            Include LAN Events
+          </label>
+          <label>
+            Mode
+            <select
+              value={filters.mode}
+              onChange={(event) =>
+                setFilters({
+                  mode: event.target.value,
+                  includeLans: event.target.value === "3s" ? filters.includeLans : false,
+                  season: "",
+                  split: "",
+                  event: "",
+                  stage: "",
+                  team: "",
+                  team2: ""
+                })
+              }
+            >
+              {["1s", "2s", "3s"].map((mode) => (
+                <option key={mode} value={mode}>
+                  {mode}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label>
             Season
             <select
               value={filters.season}
               onChange={(event) =>
-                setFilters({ season: event.target.value, split: "", event: "", stage: "", team: "", team2: "" })
+                setFilters({ ...filters, season: event.target.value, split: "", event: "", stage: "", team: "", team2: "" })
               }
             >
               <option value="">All Seasons</option>
@@ -249,6 +312,8 @@ export default function SeriesPage() {
               value={filters.split}
               onChange={(event) =>
                 setFilters({
+                  mode: filters.mode,
+                  includeLans: filters.includeLans,
                   season: filters.season,
                   split: event.target.value,
                   event: "",
@@ -272,20 +337,24 @@ export default function SeriesPage() {
             Event
             <select
               value={filters.event}
-              onChange={(event) =>
+              onChange={(event) => {
+                const selectedEvent = event.target.value;
+                const autoIncludeLan = filters.mode === "3s" && selectedEvent && isInternationalEvent(selectedEvent, internationalEvents);
                 setFilters({
+                  mode: filters.mode,
+                  includeLans: autoIncludeLan ? true : filters.includeLans,
                   season: filters.season,
                   split: filters.split,
-                  event: event.target.value,
+                  event: selectedEvent,
                   stage: "",
                   team: "",
                   team2: ""
-                })
-              }
+                });
+              }}
               disabled={!filters.season || !filters.split}
             >
               <option value="">All Events</option>
-              {(meta?.events ?? []).map((item) => (
+              {eventOptions.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
@@ -299,6 +368,8 @@ export default function SeriesPage() {
               value={filters.stage}
               onChange={(event) =>
                 setFilters({
+                  mode: filters.mode,
+                  includeLans: filters.includeLans,
                   season: filters.season,
                   split: filters.split,
                   event: filters.event,
@@ -324,6 +395,8 @@ export default function SeriesPage() {
               value={filters.team}
               onChange={(event) =>
                 setFilters({
+                  mode: filters.mode,
+                  includeLans: filters.includeLans,
                   season: filters.season,
                   split: filters.split,
                   event: filters.event,
@@ -348,6 +421,8 @@ export default function SeriesPage() {
               value={filters.team2}
               onChange={(event) =>
                 setFilters({
+                  mode: filters.mode,
+                  includeLans: filters.includeLans,
                   season: filters.season,
                   split: filters.split,
                   event: filters.event,
@@ -403,7 +478,9 @@ export default function SeriesPage() {
                 {seriesRows.map((row) => {
                   const rowContext = seriesContext(row);
                   const titlePrefix = [row.season, row.split].filter(Boolean).join(" · ");
-                  const eventHref = row.event ? buildEventPath(row.event, { season: row.season, split: row.split }) : null;
+                  const eventHref = row.eventId
+                    ? buildEventPath(row.eventId)
+                    : null;
                   return (
                     <tr
                       key={row.seriesId}
@@ -468,15 +545,12 @@ export default function SeriesPage() {
                 </h3>
                 <div className="section-note">
                   {[selectedSeries?.season, selectedSeries?.split].filter(Boolean).join(" · ")}
-                  {selectedSeries?.event ? (
+                  {selectedSeries?.event && selectedSeries?.eventId ? (
                     <>
                       {[selectedSeries?.season, selectedSeries?.split].filter(Boolean).length ? " · " : ""}
                       <Link
                         className="inline-link"
-                        to={buildEventPath(selectedSeries.event, {
-                          season: selectedSeries.season,
-                          split: selectedSeries.split
-                        })}
+                        to={buildEventPath(selectedSeries.eventId)}
                         onClick={(event) => event.stopPropagation()}
                       >
                         {selectedSeries.event}
