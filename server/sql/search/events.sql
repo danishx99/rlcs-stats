@@ -23,11 +23,11 @@ WHERE "Event" IS NOT NULL
     TRIM("Season") || ' ' || TRIM("Split") || ' ' || TRIM("Event") || ' ' || TRIM("mode") || ' ' || TRIM("scope") || ' ' || TRIM("tier")
   ) ILIKE {{likeParam}}
 GROUP BY
-  LOWER(TRIM("Season")),
-  LOWER(TRIM("Split")),
-  LOWER(TRIM("Event")),
-  LOWER(TRIM("mode")),
-  LOWER(TRIM("scope")),
-  LOWER(TRIM("tier"))
+  LOWER(TRIM(COALESCE("Season", ''))),
+  LOWER(TRIM(COALESCE("Split", ''))),
+  LOWER(TRIM(COALESCE("Event", ''))),
+  LOWER(TRIM(COALESCE("mode", ''))),
+  LOWER(TRIM(COALESCE("scope", ''))),
+  LOWER(TRIM(COALESCE("tier", '')))
 ORDER BY MAX("Date") DESC NULLS LAST
 LIMIT {{limitParam}};
