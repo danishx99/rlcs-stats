@@ -23,7 +23,7 @@ import type {
 } from "../types/api";
 
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8787";
-const API_TIMEOUT_MS = Number.parseInt(import.meta.env.VITE_API_TIMEOUT_MS || "15000", 10);
+const API_TIMEOUT_MS = Number.parseInt(import.meta.env.VITE_API_TIMEOUT_MS || "30000", 10);
 
 function resolveApiPath(path: string) {
   const base = API_URL.trim();
