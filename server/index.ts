@@ -15,7 +15,7 @@ import { handleImage } from "./src/routes/image";
 import { handleInsights } from "./src/routes/insights";
 import { handleMeta, handleMetaColumns } from "./src/routes/meta";
 import { handlePlayers, handlePlayerProfile, handlePlayerResults, handlePlayerSeason } from "./src/routes/players";
-import { handleRosterProfile, handleRosterSeason } from "./src/routes/rosters";
+import { handleRosterProfile, handleRosterResults, handleRosterSeason } from "./src/routes/rosters";
 import { handleSearch } from "./src/routes/search";
 import { handleSeriesDetail, handleSeriesList, handleSeriesMeta } from "./src/routes/series";
 import { handleStandings } from "./src/routes/standings";
@@ -151,6 +151,11 @@ const server = createServer(async (req, res) => {
 
     if (parts[3] === "season") {
       await handleRosterSeason(req, res, url, rosterId);
+      return;
+    }
+
+    if (parts[3] === "results") {
+      await handleRosterResults(req, res, url, rosterId);
       return;
     }
 

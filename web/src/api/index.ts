@@ -13,6 +13,7 @@ import type {
   MetaResponse,
   PlayerProfile,
   PlayerResultsResponse,
+  RosterResultsResponse,
   SeriesDetailResponse,
   SeriesListResponse,
   SeriesMetaResponse,
@@ -184,6 +185,9 @@ export const api = {
   },
   rosterSeason(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<SeasonResponse>(`/api/rosters/${id}/season`, params);
+  },
+  rosterResults(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
+    return fetchJson<RosterResultsResponse>(`/api/rosters/${id}/results`, params);
   },
   compare(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<CompareResponse>("/api/compare", params);

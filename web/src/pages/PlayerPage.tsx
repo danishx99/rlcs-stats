@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
 import SeasonTable from "../components/SeasonTable";
+import SocialIconLink from "../components/SocialIconLink";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import { formatAliases } from "../utils/aliases";
 import { computeAge, formatDate } from "../utils/date";
@@ -239,14 +240,10 @@ export default function PlayerPage() {
           </div>
           <div className="profile-links">
             {twitchLink ? (
-              <a href={twitchLink} target="_blank" rel="noreferrer">
-                Twitch
-              </a>
+              <SocialIconLink href={twitchLink} platform="twitch" />
             ) : null}
             {tiktokLink ? (
-              <a href={tiktokLink} target="_blank" rel="noreferrer">
-                TikTok
-              </a>
+              <SocialIconLink href={tiktokLink} platform="tiktok" />
             ) : null}
           </div>
         </section>

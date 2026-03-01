@@ -157,6 +157,14 @@ export type RosterProfile = {
       alsoCompetedUnder?: string[];
       starters: RosterStarter[];
       alternates: RosterAlternate[];
+      events?: {
+        split: string | null;
+        event: string | null;
+        scope: string | null;
+        tier: string | null;
+        firstDate: string | null;
+        lastDate: string | null;
+      }[];
     }[];
   }[];
   debut: string | null;
@@ -165,6 +173,34 @@ export type RosterProfile = {
   seriesPlayed: number;
   totals: Record<string, number>;
   averages: Record<string, number>;
+};
+
+export type RosterEventResultRow = {
+  eventId: string | null;
+  season: string | null;
+  split: string | null;
+  event: string | null;
+  scope: string | null;
+  tier: string | null;
+  stageReached: string | null;
+  placement: string | null;
+  opponent: string | null;
+  playerWins: number;
+  opponentWins: number;
+  wonSeries: boolean;
+  seriesPlayed: number;
+  seriesWon: number;
+  gamesPlayed: number;
+  gamesWon: number;
+  firstDate: string | null;
+  lastDate: string | null;
+  rosterId: string | null;
+  rosterStarters: RosterStarter[];
+};
+
+export type RosterResultsResponse = {
+  season: string;
+  rows: RosterEventResultRow[];
 };
 
 export type CompareMetric = {

@@ -1218,20 +1218,19 @@ body {
 .profile-links a {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 10px;
   border: 1px solid var(--panel-border);
   color: var(--ink);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
   text-decoration: none;
 }
 
 .profile-links svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   fill: currentColor;
 }
 
@@ -1371,6 +1370,55 @@ body {
 
 .roster-profile-card .profile-media::after {
   display: none;
+}
+
+.roster-profile-media-column {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.roster-profile-links {
+  margin-top: 0;
+  justify-content: center;
+}
+
+.roster-profile-links a {
+  width: 32px;
+  height: 32px;
+}
+
+.roster-profile-facts {
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.roster-profile-fact {
+  margin: 0;
+  padding: 0 0 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.roster-profile-fact:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.roster-profile-fact dt {
+  margin: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-muted);
+}
+
+.roster-profile-fact dd {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .profile-avatar {
@@ -1546,6 +1594,61 @@ body {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.roster-page-header {
+  margin-bottom: 14px;
+}
+
+.roster-page .roster-top-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.roster-page .roster-profile-card--compact {
+  margin-bottom: 0;
+}
+
+.roster-profile-aliases {
+  margin-top: 14px;
+}
+
+.roster-rosters-panel {
+  min-height: 100%;
+}
+
+.roster-compact-card {
+  display: grid;
+  gap: 12px;
+}
+
+.roster-iterations-grid--stacked {
+  grid-template-columns: 1fr;
+}
+
+.roster-results-panel {
+  margin-top: 18px;
+}
+
+.roster-results-table th:nth-child(1) { width: 15%; }
+.roster-results-table th:nth-child(2) { width: 30%; }
+.roster-results-table th:nth-child(3) { width: 30%; }
+.roster-results-table th:nth-child(4) { width: 25%; }
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: var(--accent-2);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.link-button:hover {
+  text-decoration: underline;
 }
 
 .roster-iteration-card {
@@ -4037,6 +4140,28 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .roster-page .roster-top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .roster-profile-card .profile-header {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .roster-profile-card .profile-media {
+    width: 112px;
+    height: 112px;
+  }
+
+  .roster-profile-media-column {
+    justify-items: start;
+  }
+
+  .roster-profile-links {
+    justify-content: flex-start;
+  }
+
   .compare-panel,
   .featured-panel,
   .teams-panel,
@@ -4115,6 +4240,10 @@ th {
 
   .featured-cards {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .roster-results-table {
+    min-width: 560px;
   }
 
   .dash-insights-panel,

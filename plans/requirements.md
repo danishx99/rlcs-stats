@@ -95,13 +95,14 @@
 ### Visual & UX
 - [ ] Make overall UI more compact
 - ✅ Add better placeholder icons for missing team logos and player photos
-- [ ] Redesign the Team page UI
+- ✅ Redesign the Team / Roster page UI
 - [ ] Improve general UX across the app (especially loading experience)
 
 ### Data & Content
 - ✅ Add 1v1 and Majors data to the database
 - ✅ Ensure player aliases are listed (sourced from CSV `AKA` column)
 - ✅ Add Stat page filter to exclude non-SSA players (currently included by default; default should be SSA-only)
+- [ ] Verify roster correctness (ensure roster iterations, starters, and alternates are accurate across seasons)
 
 ### Home Additions
 - ✅ Rotating featured players from common stats (rating, goals, saves, demos, shots, assists)
@@ -128,10 +129,10 @@
 - [ON HOLD] Fix player placement accuracy for LAN events when only SSA-involved match slices are available
 
 ### Admin
-- [ ] Admin option to update player/team info
+- [ON HOLD] Admin option to update player/team info
 
 ### New Pages
-- [ ] Add a dedicated LAN events page view
+- [ON HOLD] Add a dedicated LAN events page view
 
 ### Infrastructure
 - ✅ Universal linking across app content:

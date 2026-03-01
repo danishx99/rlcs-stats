@@ -38,6 +38,8 @@ series_meta AS (
     MAX(NULLIF(TRIM(s."Event"), '')) AS event,
     MAX(NULLIF(TRIM(s."Stage"), '')) AS stage,
     MIN(NULLIF(TRIM(s."Round"), '')) AS round,
+    MAX(NULLIF(TRIM(s."scope"), '')) AS scope,
+    MAX(NULLIF(TRIM(s."tier"), '')) AS tier,
     MAX(COALESCE(s."Best of ", 0)) AS best_of
   FROM stats s
   WHERE s.series_id IS NOT NULL
@@ -57,6 +59,8 @@ grouped_series AS (
     sm.event,
     sm.stage,
     sm.round,
+    sm.scope,
+    sm.tier,
     sm.best_of,
     sr.roster_id,
     sr.starters,
@@ -442,6 +446,22 @@ alternate_profiles AS (
   WHERE ps.starter_id IS NULL
   GROUP BY rm.season, rm.iteration_roster_id, rsm.starter_id, ph.handle
 ),
+iteration_event_rows AS (
+  SELECT
+    rm.season,
+    rm.iteration_roster_id AS roster_id,
+    gs.split,
+    gs.event,
+    gs.scope,
+    gs.tier,
+    MIN(gs.match_date) AS first_date,
+    MAX(gs.match_date) AS last_date
+  FROM roster_merge_map rm
+  JOIN group_scope gs
+    ON gs.season = rm.season
+   AND gs.roster_id = rm.roster_id
+  GROUP BY rm.season, rm.iteration_roster_id, gs.split, gs.event, gs.scope, gs.tier
+),
 iteration_rows AS (
   SELECT
     ism.season,
@@ -472,7 +492,23 @@ iteration_rows AS (
       FROM alternate_profiles ap
       WHERE ap.season = ism.season
         AND ap.iteration_roster_id = ism.roster_id
-    ), '[]'::json) AS alternates
+    ), '[]'::json) AS alternates,
+    COALESCE((
+      SELECT json_agg(
+        json_build_object(
+          'split', ier.split,
+          'event', ier.event,
+          'scope', ier.scope,
+          'tier', ier.tier,
+          'firstDate', ier.first_date,
+          'lastDate', ier.last_date
+        )
+        ORDER BY ier.last_date DESC NULLS LAST, ier.split DESC, ier.event DESC
+      )
+      FROM iteration_event_rows ier
+      WHERE ier.season = ism.season
+        AND ier.roster_id = ism.roster_id
+    ), '[]'::json) AS events
   FROM iteration_season_meta ism
 ),
 season_rosters AS (
@@ -487,7 +523,8 @@ season_rosters AS (
         'lastSeenDate', ir.last_seen_date,
         'alsoCompetedUnder', ir.also_competed_under,
         'starters', ir.starters,
-        'alternates', ir.alternates
+        'alternates', ir.alternates,
+        'events', ir.events
       )
       ORDER BY ir.series_played DESC, ir.last_seen_date DESC NULLS LAST, ir.roster_id
     ) AS iterations
