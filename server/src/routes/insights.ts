@@ -22,6 +22,9 @@ type QueryCategory = {
   rows: QueryRow[];
 };
 
+const INSIGHTS_CACHE_TTL_MS = 60_000;
+const insightsCache = new Map<string, { expiresAt: number; payload: { generatedAt: string; categories: QueryCategory[] } }>();
+
 function formatInt(value: unknown) {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "0";
@@ -90,9 +93,28 @@ function withExtraFilter(where: string, extra: string) {
   return `${where} AND ${extra}`;
 }
 
+function buildInsightsCacheKey(url: URL, limit: number) {
+  const keys = ["season", "split", "event", "gameMode", "scope", "tier"] as const;
+  const parts = [`limit=${limit}`];
+  for (const key of keys) {
+    const value = url.searchParams.get(key);
+    if (value && value.trim()) {
+      parts.push(`${key}=${value.trim().toLowerCase()}`);
+    }
+  }
+  return parts.join("&");
+}
+
 export async function handleInsights(_req: IncomingMessage, res: ServerResponse, url: URL) {
   const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 10) : 6;
+  const cacheKey = buildInsightsCacheKey(url, limit);
+  const cached = insightsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    json(res, 200, cached.payload);
+    return;
+  }
+
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
   const baseWhere = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
@@ -269,10 +291,14 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
   ] as const;
 
   try {
-    const categories: QueryCategory[] = [];
-    for (const definition of queryDefinitions) {
-      const limitParam = `$${values.length + 1}`;
-      const queryResult = await pool.query(definition.sql(limitParam), [...values, limit]);
+    const limitParam = `$${values.length + 1}`;
+    const queryParams = [...values, limit];
+    const queryResults = await Promise.all(
+      queryDefinitions.map((definition) => pool.query(definition.sql(limitParam), queryParams))
+    );
+
+    const categories: QueryCategory[] = queryDefinitions.map((definition, index) => {
+      const queryResult = queryResults[index];
       const rows: QueryRow[] = queryResult.rows.map((row: Record<string, unknown>) => ({
         id: String(row.id ?? ""),
         label: String(row.label ?? "—"),
@@ -283,15 +309,21 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
         context: contextLabel(definition.key, row),
         photoUrl: typeof row.photo_url === "string" ? row.photo_url : null
       }));
-      categories.push({
+      return {
         key: definition.key,
         title: definition.title,
         subtitle: definition.subtitle,
         valueLabel: definition.valueLabel,
         rows
-      });
-    }
-    json(res, 200, { generatedAt: new Date().toISOString(), categories });
+      };
+    });
+
+    const payload = { generatedAt: new Date().toISOString(), categories };
+    insightsCache.set(cacheKey, {
+      expiresAt: Date.now() + INSIGHTS_CACHE_TTL_MS,
+      payload
+    });
+    json(res, 200, payload);
   } catch (error) {
     console.error(error);
     json(res, 500, { error: "Failed to query insights" });
