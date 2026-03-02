@@ -28,13 +28,6 @@ After a re-import with `--truncate`, all stored values are true integer counts. 
 
 ---
 
-## 1v1s
-For 1v1 matches, the event type is listed as "1v1" under "regional".
-
-TODO: Handle 1v1 data separately from standard team formats (3v3) in API queries and UI presentation.
-
-## Stats Page Future Scope
-- TODO: Consider optional inclusion of non-SSA players in Stat Leaderboard view (do not enable by default yet).
 
 ## Forfeits (FF)
 When a team forfeits, the victor column shows **FF** for those games. This means fewer games than expected appear in a series (e.g. 3 games in a Bo5, 4 games in a Bo7).
@@ -48,33 +41,7 @@ When a team forfeits, the victor column shows **FF** for those games. This means
 
 ---
 
-## TODO: Search Result Behaviors by Type
-
-### Player Search
-e.g. "2die4" → Player profile page showing:
-- All-time stats: Series Played, Goals, Assists, Demos, Saves
-- Scope toggle (dropdown): All Time / Season / Regional-specific
-- Profile should adapt stats to the selected scope
-
-### Team Search
-e.g. "Benchwarmers" → Team profile page showing:
-- Seasons / Regionals competed in
-- Roster
-- Best result
-
-### Stat Search
-e.g. "Time in the air" → Top 10 leaderboard for that stat
-
-### Regional / Split Search
-e.g. "Fall Open" (regional) → Shows:
-- Teams & Rosters who competed in that regional
-
-e.g. "Fall Split" (split) → Shows:
-- List of regionals within the split (Regional 1, Regional 2, Regional 3) with links to each
-
----
-
 ## Known Bugs
 
 - **VALIANT roster page not loading** (2026-02-19): `/rosters/org%3AVALIANT` shows nothing. Needs investigation — could be a data issue or a query/routing problem.
-- **LAN player placements may be inaccurate** (2026-02-26): player results placement labels for international LAN events can be incorrect because current stats data often includes only SSA-involved match slices instead of the full event field.
+- **2022-23 Spring event placements wrong** (2026-03-02): Event `/events/673fc38f3990e6aa263cbaf6e82ae8b0` (2022-23 / Spring, May 26–28 2023) has incorrect placements. Needs data investigation.

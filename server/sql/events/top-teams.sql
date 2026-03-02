@@ -114,19 +114,51 @@ team_latest AS (
   FROM team_rounds
   ORDER BY participant_norm, depth DESC, round_date DESC NULLS LAST
 ),
+team_latest_losses AS (
+  SELECT
+    ranked.participant_norm,
+    ranked.depth AS elimination_depth
+  FROM (
+    SELECT
+      tr.participant_norm,
+      tr.depth,
+      tr.round_date,
+      ROW_NUMBER() OVER (
+        PARTITION BY tr.participant_norm
+        ORDER BY tr.round_date DESC NULLS LAST, tr.depth DESC
+      ) AS rn
+    FROM team_rounds tr
+    WHERE tr.won_round = false
+      AND tr.depth > 0
+  ) ranked
+  WHERE ranked.rn = 1
+),
+team_loss_depths AS (
+  SELECT
+    tl.participant_norm,
+    tl.elimination_depth
+  FROM team_latest_losses tl
+),
 classified AS (
   SELECT
     tl.*,
+    tld.elimination_depth,
     (tl.round_depth = 100 AND tl.won_deepest) AS is_champion,
     (NOT (tl.round_depth = 100 AND tl.won_deepest) AND NOT tl.won_deepest) AS is_eliminated
   FROM team_latest tl
+  LEFT JOIN team_loss_depths tld
+    ON tld.participant_norm = tl.participant_norm
 ),
 placement_basis AS (
   SELECT
     c.*,
     CASE
       WHEN c.is_champion THEN NULL::int
-      WHEN c.is_eliminated THEN c.round_depth
+      WHEN c.is_eliminated THEN
+        CASE
+          WHEN c.round_depth = 100 THEN 100
+          ELSE COALESCE(c.elimination_depth, c.round_depth)
+        END
       ELSE COALESCE(
         (
           SELECT MIN(e.round_depth)

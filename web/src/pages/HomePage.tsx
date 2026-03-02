@@ -6,6 +6,8 @@ import { proxyImageUrl, DEFAULT_PLAYER_PHOTO, DEFAULT_TEAM_LOGO } from "../utils
 import { formatStat } from "../utils/format";
 import { toOrgRosterId } from "../utils/roster";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
+import PanelState from "../components/ui/PanelState";
+import SkeletonBlock from "../components/ui/SkeletonBlock";
 
 /*
  * Preserved featured insight presets (available via api.featured):
@@ -39,8 +41,10 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
   });
   const [featuredLeaderboard, setFeaturedLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [featuredLoading, setFeaturedLoading] = useState(false);
+  const [featuredError, setFeaturedError] = useState<string | null>(null);
   const [topQueries, setTopQueries] = useState<TopQueryCategory[]>([]);
   const [topQueriesLoading, setTopQueriesLoading] = useState(false);
+  const [topQueriesError, setTopQueriesError] = useState<string | null>(null);
   const [expandedTopQueryKey, setExpandedTopQueryKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
@@ -51,6 +55,8 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
   const [playerSearchLoading, setPlayerSearchLoading] = useState(false);
   const [playerSearchError, setPlayerSearchError] = useState<string | null>(null);
   const [standings, setStandings] = useState<StandingsResponse | null>(null);
+  const [standingsLoading, setStandingsLoading] = useState(false);
+  const [standingsError, setStandingsError] = useState<string | null>(null);
   const [standingsSeason, setStandingsSeason] = useState<string>("");
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +66,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
     if (!featuredSeason) return;
     async function loadFeaturedLeaderboard() {
       setFeaturedLoading(true);
+      setFeaturedError(null);
       try {
         const response = await api.statsTop({
           metric: featuredMetricKey,
@@ -74,6 +81,8 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
         setFeaturedLeaderboard(response);
       } catch (error) {
         console.error(error);
+        setFeaturedLeaderboard(null);
+        setFeaturedError("Failed to load featured profiles.");
       } finally {
         setFeaturedLoading(false);
       }
@@ -86,6 +95,8 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
     const season = standingsSeason || latestSeason;
     if (!season) return;
     async function loadStandings() {
+      setStandingsLoading(true);
+      setStandingsError(null);
       try {
         const response = await api.standings({ season });
         setStandings(response);
@@ -94,6 +105,10 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
         }
       } catch (error) {
         console.error(error);
+        setStandings(null);
+        setStandingsError("Failed to load standings.");
+      } finally {
+        setStandingsLoading(false);
       }
     }
     loadStandings();
@@ -104,6 +119,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
 
     async function loadTopQueries() {
       setTopQueriesLoading(true);
+      setTopQueriesError(null);
       try {
         const response = await api.insights({
           limit: 6,
@@ -116,6 +132,8 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
       } catch (error) {
         if (!isActive) return;
         console.error(error);
+        setTopQueries([]);
+        setTopQueriesError("Failed to load insights.");
       } finally {
         if (!isActive) return;
         setTopQueriesLoading(false);
@@ -169,12 +187,23 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchResults(null);
         setSearchQuery("");
+        setSearchResults(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSearchQuery("");
+        setSearchResults(null);
+      }
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
   // Player-only search (bottom section)
@@ -427,7 +456,16 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
             )}
           </div>
           <ol className="dash-standings-list">
-            {standings && standings.rows.length > 0
+            {standingsLoading
+              ? Array.from({ length: 8 }).map((_, index) => (
+                  <li key={`standings-skeleton-${index}`}>
+                    <SkeletonBlock width={24} height={18} rounded="sm" />
+                    <SkeletonBlock width={22} height={22} rounded="pill" />
+                    <SkeletonBlock height={10} />
+                    <SkeletonBlock width={38} height={12} rounded="sm" />
+                  </li>
+                ))
+              : standings && standings.rows.length > 0
               ? standings.rows.slice(0, 8).map((row) => {
                   const maxPts = standings.rows[0].points || 1;
                   const barWidth = Math.round((row.points / maxPts) * 100);
@@ -465,6 +503,9 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                   </li>
                 ))}
           </ol>
+          {!standingsLoading && standingsError ? (
+            <PanelState state="error" message={standingsError} />
+          ) : null}
         </div>
       </div>
 
@@ -477,9 +518,20 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
             </div>
           </div>
           {topQueriesLoading ? (
-            <p className="dash-empty">Loading queries...</p>
+            <div className="dash-query-list" aria-hidden="true">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <article key={`query-skeleton-${index}`} className="dash-query-tile">
+                  <SkeletonBlock height={14} width="72%" />
+                  <SkeletonBlock height={18} width="54%" />
+                  <SkeletonBlock height={11} width="100%" />
+                  <SkeletonBlock height={11} width="82%" />
+                </article>
+              ))}
+            </div>
+          ) : topQueriesError ? (
+            <PanelState state="error" message={topQueriesError} />
           ) : topQueries.length === 0 ? (
-            <p className="dash-empty">No query data available.</p>
+            <PanelState state="empty" message="No query data available." />
           ) : (
             <div className="dash-query-list">
               {topQueries.map((query) => {
@@ -545,7 +597,23 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
               <h2>{featuredTitle}</h2>
             </div>
           </div>
-          {featuredLoading && <p className="dash-empty">Loading...</p>}
+          {featuredLoading && (
+            <div className="featured-cards" aria-hidden="true">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={`featured-skeleton-${index}`} className="featured-card">
+                  <SkeletonBlock width={58} height={58} rounded="pill" />
+                  <div className="featured-card-info" style={{ width: "100%" }}>
+                    <SkeletonBlock height={14} width="74%" />
+                    <SkeletonBlock height={12} width="60%" />
+                    <SkeletonBlock height={12} width="42%" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!featuredLoading && featuredError ? (
+            <PanelState state="error" message={featuredError} />
+          ) : null}
           {!featuredLoading && featuredLeaderboard?.rows?.length ? (
             <div className="featured-cards">
               {featuredLeaderboard.rows.slice(0, 6).map((row, index) => {
@@ -558,7 +626,12 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                     onClick={() => navigate(`/players/${row.id}`)}
                   >
                     <div className="featured-card-photo">
-                      <img src={imgSrc} alt={row.label} loading="lazy" />
+                      <img
+                        src={imgSrc}
+                        alt={row.label}
+                        loading="lazy"
+                        onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
+                      />
                     </div>
                     <div className="featured-card-info">
                       <strong>{row.label}</strong>
@@ -574,7 +647,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
               })}
             </div>
           ) : (
-            !featuredLoading && <p className="dash-empty">No data available.</p>
+            !featuredLoading && !featuredError && <PanelState state="empty" message="No data available." />
           )}
 
           <div className="dash-player-search">

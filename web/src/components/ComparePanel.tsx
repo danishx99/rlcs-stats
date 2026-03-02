@@ -15,6 +15,8 @@ import { buildEventPath } from "../utils/event-routing";
 import PlayerNameWithPhoto from "./PlayerNameWithPhoto";
 import TeamNameWithLogo from "./TeamNameWithLogo";
 import type { Filters } from "../types/ui";
+import PanelState from "./ui/PanelState";
+import SkeletonBlock from "./ui/SkeletonBlock";
 
 export type ComparePanelProps = {
   compareMode: "players" | "rosters";
@@ -35,9 +37,11 @@ export default function ComparePanel({
 }: ComparePanelProps) {
   const [compareResults, setCompareResults] = useState<CompareResponse | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
   const [compareHistory, setCompareHistory] = useState<CompareHistoryRow[]>([]);
   const [compareHistoryTotal, setCompareHistoryTotal] = useState(0);
   const [compareHistoryLoading, setCompareHistoryLoading] = useState(false);
+  const [compareHistoryError, setCompareHistoryError] = useState<string | null>(null);
   const [compareHistoryPage, setCompareHistoryPage] = useState(1);
 
   const compareIds = useMemo(() => compareSelection.map((item) => item.id), [compareSelection]);
@@ -78,9 +82,11 @@ export default function ComparePanel({
       if (compareSelection.length < 1 || !compareMetrics.length) {
         setCompareResults(null);
         setCompareLoading(false);
+        setCompareError(null);
         return;
       }
       setCompareLoading(true);
+      setCompareError(null);
       try {
         const response = await api.compare({
           type: compareMode,
@@ -98,6 +104,7 @@ export default function ComparePanel({
       } catch (error) {
         console.error(error);
         setCompareResults(null);
+        setCompareError("Failed to load comparison data.");
       } finally {
         setCompareLoading(false);
       }
@@ -111,9 +118,11 @@ export default function ComparePanel({
       if (compareSelection.length < 2) {
         setCompareHistory([]);
         setCompareHistoryTotal(0);
+        setCompareHistoryError(null);
         return;
       }
       setCompareHistoryLoading(true);
+      setCompareHistoryError(null);
       try {
         const offset = (compareHistoryPage - 1) * compareHistoryPageSize;
         const response = await api.compareHistory({
@@ -134,6 +143,7 @@ export default function ComparePanel({
         console.error(error);
         setCompareHistory([]);
         setCompareHistoryTotal(0);
+        setCompareHistoryError("Failed to load series history.");
       } finally {
         setCompareHistoryLoading(false);
       }
@@ -173,10 +183,35 @@ export default function ComparePanel({
 
   return (
     <>
-      {compareLoading && <p className="empty">Loading statistics...</p>}
-      {!compareLoading && (!compareResults || compareResults.rows.length === 0) && (
-        <p className="empty">Select a player or roster to view stats.</p>
-      )}
+      {compareLoading ? (
+        <div className="skel-compare-grid" role="status" aria-busy="true">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={`compare-skel-${i}`} className="skel-compare-card">
+              <SkeletonBlock height={14} width="50%" />
+              {Array.from({ length: 3 }).map((_, j) => (
+                <div key={`compare-entry-${i}-${j}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <SkeletonBlock width={20} height={20} rounded="pill" />
+                  <SkeletonBlock height={12} width={`${70 - j * 10}%`} />
+                  <SkeletonBlock height={12} width={40} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {!compareLoading && compareError ? <PanelState state="error" message={compareError} /> : null}
+      {!compareLoading && !compareError && compareSelection.length === 0 ? (
+        <PanelState state="empty" message="Search and add 2-6 players or teams to compare." />
+      ) : null}
+      {!compareLoading && !compareError && compareSelection.length === 1 ? (
+        <PanelState state="empty" message="Add one more player or team to unlock head-to-head comparison." />
+      ) : null}
+      {!compareLoading && !compareError && compareMetrics.length === 0 ? (
+        <PanelState state="empty" message="Select at least one metric to compare." />
+      ) : null}
+      {!compareLoading && !compareError && compareSelection.length > 0 && compareMetrics.length > 0 && (!compareResults || compareResults.rows.length === 0) ? (
+        <PanelState state="empty" message="No comparison data found for the selected filters." />
+      ) : null}
       {compareResults && compareResults.rows.length > 0 && (
         <div className="sg-grid">
           {/* Games card */}
@@ -258,7 +293,24 @@ export default function ComparePanel({
             </div>
           </div>
           {compareHistoryLoading ? (
-            <p className="empty">Loading series history...</p>
+            <div className="skel-table" role="status" aria-busy="true">
+              <div className="skel-table-header" style={{ gridTemplateColumns: "80px 2fr 1.5fr 1.5fr" }}>
+                <SkeletonBlock height={12} width="70%" />
+                <SkeletonBlock height={12} width="40%" />
+                <SkeletonBlock height={12} width="50%" />
+                <SkeletonBlock height={12} width="50%" />
+              </div>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={`history-skel-${i}`} className="skel-table-row" style={{ gridTemplateColumns: "80px 2fr 1.5fr 1.5fr" }}>
+                  <SkeletonBlock height={14} width="60%" />
+                  <SkeletonBlock height={14} width={`${65 - i * 5}%`} />
+                  <SkeletonBlock height={14} width={`${55 - i * 4}%`} />
+                  <SkeletonBlock height={14} width={`${55 - i * 4}%`} />
+                </div>
+              ))}
+            </div>
+          ) : compareHistoryError ? (
+            <PanelState state="error" message={compareHistoryError} />
           ) : compareHistory.length ? (
             <div className="table-wrap">
               <table>

@@ -8,6 +8,8 @@ import { resolveTeamRosterId } from "../utils/team-routing";
 import { buildEventPath } from "../utils/event-routing";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import SocialIconLink from "../components/SocialIconLink";
+import PanelState from "../components/ui/PanelState";
+import SkeletonBlock from "../components/ui/SkeletonBlock";
 
 const ROSTER_MODE = "3s" as const;
 
@@ -59,9 +61,12 @@ export default function RosterPage() {
   const navigate = useNavigate();
   const [rosterProfile, setRosterProfile] = useState<RosterProfile | null>(null);
   const [rosterProfileLoading, setRosterProfileLoading] = useState(false);
+  const [rosterProfileError, setRosterProfileError] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string>("");
   const [resultRows, setResultRows] = useState<RosterEventResultRow[]>([]);
   const [resultsLoading, setResultsLoading] = useState(false);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  const [resultsRefreshKey, setResultsRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!rosterId) return;
@@ -69,6 +74,7 @@ export default function RosterPage() {
 
     async function loadRoster() {
       setRosterProfileLoading(true);
+      setRosterProfileError(null);
       try {
         const response = await api.rosterProfile(rosterKey, {
           gameMode: ROSTER_MODE
@@ -82,6 +88,8 @@ export default function RosterPage() {
         setSelectedSeason(initialSeason);
       } catch (error) {
         console.error(error);
+        setRosterProfile(null);
+        setRosterProfileError("Failed to load team profile.");
       } finally {
         setRosterProfileLoading(false);
       }
@@ -100,6 +108,7 @@ export default function RosterPage() {
     let isActive = true;
     async function loadResults() {
       setResultsLoading(true);
+      setResultsError(null);
       try {
         const response = await api.rosterResults(rosterKey, {
           season: selectedSeason,
@@ -111,6 +120,7 @@ export default function RosterPage() {
         if (!isActive) return;
         console.error(error);
         setResultRows([]);
+        setResultsError("Failed to load team results.");
       } finally {
         if (!isActive) return;
         setResultsLoading(false);
@@ -121,7 +131,7 @@ export default function RosterPage() {
     return () => {
       isActive = false;
     };
-  }, [rosterId, selectedSeason]);
+  }, [resultsRefreshKey, rosterId, selectedSeason]);
 
   const seasonOptions = useMemo(() => {
     if (!rosterProfile) return [] as string[];
@@ -139,7 +149,58 @@ export default function RosterPage() {
   }, [rosterProfile, selectedSeason]);
 
   if (rosterProfileLoading) {
-    return <div className="page page-no-nav">Loading team profile...</div>;
+    return (
+      <div className="page page-no-nav roster-page" aria-busy="true">
+        <button className="ghost back-button" onClick={() => navigate("/")}>
+          ← Back to Dashboard
+        </button>
+        <h1 className="page-heading">Team Profile</h1>
+        <div className="roster-top-grid">
+          <div className="panel roster-profile-card roster-profile-card--compact">
+            <div className="profile-header">
+              <SkeletonBlock width={96} height={96} rounded="pill" />
+              <div style={{ width: "100%", display: "grid", gap: 10 }}>
+                <SkeletonBlock height={20} width="45%" />
+                <SkeletonBlock height={13} width="66%" />
+                <SkeletonBlock height={13} width="72%" />
+                <SkeletonBlock height={13} width="54%" />
+              </div>
+            </div>
+          </div>
+          <div className="panel roster-rosters-panel">
+            <SkeletonBlock height={22} width="40%" />
+            <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <SkeletonBlock key={`roster-skeleton-${index}`} height={26} width="100%" />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="panel roster-results-panel">
+          <div className="panel-header inline">
+            <SkeletonBlock height={20} width={80} />
+            <SkeletonBlock height={26} width={100} rounded="pill" />
+          </div>
+          <div className="skel-table">
+            <div className="skel-table-header skel-results-row">
+              <SkeletonBlock height={12} width="40%" />
+              <SkeletonBlock height={12} width="60%" />
+              <SkeletonBlock height={12} width="50%" />
+              <SkeletonBlock height={12} width="40%" />
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={`results-init-skel-${i}`} className="skel-table-row skel-results-row">
+                <SkeletonBlock height={14} width={`${70 - i * 6}%`} />
+                <SkeletonBlock height={14} width="50%" />
+                <SkeletonBlock height={14} width={`${60 - i * 5}%`} />
+                <SkeletonBlock height={14} width="55%" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!rosterProfile) {
@@ -148,7 +209,7 @@ export default function RosterPage() {
         <button className="ghost back-button" onClick={() => navigate("/")}>
           ← Back to Dashboard
         </button>
-        <div className="empty-state">Team not found.</div>
+        <div className="empty-state">{rosterProfileError ?? "Team not found."}</div>
       </div>
     );
   }
@@ -173,8 +234,8 @@ export default function RosterPage() {
         ← Back to Dashboard
       </button>
 
-      <div className="section-header roster-page-header">
-        <h2>Team Profile</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+        <h1 className="page-heading" style={{ margin: 0 }}>Team Profile</h1>
         {seasonOptions.length > 0 && (
           <div className="profile-filter-row">
             <select value={selectedSeason} onChange={(e) => setSelectedSeason(e.target.value)}>
@@ -385,9 +446,30 @@ export default function RosterPage() {
         </div>
 
         {resultsLoading ? (
-          <p className="empty">Loading results...</p>
+          <div className="skel-table" role="status" aria-busy="true">
+            <div className="skel-table-header skel-results-row">
+              <SkeletonBlock height={12} width="40%" />
+              <SkeletonBlock height={12} width="60%" />
+              <SkeletonBlock height={12} width="50%" />
+              <SkeletonBlock height={12} width="40%" />
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={`results-skel-${i}`} className="skel-table-row skel-results-row">
+                <SkeletonBlock height={14} width={`${70 - i * 6}%`} />
+                <SkeletonBlock height={14} width="50%" />
+                <SkeletonBlock height={14} width={`${60 - i * 5}%`} />
+                <SkeletonBlock height={14} width="55%" />
+              </div>
+            ))}
+          </div>
+        ) : resultsError ? (
+          <PanelState
+            state="error"
+            message={resultsError}
+            onRetry={() => setResultsRefreshKey((value) => value + 1)}
+          />
         ) : resultRows.length === 0 ? (
-          <p className="empty">No event results found for this season.</p>
+          <PanelState state="empty" message="No event results found for this season." />
         ) : (
           <div className="results-table-wrap">
             <table className="results-table roster-results-table">

@@ -5,6 +5,8 @@ import type { LeaderboardResponse, MetaColumnsResponse, MetaResponse } from "../
 import Leaderboard from "../components/Leaderboard";
 import StatPicker from "../components/StatPicker";
 import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
+import PanelState from "../components/ui/PanelState";
+import SkeletonBlock from "../components/ui/SkeletonBlock";
 
 export default function StatPage() {
   const { statKey } = useParams();
@@ -22,10 +24,15 @@ export default function StatPage() {
   const teamsDisabled = gameMode === "1s";
 
   const [meta, setMeta] = useState<MetaResponse | null>(null);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [metaError, setMetaError] = useState<string | null>(null);
   const [columns, setColumns] = useState<MetaColumnsResponse | null>(null);
+  const [columnsLoading, setColumnsLoading] = useState(false);
+  const [columnsError, setColumnsError] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const internationalEvents = meta?.internationalEvents ?? [];
   const forceIncludeLansForEvent = gameMode === "3s" && Boolean(event) && isInternationalEvent(event, internationalEvents);
   const effectiveIncludeLans = includeLans || forceIncludeLansForEvent;
@@ -35,6 +42,8 @@ export default function StatPage() {
   // Load meta (cascading filters)
   useEffect(() => {
     let cancelled = false;
+    setMetaLoading(true);
+    setMetaError(null);
     api.meta({
       gameMode: gameMode || undefined,
       scope: scope || undefined,
@@ -43,16 +52,34 @@ export default function StatPage() {
       split: split || undefined
     }).then((res) => {
       if (!cancelled) setMeta(res);
-    }).catch(console.error);
+    }).catch((metaLoadError) => {
+      console.error(metaLoadError);
+      if (!cancelled) {
+        setMeta(null);
+        setMetaError("Failed to load filter options.");
+      }
+    }).finally(() => {
+      if (!cancelled) setMetaLoading(false);
+    });
     return () => { cancelled = true; };
   }, [gameMode, scope, season, split, tier]);
 
   // Load stat categories
   useEffect(() => {
     let cancelled = false;
+    setColumnsLoading(true);
+    setColumnsError(null);
     api.metaColumns().then((res) => {
       if (!cancelled) setColumns(res);
-    }).catch(console.error);
+    }).catch((columnsLoadError) => {
+      console.error(columnsLoadError);
+      if (!cancelled) {
+        setColumns(null);
+        setColumnsError("Failed to load stat options.");
+      }
+    }).finally(() => {
+      if (!cancelled) setColumnsLoading(false);
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -84,7 +111,7 @@ export default function StatPage() {
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [event, gameMode, mode, scope, season, sort, split, statKey, tier, type]);
+  }, [event, gameMode, mode, retryKey, scope, season, sort, split, statKey, tier, type]);
 
   const updateParam = useCallback((key: string, value: string) => {
     setSearchParams((prev) => {
@@ -127,6 +154,10 @@ export default function StatPage() {
     }
     return leaderboard?.metric?.label ?? statKey ?? "Stat";
   }, [categories, statKey, leaderboard]);
+  const statExists = useMemo(() => {
+    if (!statKey) return false;
+    return categories.some((category) => category.stats.some((stat) => stat.key === statKey));
+  }, [categories, statKey]);
 
   const typeLabel = type === "team" ? "Teams" : "Players";
   const modeLabel = mode === "total" ? "Total" : "Per Game";
@@ -138,9 +169,9 @@ export default function StatPage() {
         &larr; Back to Dashboard
       </button>
 
-      <div className="stat-page-header">
-        <h1>{selectedStatLabel}</h1>
-        <div className="stat-page-subtitle">
+      <div>
+        <h1 className="page-heading" style={{ marginBottom: 6 }}>{selectedStatLabel}</h1>
+        <div className="page-heading-sub">
           {sortLabel} 10 {typeLabel} &middot; {modeLabel}
         </div>
       </div>
@@ -181,14 +212,20 @@ export default function StatPage() {
           </button>
         </div>
 
-        <StatPicker
-          categories={categories}
-          selected={statKey ? [statKey] : []}
-          onToggle={handleStatChange}
-          single
-          dropdown
-          triggerLabel={selectedStatLabel}
-        />
+        {columnsLoading ? (
+          <button type="button" className="sort-toggle" disabled aria-busy="true">
+            Loading stats...
+          </button>
+        ) : (
+          <StatPicker
+            categories={categories}
+            selected={statKey ? [statKey] : []}
+            onToggle={handleStatChange}
+            single
+            dropdown
+            triggerLabel={selectedStatLabel}
+          />
+        )}
 
         <button
           type="button"
@@ -273,12 +310,37 @@ export default function StatPage() {
 
       <div className="section-divider" />
 
-      {loading && <div className="loading">Loading leaderboard...</div>}
-      {error && <div className="error">{error}</div>}
-      {!loading && !error && leaderboard && <Leaderboard data={leaderboard} entityType={type} />}
-      {!loading && !error && !leaderboard && (
-        <div className="empty-state">No leaderboard data.</div>
-      )}
+      {metaLoading && !meta ? <PanelState state="loading" message="Loading filter options..." /> : null}
+      {metaError ? <PanelState state="error" message={metaError} /> : null}
+      {columnsError ? <PanelState state="error" message={columnsError} /> : null}
+      {!columnsLoading && categories.length > 0 && !statExists ? (
+        <PanelState state="empty" message="That stat does not exist. Pick a valid stat from the picker." />
+      ) : null}
+      {loading ? (
+        <div role="status" aria-busy="true">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={`lb-skel-${i}`} className="skel-leaderboard-row">
+              <SkeletonBlock width={24} height={24} rounded="pill" />
+              <SkeletonBlock width={36} height={36} rounded="pill" />
+              <SkeletonBlock height={14} width={`${160 - i * 8}px`} />
+              <div style={{ marginLeft: "auto" }}>
+                <SkeletonBlock height={14} width={50} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {!loading && error ? (
+        <PanelState
+          state="error"
+          message={error}
+          onRetry={() => setRetryKey((value) => value + 1)}
+        />
+      ) : null}
+      {!loading && !error && leaderboard ? <Leaderboard data={leaderboard} entityType={type} /> : null}
+      {!loading && !error && !leaderboard ? (
+        <PanelState state="empty" message="No leaderboard data." />
+      ) : null}
     </div>
   );
 }

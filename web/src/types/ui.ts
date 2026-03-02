@@ -6,3 +6,9 @@ export type Filters = {
   split: string;
   event: string;
 };
+
+export type AsyncViewState = {
+  isInitialLoading: boolean;
+  isRefreshing: boolean;
+  error: string | null;
+};

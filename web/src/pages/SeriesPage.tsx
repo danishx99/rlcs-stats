@@ -6,6 +6,7 @@ import { formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
 import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
+import SkeletonBlock from "../components/ui/SkeletonBlock";
 
 type SeriesFilters = {
   mode: string;
@@ -232,12 +233,11 @@ export default function SeriesPage() {
     <div className="page page-no-nav series-page">
       <button className="ghost back-button" onClick={() => navigate("/")}>← Back to Dashboard</button>
 
+      <h1 className="page-heading">Series</h1>
+
       <div className="panel series-filters-card">
         <div className="panel-header">
-          <div>
-            <p className="panel-label">Explore</p>
-            <h1>Series</h1>
-          </div>
+          <p className="panel-label">Explore</p>
           <div className="section-note">{seriesRows.length} series</div>
         </div>
 
@@ -455,7 +455,28 @@ export default function SeriesPage() {
           <div className="section-note">Click a row for game-by-game results</div>
         </div>
 
-        {seriesLoading ? <p className="empty">Loading series...</p> : null}
+        {seriesLoading ? (
+          <div className="skel-table" role="status" aria-busy="true">
+            <div className="skel-table-header" style={{ gridTemplateColumns: "80px 1.8fr 1fr 60px 1fr 50px" }}>
+              <SkeletonBlock height={12} width="70%" />
+              <SkeletonBlock height={12} width="50%" />
+              <SkeletonBlock height={12} width="60%" />
+              <SkeletonBlock height={12} width="40%" />
+              <SkeletonBlock height={12} width="55%" />
+              <SkeletonBlock height={12} width="50%" />
+            </div>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={`series-skel-${i}`} className="skel-table-row" style={{ gridTemplateColumns: "80px 1.8fr 1fr 60px 1fr 50px" }}>
+                <SkeletonBlock height={14} width="60%" />
+                <SkeletonBlock height={14} width={`${75 - i * 4}%`} />
+                <SkeletonBlock height={14} width={`${65 - i * 3}%`} />
+                <SkeletonBlock height={14} width="50%" />
+                <SkeletonBlock height={14} width={`${60 - i * 3}%`} />
+                <SkeletonBlock height={14} width="40%" />
+              </div>
+            ))}
+          </div>
+        ) : null}
         {seriesError ? <div className="error">{seriesError}</div> : null}
         {!seriesLoading && !seriesError && seriesRows.length === 0 ? (
           <p className="empty">No series found for these filters.</p>
@@ -581,7 +602,18 @@ export default function SeriesPage() {
               </span>
             </div>
 
-            {detailLoading && !selectedSeriesDetail ? <p className="empty">Loading game details...</p> : null}
+            {detailLoading && !selectedSeriesDetail ? (
+              <div className="skel-table" role="status" aria-busy="true">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={`detail-skel-${i}`} className="skel-table-row" style={{ gridTemplateColumns: "60px 1fr 1.2fr 1fr" }}>
+                    <SkeletonBlock height={14} width="70%" />
+                    <SkeletonBlock height={14} width={`${65 - i * 6}%`} />
+                    <SkeletonBlock height={14} width={`${75 - i * 5}%`} />
+                    <SkeletonBlock height={14} width={`${55 - i * 4}%`} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {detailError ? <div className="error">{detailError}</div> : null}
 
             {selectedSeriesDetail ? (

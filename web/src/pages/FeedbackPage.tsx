@@ -84,9 +84,9 @@ export default function FeedbackPage() {
         &larr; Back to Dashboard
       </button>
 
-      <div className="stat-page-header">
-        <h1>Feedback</h1>
-        <div className="stat-page-subtitle">{rows.length} submissions</div>
+      <div>
+        <h1 className="page-heading" style={{ marginBottom: 6 }}>Feedback</h1>
+        <div className="page-heading-sub">{rows.length} submissions</div>
       </div>
 
       <div className="feedback-filters">

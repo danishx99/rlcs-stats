@@ -10,9 +10,12 @@ import StatPicker from "../components/StatPicker";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import PlayerNameWithPhoto from "../components/PlayerNameWithPhoto";
 import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
+import PanelState from "../components/ui/PanelState";
+import SkeletonBlock from "../components/ui/SkeletonBlock";
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
 const SEARCH_DEBOUNCE_MS = 500;
+const MAX_COMPARE_SELECTION = 6;
 const DEFAULT_FILTERS: Filters = {
   mode: "3s",
   scope: "regional",
@@ -29,10 +32,13 @@ export default function ComparePage() {
   const [compareSelection, setCompareSelection] = useState<SearchResult[]>([]);
   const [compareMetrics, setCompareMetrics] = useState<string[]>(DEFAULT_COMPARE_STATS);
   const [statCategories, setStatCategories] = useState<StatCategory[]>([]);
+  const [statCategoriesLoading, setStatCategoriesLoading] = useState(false);
+  const [statCategoriesError, setStatCategoriesError] = useState<string | null>(null);
   const [addedExtras, setAddedExtras] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const { meta } = useMeta(filters);
   const statOptions = meta?.statOptions ?? [];
 
@@ -87,9 +93,15 @@ export default function ComparePage() {
   }, [statOptions, allCategoryStats]);
 
   useEffect(() => {
+    setStatCategoriesLoading(true);
+    setStatCategoriesError(null);
     api.metaColumns()
       .then((data) => setStatCategories(data.categories))
-      .catch((error) => console.error("Failed to load stat categories:", error));
+      .catch((error) => {
+        console.error("Failed to load stat categories:", error);
+        setStatCategoriesError("Failed to load stat options.");
+      })
+      .finally(() => setStatCategoriesLoading(false));
   }, []);
 
   const lockedType = compareSelection.length > 0
@@ -101,9 +113,11 @@ export default function ComparePage() {
     if (!trimmed) {
       setSearchResults([]);
       setSearchLoading(false);
+      setSearchError(null);
       return;
     }
     setSearchLoading(true);
+    setSearchError(null);
     const handle = window.setTimeout(async () => {
       try {
         const response = await api.search({
@@ -119,6 +133,8 @@ export default function ComparePage() {
         setSearchResults([...response.players, ...response.rosters]);
       } catch (error) {
         console.error(error);
+        setSearchResults([]);
+        setSearchError("Search failed. Please try again.");
       } finally {
         setSearchLoading(false);
       }
@@ -135,6 +151,7 @@ export default function ComparePage() {
     if (item.type === "stat") return;
     setCompareMode(item.type === "player" ? "players" : "rosters");
     setCompareSelection((prev) => {
+      if (prev.length >= MAX_COMPARE_SELECTION) return prev;
       if (prev.some((existing) => existing.id === item.id)) return prev;
       return [...prev, item];
     });
@@ -147,12 +164,11 @@ export default function ComparePage() {
         ← Back to Dashboard
       </button>
 
+      <h1 className="page-heading">Head-to-Head</h1>
+
       <div className="panel compare-setup-card">
         <div className="compare-setup-header">
-          <div>
-            <p className="panel-label">Compare</p>
-            <h1>Head-to-Head</h1>
-          </div>
+          <p className="panel-label">Compare</p>
         </div>
 
         <div className="compare-search-area">
@@ -168,6 +184,7 @@ export default function ComparePage() {
               type="text"
               placeholder={lockedType === "player" ? "Search players..." : lockedType === "roster" ? "Search teams..." : "Search players or teams..."}
               value={searchQuery}
+              disabled={compareSelection.length >= MAX_COMPARE_SELECTION}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             {searchQuery && (
@@ -179,9 +196,11 @@ export default function ComparePage() {
           {searchQuery.trim() && (
             <div className="compare-search-results">
               {searchLoading && <p className="dash-empty">Searching...</p>}
+              {!searchLoading && searchError && <PanelState state="error" message={searchError} />}
               {!searchLoading && filteredResults.length > 0 &&
                 filteredResults.slice(0, 6).map((item) => {
                   const already = compareSelection.some((s) => s.id === item.id);
+                  const atMax = compareSelection.length >= MAX_COMPARE_SELECTION;
                   const image = proxyImageUrl(item.meta?.photoUrl) ?? proxyImageUrl(
                     item.type === "roster" ? DEFAULT_TEAM_LOGO : DEFAULT_PLAYER_PHOTO
                   )!;
@@ -191,8 +210,8 @@ export default function ComparePage() {
                   return (
                     <div
                       key={item.id}
-                      className={`dash-search-item compare-search-item${already ? " compare-search-item--added" : ""}`}
-                      onClick={() => !already && handleAddResult(item)}
+                      className={`dash-search-item compare-search-item${already || atMax ? " compare-search-item--added" : ""}`}
+                      onClick={() => !already && !atMax && handleAddResult(item)}
                     >
                       <div className={`dash-search-avatar${item.type === "roster" ? " dash-search-avatar--logo" : ""}`}>
                         <img src={image} alt="" />
@@ -206,7 +225,7 @@ export default function ComparePage() {
                     </div>
                   );
                 })}
-              {!searchLoading && filteredResults.length === 0 && (
+              {!searchLoading && !searchError && filteredResults.length === 0 && (
                 <p className="dash-empty">
                   {lockedType === "player" ? "No players found." : lockedType === "roster" ? "No teams found." : "No players or teams found."}
                 </p>
@@ -254,6 +273,9 @@ export default function ComparePage() {
               </button>
             </>
           )}
+          {compareSelection.length >= MAX_COMPARE_SELECTION ? (
+            <p className="empty">Maximum reached. Remove one to add another.</p>
+          ) : null}
         </div>
       </div>
 
@@ -271,28 +293,38 @@ export default function ComparePage() {
             onToggle={toggleCompareMetric}
           />
         </div>
-        <div className="compare-stats">
-          {compareStatsList.map((option) => (
-            <label key={option.key} className="stat-toggle">
-              <input
-                type="checkbox"
-                checked={compareMetrics.includes(option.key)}
-                onChange={() => toggleCompareMetric(option.key)}
-              />
-              {option.label}
-            </label>
-          ))}
-          {extraMetrics.map((stat) => (
-            <label key={stat.key} className="stat-toggle">
-              <input
-                type="checkbox"
-                checked={compareMetrics.includes(stat.key)}
-                onChange={() => toggleCompareMetric(stat.key)}
-              />
-              {stat.label}
-            </label>
-          ))}
-        </div>
+        {statCategoriesLoading && compareStatsList.length === 0 ? (
+          <div className="skel-toggles" role="status" aria-busy="true">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <SkeletonBlock key={`toggle-skel-${i}`} height={30} width={[80, 100, 70, 90, 110, 85, 95, 75, 105, 88, 72, 98][i]} rounded="pill" />
+            ))}
+          </div>
+        ) : statCategoriesError ? (
+          <PanelState state="error" message={statCategoriesError} />
+        ) : (
+          <div className="compare-stats">
+            {compareStatsList.map((option) => (
+              <label key={option.key} className="stat-toggle">
+                <input
+                  type="checkbox"
+                  checked={compareMetrics.includes(option.key)}
+                  onChange={() => toggleCompareMetric(option.key)}
+                />
+                {option.label}
+              </label>
+            ))}
+            {extraMetrics.map((stat) => (
+              <label key={stat.key} className="stat-toggle">
+                <input
+                  type="checkbox"
+                  checked={compareMetrics.includes(stat.key)}
+                  onChange={() => toggleCompareMetric(stat.key)}
+                />
+                {stat.label}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="section-divider" />

@@ -10,6 +10,9 @@ import Leaderboard from "../components/Leaderboard";
 import PlayerNameWithPhoto from "../components/PlayerNameWithPhoto";
 import StatPicker from "../components/StatPicker";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
+import PanelState from "../components/ui/PanelState";
+import SkeletonBlock from "../components/ui/SkeletonBlock";
+import SkeletonRows from "../components/ui/SkeletonRows";
 
 const CORE_LEADERBOARDS = [
   { key: "rating", title: "Top 10 Players (Rating)" },
@@ -52,15 +55,19 @@ export default function EventPage() {
   const [leaderboards, setLeaderboards] = useState<LeaderboardResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventRetryKey, setEventRetryKey] = useState(0);
 
   // Event search state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse["events"]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   // Navigation filter state
   const [meta, setMeta] = useState<MetaResponse | null>(null);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [metaError, setMetaError] = useState<string | null>(null);
   const [filterSeason, setFilterSeason] = useState("");
   const [filterSplit, setFilterSplit] = useState("");
 
@@ -69,6 +76,7 @@ export default function EventPage() {
   const [selectedStats, setSelectedStats] = useState<string[]>(DEFAULT_STATS);
   const [leaderboardMap, setLeaderboardMap] = useState<Map<string, LeaderboardResponse>>(new Map());
   const [loadingStats, setLoadingStats] = useState<Set<string>>(new Set());
+  const [statLoadErrors, setStatLoadErrors] = useState<Map<string, string>>(new Map());
 
   // Load event data
   useEffect(() => {
@@ -98,7 +106,7 @@ export default function EventPage() {
       }
     }
     loadEvent();
-  }, [eventId]);
+  }, [eventId, eventRetryKey]);
 
   // Pre-fill filters from current event
   useEffect(() => {
@@ -116,7 +124,16 @@ export default function EventPage() {
     if (event.mode) params.gameMode = event.mode;
     if (event.scope) params.scope = event.scope;
     if (event.tier) params.tier = event.tier;
-    api.meta(params).then(setMeta).catch(console.error);
+    setMetaLoading(true);
+    setMetaError(null);
+    api.meta(params)
+      .then(setMeta)
+      .catch((metaLoadError) => {
+        console.error(metaLoadError);
+        setMeta(null);
+        setMetaError("Failed to load event navigation filters.");
+      })
+      .finally(() => setMetaLoading(false));
   }, [event, filterSeason, filterSplit]);
 
   // Load stat categories for StatPicker
@@ -156,30 +173,28 @@ export default function EventPage() {
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
+      setSearchError(null);
       return;
     }
     const timeout = setTimeout(async () => {
       setSearchLoading(true);
+      setSearchError(null);
       try {
-        const trackParams: Record<string, string> = {};
-        if (event?.mode) trackParams.gameMode = event.mode;
-        if (event?.scope) trackParams.scope = event.scope;
-        if (event?.tier) trackParams.tier = event.tier;
-        const response = await api.search({
-          q: searchQuery,
-          season: filterSeason || undefined,
-          split: filterSplit || undefined,
-          ...trackParams
-        });
-        setSearchResults(response.events ?? []);
+        const response = await api.search({ q: searchQuery });
+        const events = (response.events ?? []).filter(
+          (ev) => ev.meta?.scope !== "international"
+        );
+        setSearchResults(events);
       } catch (err) {
         console.error(err);
+        setSearchResults([]);
+        setSearchError("Failed to search events.");
       } finally {
         setSearchLoading(false);
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
-  }, [event, filterSeason, filterSplit, searchQuery]);
+  }, [searchQuery]);
 
   // Click outside to close search
   useEffect(() => {
@@ -196,6 +211,7 @@ export default function EventPage() {
   // Reset leaderboard map when event context changes
   useEffect(() => {
     setLeaderboardMap(new Map());
+    setStatLoadErrors(new Map());
   }, [eventId]);
 
   // Fetch leaderboards for extra selected stats (defaults are already in hardcoded cards)
@@ -207,13 +223,20 @@ export default function EventPage() {
     }
 
     // Remove deselected stats from map
-    setLeaderboardMap((prev) => {
-      const next = new Map(prev);
-      for (const key of prev.keys()) {
-        if (!extraStats.includes(key)) next.delete(key);
-      }
-      return next.size !== prev.size ? next : prev;
-    });
+      setLeaderboardMap((prev) => {
+        const next = new Map(prev);
+        for (const key of prev.keys()) {
+          if (!extraStats.includes(key)) next.delete(key);
+        }
+        return next.size !== prev.size ? next : prev;
+      });
+      setStatLoadErrors((prev) => {
+        const next = new Map(prev);
+        for (const key of prev.keys()) {
+          if (!extraStats.includes(key)) next.delete(key);
+        }
+        return next;
+      });
 
     // Find stats that need fetching
     const toFetch = extraStats.filter((key) => !leaderboardMap.has(key));
@@ -251,6 +274,17 @@ export default function EventPage() {
         }
         return next;
       });
+      setStatLoadErrors((prev) => {
+        const next = new Map(prev);
+        outcomes.forEach((outcome, index) => {
+          if (outcome.status === "rejected") {
+            const reason = outcome.reason instanceof Error ? outcome.reason.message : "Request failed";
+            const metric = toFetch[index];
+            if (metric) next.set(metric, reason);
+          }
+        });
+        return next;
+      });
       setLoadingStats((prev) => {
         const next = new Set(prev);
         toFetch.forEach((k) => next.delete(k));
@@ -262,7 +296,39 @@ export default function EventPage() {
   }, [event, selectedStats, leaderboardMap]);
 
   if (loading) {
-    return <div className="page page-no-nav">Loading event...</div>;
+    return (
+      <div className="page page-no-nav" aria-busy="true">
+        <button className="ghost back-button" onClick={() => navigate("/")}>
+          ← Back to Dashboard
+        </button>
+        <div className="event-top-bar">
+          <SkeletonBlock height={44} width="100%" />
+          <div className="event-nav-filters">
+            <SkeletonBlock height={38} />
+            <SkeletonBlock height={38} />
+            <SkeletonBlock height={38} />
+          </div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <SkeletonBlock height={30} width="52%" />
+          <div style={{ marginTop: 6 }}><SkeletonBlock height={14} width="44%" /></div>
+        </div>
+        <div className="event-grid">
+          <div className="event-panel event-panel--bracket panel">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={`place-skel-${i}`} className="skel-placement-row">
+                <SkeletonBlock width={22} height={22} rounded="pill" />
+                <SkeletonBlock width={28} height={28} rounded="pill" />
+                <SkeletonBlock height={14} width={`${140 - i * 8}px`} />
+              </div>
+            ))}
+          </div>
+          <div className="event-panel panel">
+            <SkeletonBlock height={280} width="100%" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error || !event) {
@@ -272,6 +338,13 @@ export default function EventPage() {
           ← Back to Dashboard
         </button>
         <div className="empty-state">{error || "Event not found."}</div>
+        {error ? (
+          <div style={{ marginTop: 10 }}>
+            <button type="button" className="ghost" onClick={() => setEventRetryKey((value) => value + 1)}>
+              Retry
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -327,7 +400,8 @@ export default function EventPage() {
           {searchQuery.trim() && (
             <div className="dash-search-dropdown">
               {searchLoading && <p className="dash-search-status">Searching...</p>}
-              {!searchLoading && !hasSearchResults && <p className="dash-search-status">No events found</p>}
+              {!searchLoading && searchError && <PanelState state="error" message={searchError} />}
+              {!searchLoading && !searchError && !hasSearchResults && <p className="dash-search-status">No events found</p>}
               {!searchLoading && hasSearchResults && (
                 <div className="dash-search-group">
                   <div className="dash-search-group-title">Events</div>
@@ -362,6 +436,14 @@ export default function EventPage() {
           )}
         </div>
 
+        {metaLoading && !meta ? (
+          <div className="event-nav-filters" aria-hidden="true">
+            <SkeletonBlock height={38} />
+            <SkeletonBlock height={38} />
+            <SkeletonBlock height={38} />
+          </div>
+        ) : null}
+        {metaError ? <PanelState state="error" message={metaError} /> : null}
         {meta && (
           <div className="event-nav-filters">
             <select
@@ -418,9 +500,9 @@ export default function EventPage() {
       </div>
 
       {/* Event header */}
-      <div className="event-page-header">
-        <h1>{event.name}</h1>
-        <div className="event-page-subtitle">
+      <div>
+        <h1 className="page-heading" style={{ marginBottom: 6 }}>{event.name}</h1>
+        <div className="page-heading-sub">
           {[event.season, event.split].filter(Boolean).join(" / ")}
           {dateRange && <> &middot; {dateRange}</>}
         </div>
@@ -568,7 +650,10 @@ export default function EventPage() {
                 return (
                   <div key={key} className="event-pick-stat-card panel">
                     <h4>{label}</h4>
-                    {isLoading && <p className="dash-search-status">Loading...</p>}
+                    {isLoading && !data ? <SkeletonRows rows={6} rowHeight={26} /> : null}
+                    {!isLoading && statLoadErrors.get(key) ? (
+                      <PanelState state="error" message={`Failed to load ${label}.`} />
+                    ) : null}
                     {!isLoading && data && data.rows.length > 0 && (
                       <Leaderboard data={data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
                     )}

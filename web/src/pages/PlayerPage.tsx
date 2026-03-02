@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
@@ -10,6 +10,8 @@ import { computeAge, formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
 import { normalizeSocialLink, proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../utils/normalize";
 import { resolveTeamRosterId } from "../utils/team-routing";
+import PanelState from "../components/ui/PanelState";
+import SkeletonBlock from "../components/ui/SkeletonBlock";
 
 function ordinal(n: number) {
   const mod100 = n % 100;
@@ -60,13 +62,20 @@ export default function PlayerPage() {
   const [playerProfileError, setPlayerProfileError] = useState<string | null>(null);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
+  const [seasonError, setSeasonError] = useState<string | null>(null);
+  const [seasonRefreshKey, setSeasonRefreshKey] = useState(0);
   const [seasonGameMode, setSeasonGameMode] = useState<"1s" | "2s" | "3s">("3s");
   const [seasonIncludeLans, setSeasonIncludeLans] = useState(false);
   const [results, setResults] = useState<PlayerResultEvent[]>([]);
   const [resultSeasons, setResultSeasons] = useState<string[]>([]);
   const [resultSeason, setResultSeason] = useState("");
-  const [resultsViewMode, setResultsViewMode] = useState<"season" | "all">("all");
+  const [resultsViewMode, setResultsViewMode] = useState<"season" | "all">("season");
   const [resultsLoading, setResultsLoading] = useState(false);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  const [resultsRefreshKey, setResultsRefreshKey] = useState(0);
+  const [hasLanEvents, setHasLanEvents] = useState(false);
+  const allTimeCacheRef = useRef<{ playerId: string; events: PlayerResultEvent[]; seasons: string[] } | null>(null);
+  const allTimePrefetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!uniqueId) return;
@@ -103,6 +112,7 @@ export default function PlayerPage() {
     const playerId = uniqueId;
     async function loadSeason() {
       setSeasonLoading(true);
+      setSeasonError(null);
       try {
         const response: SeasonResponse = await api.playerSeason(playerId, {
           mode: "avg",
@@ -113,13 +123,27 @@ export default function PlayerPage() {
         setSeasonRows(response.rows);
       } catch (error) {
         console.error(error);
+        setSeasonRows([]);
+        setSeasonError("Failed to load seasonal performance.");
       } finally {
         setSeasonLoading(false);
       }
     }
 
     loadSeason();
-  }, [seasonGameMode, seasonIncludeLans, uniqueId]);
+  }, [seasonGameMode, seasonIncludeLans, seasonRefreshKey, uniqueId]);
+
+  useEffect(() => {
+    if (resultSeason || !seasonRows.length) return;
+    const latest = seasonRows[seasonRows.length - 1]?.season ?? "";
+    if (latest) setResultSeason(latest);
+  }, [resultSeason, seasonRows]);
+
+  useEffect(() => {
+    allTimeCacheRef.current = null;
+    allTimePrefetchedRef.current = null;
+    setHasLanEvents(false);
+  }, [uniqueId]);
 
   useEffect(() => {
     if (!uniqueId) {
@@ -129,12 +153,24 @@ export default function PlayerPage() {
       setResultsLoading(false);
       return;
     }
+    if (resultsViewMode === "all" && allTimeCacheRef.current?.playerId === uniqueId) {
+      setResults(allTimeCacheRef.current.events);
+      setResultSeasons(allTimeCacheRef.current.seasons);
+      setResultsLoading(false);
+      setResultsError(null);
+      return;
+    }
     const playerId = uniqueId;
+    const params: Record<string, string> = {};
+    if (resultsViewMode === "season" && resultSeason) {
+      params.season = resultSeason;
+    }
     let isActive = true;
     async function loadResults() {
       setResultsLoading(true);
+      setResultsError(null);
       try {
-        const response = await api.playerResults(playerId);
+        const response = await api.playerResults(playerId, params);
         if (!isActive) return;
         setResults(response.events);
         const seasons = (response.seasons ?? []).filter(Boolean).reverse();
@@ -143,12 +179,17 @@ export default function PlayerPage() {
           if (current && seasons.includes(current)) return current;
           return seasons[0] ?? "";
         });
+        if (response.events.some((e) => e.scope === "international")) {
+          setHasLanEvents(true);
+        }
+        if (resultsViewMode === "all") {
+          allTimeCacheRef.current = { playerId, events: response.events, seasons };
+        }
       } catch (error) {
         if (!isActive) return;
         console.error(error);
         setResults([]);
-        setResultSeasons([]);
-        setResultSeason("");
+        setResultsError("Failed to load event results.");
       } finally {
         if (!isActive) return;
         setResultsLoading(false);
@@ -160,15 +201,87 @@ export default function PlayerPage() {
     return () => {
       isActive = false;
     };
-  }, [uniqueId]);
+  }, [resultsRefreshKey, resultSeason, resultsViewMode, uniqueId]);
 
-  const visibleResults = resultsViewMode === "season"
-    ? results.filter((event) => event.season === resultSeason)
-    : results;
-  const playerHasLanEvents = results.some((event) => event.scope === "international");
+  useEffect(() => {
+    if (!uniqueId || allTimePrefetchedRef.current === uniqueId) return;
+    if (!resultSeason) return;
+    allTimePrefetchedRef.current = uniqueId;
+    const playerId = uniqueId;
+    api.playerResults(playerId).then((response) => {
+      if (allTimePrefetchedRef.current !== playerId) return;
+      const seasons = (response.seasons ?? []).filter(Boolean).reverse();
+      allTimeCacheRef.current = { playerId, events: response.events, seasons };
+      if (response.events.some((e) => e.scope === "international")) {
+        setHasLanEvents(true);
+      }
+    }).catch(() => {
+      allTimePrefetchedRef.current = null;
+    });
+  }, [uniqueId, resultSeason]);
+
+  const playerHasLanEvents = hasLanEvents;
 
   if (playerProfileLoading) {
-    return <div className="page page-no-nav">Loading player profile...</div>;
+    return (
+      <div className="page page-no-nav player-page" aria-busy="true">
+        <button className="ghost back-button" onClick={() => navigate("/")}>
+          ← Back to Dashboard
+        </button>
+        <h1 className="page-heading">Player Profile</h1>
+        <div className="player-top-grid">
+          <section className="panel player-overview-card">
+            <div className="player-overview-head">
+              <SkeletonBlock width={98} height={98} rounded="pill" />
+              <div style={{ width: "100%", display: "grid", gap: 10 }}>
+                <SkeletonBlock height={20} width="52%" />
+                <SkeletonBlock height={14} width="70%" />
+                <SkeletonBlock height={14} width="46%" />
+              </div>
+            </div>
+            <div className="player-overview-list">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={`profile-skeleton-${index}`}>
+                  <SkeletonBlock height={11} width={60} />
+                  <SkeletonBlock height={13} width="55%" />
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="panel player-season-card">
+            <SkeletonBlock height={20} width={180} />
+            <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <SkeletonBlock key={`season-skeleton-${index}`} height={26} width="100%" />
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <section className="panel player-results-card">
+          <div className="section-header">
+            <SkeletonBlock height={20} width={90} />
+            <SkeletonBlock height={30} width={160} rounded="pill" />
+          </div>
+          <div className="skel-table">
+            <div className="skel-table-header skel-results-row">
+              <SkeletonBlock height={12} width="40%" />
+              <SkeletonBlock height={12} width="60%" />
+              <SkeletonBlock height={12} width="50%" />
+              <SkeletonBlock height={12} width="40%" />
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={`results-init-skel-${i}`} className="skel-table-row skel-results-row">
+                <SkeletonBlock height={14} width={`${70 - i * 6}%`} />
+                <SkeletonBlock height={14} width="50%" />
+                <SkeletonBlock height={14} width={`${60 - i * 5}%`} />
+                <SkeletonBlock height={14} width="55%" />
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
   }
 
   if (playerProfileError || !playerProfile) {
@@ -197,7 +310,7 @@ export default function PlayerPage() {
         ← Back to Dashboard
       </button>
 
-      <h1 className="player-page-title">Player Profile</h1>
+      <h1 className="page-heading">Player Profile</h1>
 
       <div className="player-top-grid">
         <section className="panel player-overview-card">
@@ -279,8 +392,37 @@ export default function PlayerPage() {
               </select>
             </div>
           </div>
-          {seasonLoading ? <div className="loading">Loading seasons...</div> : null}
-          <SeasonTable rows={[...seasonRows].reverse()} />
+          {seasonLoading ? (
+            <div className="skel-table" role="status" aria-busy="true">
+              <div className="skel-table-row skel-season-row">
+                <SkeletonBlock height={14} width="60%" />
+                <SkeletonBlock height={14} />
+                <SkeletonBlock height={14} />
+                <SkeletonBlock height={14} />
+                <SkeletonBlock height={14} />
+              </div>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={`season-skel-${i}`} className="skel-table-row skel-season-row">
+                  <SkeletonBlock height={14} width="50%" />
+                  <SkeletonBlock height={14} />
+                  <SkeletonBlock height={14} />
+                  <SkeletonBlock height={14} />
+                  <SkeletonBlock height={14} />
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {seasonError ? (
+            <PanelState
+              state="error"
+              message={seasonError}
+              onRetry={() => setSeasonRefreshKey((value) => value + 1)}
+            />
+          ) : seasonRows.length === 0 && !seasonLoading ? (
+            <PanelState state="empty" message="No season data available for this filter." />
+          ) : (
+            <SeasonTable rows={[...seasonRows].reverse()} />
+          )}
         </section>
       </div>
 
@@ -319,11 +461,33 @@ export default function PlayerPage() {
         </div>
 
         {resultsLoading ? (
-          <div className="loading">Loading event results...</div>
-        ) : visibleResults.length === 0 ? (
-          <div className="empty-state">
-            {resultsViewMode === "season" ? "No event results found for this season." : "No event results found."}
+          <div className="skel-table" role="status" aria-busy="true">
+            <div className="skel-table-header skel-results-row">
+              <SkeletonBlock height={12} width="40%" />
+              <SkeletonBlock height={12} width="60%" />
+              <SkeletonBlock height={12} width="50%" />
+              <SkeletonBlock height={12} width="40%" />
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={`results-skel-${i}`} className="skel-table-row skel-results-row">
+                <SkeletonBlock height={14} width={`${70 - i * 6}%`} />
+                <SkeletonBlock height={14} width="50%" />
+                <SkeletonBlock height={14} width={`${60 - i * 5}%`} />
+                <SkeletonBlock height={14} width="55%" />
+              </div>
+            ))}
           </div>
+        ) : resultsError ? (
+          <PanelState
+            state="error"
+            message={resultsError}
+            onRetry={() => setResultsRefreshKey((value) => value + 1)}
+          />
+        ) : results.length === 0 ? (
+          <PanelState
+            state="empty"
+            message={resultsViewMode === "season" ? "No event results found for this season." : "No event results found."}
+          />
         ) : (
           <div className="results-table-wrap">
             <table className="results-table">
@@ -336,7 +500,7 @@ export default function PlayerPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleResults.map((event) => {
+                {results.map((event) => {
                   const s = event.series[0];
                   const won = s?.wonSeries ?? false;
                   const isLanResult = event.scope === "international";
@@ -400,21 +564,25 @@ export default function PlayerPage() {
 
       <div className="profile-teams">
         <div className="section-title">Teams</div>
-        <div className="tag-list">
-          {playerProfile.teams.map((team, i) => (
-            <button
-              key={`${team}-${i}`}
-              type="button"
-              className={`tag tag-button${i === 0 ? " tag-current" : ""}`}
-              onClick={() => {
-                void navigateToTeam(team);
-              }}
-              title={`View ${team} team page`}
-            >
-              <TeamNameWithLogo team={team} link={false} />
-            </button>
-          ))}
-        </div>
+        {playerProfile.teams.length === 0 ? (
+          <PanelState state="empty" message="No teams available for this player." />
+        ) : (
+          <div className="tag-list">
+            {playerProfile.teams.map((team, i) => (
+              <button
+                key={`${team}-${i}`}
+                type="button"
+                className={`tag tag-button${i === 0 ? " tag-current" : ""}`}
+                onClick={() => {
+                  void navigateToTeam(team);
+                }}
+                title={`View ${team} team page`}
+              >
+                <TeamNameWithLogo team={team} link={false} />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

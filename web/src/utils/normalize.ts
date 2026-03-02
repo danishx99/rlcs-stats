@@ -30,9 +30,9 @@ export const DEFAULT_TEAM_LOGO = "https://rlesport.gg/downloads/org_logos/defaul
 export function proxyImageUrl(value?: string | null) {
   const url = normalizeHandle(value);
   if (!url) return null;
-  const upgraded = upgradeLiquipediaThumb(url);
+  const optimized = optimizeLiquipediaImage(url);
   const base = (import.meta.env.VITE_API_URL ?? "").trim();
-  const encoded = encodeURIComponent(upgraded);
+  const encoded = encodeURIComponent(optimized);
 
   if (!base) {
     return `/api/image?url=${encoded}`;
@@ -49,28 +49,39 @@ export function proxyImageUrl(value?: string | null) {
   return `${normalizedBase}/api/image?url=${encoded}`;
 }
 
-function upgradeLiquipediaThumb(input: string) {
-  // Liquipedia thumbs often look like:
-  // /commons/images/thumb/<path>/<file.ext>/<size>-<file.ext>
-  // Use original image path to avoid low-res thumbnails.
+const LIQUIPEDIA_THUMB_PX = 600;
+
+function optimizeLiquipediaImage(input: string) {
   try {
     const url = new URL(input);
     if (!url.hostname.endsWith("liquipedia.net") && !url.hostname.endsWith("liquipedia.org")) {
       return input;
     }
+
     const path = url.pathname;
-    if (!path.includes("/images/thumb/")) {
-      return input;
+    const thumbMarker = "/images/thumb/";
+    const rawMarker = "/images/";
+
+    if (path.includes(thumbMarker)) {
+      const idx = path.indexOf(thumbMarker);
+      const after = path.slice(idx + thumbMarker.length);
+      const parts = after.split("/").filter(Boolean);
+      if (parts.length < 3) return input;
+      const filename = parts[parts.length - 2];
+      const pathParts = parts.slice(0, -1);
+      return `${url.origin}${path.slice(0, idx)}${thumbMarker}${pathParts.join("/")}/${LIQUIPEDIA_THUMB_PX}px-${filename}`;
     }
-    const marker = "/images/thumb/";
-    const idx = path.indexOf(marker);
-    if (idx < 0) return input;
-    const after = path.slice(idx + marker.length);
-    const parts = after.split("/").filter(Boolean);
-    if (parts.length < 2) return input;
-    const originalParts = parts.slice(0, -1);
-    const originalPath = `${path.slice(0, idx)}${marker.replace("/thumb", "")}${originalParts.join("/")}`;
-    return `${url.origin}${originalPath}`;
+
+    if (path.includes(rawMarker)) {
+      const idx = path.indexOf(rawMarker);
+      const after = path.slice(idx + rawMarker.length);
+      const parts = after.split("/").filter(Boolean);
+      if (parts.length < 1) return input;
+      const filename = parts[parts.length - 1];
+      return `${url.origin}${path.slice(0, idx)}${thumbMarker}${parts.join("/")}/${LIQUIPEDIA_THUMB_PX}px-${filename}`;
+    }
+
+    return input;
   } catch {
     return input;
   }

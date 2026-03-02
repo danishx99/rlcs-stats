@@ -1,6 +1,13 @@
 -- Per-event tournament results for a player
 -- Returns placement + series detail for each event, grouped by season
-WITH stats_base AS (
+WITH available_seasons AS (
+  SELECT DISTINCT "Season" AS season
+  FROM stats
+  WHERE UPPER(TRIM("Unique ID")) = UPPER(TRIM({{playerIdParam}}))
+    AND series_id IS NOT NULL
+  ORDER BY season DESC
+),
+stats_base AS (
   SELECT s.*
   FROM stats s
   {{where}}
@@ -10,11 +17,6 @@ player_stats AS (
   FROM stats_base
   WHERE UPPER(TRIM("Unique ID")) = UPPER(TRIM({{playerIdParam}}))
     AND series_id IS NOT NULL
-),
-available_seasons AS (
-  SELECT DISTINCT "Season" AS season
-  FROM player_stats
-  ORDER BY season DESC
 ),
 series_summary AS (
   SELECT
