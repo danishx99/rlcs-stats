@@ -285,14 +285,6 @@ best_result AS (
       ELSE NULL
     END AS placement
 ),
-default_season AS (
-  SELECT gs.season
-  FROM group_scope gs
-  WHERE gs.season IS NOT NULL
-  GROUP BY gs.season
-  ORDER BY gs.season DESC
-  LIMIT 1
-),
 roster_season_meta AS (
   SELECT
     gs.season,
@@ -403,6 +395,12 @@ primary_starters AS (
     ON rsm.season = ism.season
    AND rsm.roster_id = ism.roster_id
 ),
+ssa_iterations AS (
+  SELECT season, iteration_roster_id
+  FROM primary_starters
+  GROUP BY season, iteration_roster_id
+  HAVING BOOL_AND(starter_id LIKE 'SSA-%')
+),
 player_handles AS (
   SELECT
     rpm.player_key,
@@ -510,6 +508,16 @@ iteration_rows AS (
         AND ier.roster_id = ism.roster_id
     ), '[]'::json) AS events
   FROM iteration_season_meta ism
+  JOIN ssa_iterations si
+    ON si.season = ism.season
+   AND si.iteration_roster_id = ism.roster_id
+),
+default_season AS (
+  SELECT ir.season
+  FROM iteration_rows ir
+  WHERE ir.season IS NOT NULL
+  ORDER BY ir.season DESC
+  LIMIT 1
 ),
 season_rosters AS (
   SELECT
@@ -556,9 +564,9 @@ SELECT
   COALESCE((
     SELECT array_agg(season ORDER BY season DESC)
     FROM (
-      SELECT DISTINCT gs.season AS season
-      FROM group_scope gs
-      WHERE gs.season IS NOT NULL
+      SELECT DISTINCT ir.season AS season
+      FROM iteration_rows ir
+      WHERE ir.season IS NOT NULL
     ) seasons
   ), ARRAY[]::text[]) AS seasons_competed,
   COALESCE((

@@ -344,6 +344,7 @@ export type PlayerResultEvent = {
   split: string;
   event: string;
   eventId?: string | null;
+  team?: string | null;
   mode?: string | null;
   scope?: string | null;
   tier?: string | null;

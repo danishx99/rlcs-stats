@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { RosterEventResultRow, RosterProfile } from "../types/api";
 import { proxyImageUrl, normalizeSocialLink, DEFAULT_TEAM_LOGO } from "../utils/normalize";
@@ -59,6 +59,8 @@ export default function RosterPage() {
 
   const { rosterId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const seasonHint = searchParams.get("season") ?? "";
   const [rosterProfile, setRosterProfile] = useState<RosterProfile | null>(null);
   const [rosterProfileLoading, setRosterProfileLoading] = useState(false);
   const [rosterProfileError, setRosterProfileError] = useState<string | null>(null);
@@ -81,10 +83,15 @@ export default function RosterPage() {
         });
         setRosterProfile(response.roster);
 
-        const initialSeason = response.roster.defaultSeason
-          ?? response.roster.seasonsCompeted?.[0]
-          ?? response.roster.seasonRosters?.[0]?.season
-          ?? "";
+        const available = response.roster.seasonsCompeted
+          ?? response.roster.seasonRosters?.map((e) => e.season)
+          ?? [];
+        const hintValid = seasonHint && available.includes(seasonHint);
+        const initialSeason = hintValid
+          ? seasonHint
+          : response.roster.defaultSeason
+            ?? available[0]
+            ?? "";
         setSelectedSeason(initialSeason);
       } catch (error) {
         console.error(error);

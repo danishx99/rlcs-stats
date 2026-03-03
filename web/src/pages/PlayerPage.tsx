@@ -301,7 +301,14 @@ export default function PlayerPage() {
   const currentTeam = playerProfile.teams[0] ?? null;
   const navigateToTeam = async (teamName: string) => {
     const rosterId = await resolveTeamRosterId(teamName);
-    navigate(`/rosters/${encodeURIComponent(rosterId)}`);
+    const cache = allTimeCacheRef.current;
+    const allEvents = cache && cache.playerId === uniqueId ? cache.events : results;
+    const teamNorm = teamName.trim().toUpperCase();
+    const match = allEvents.find(
+      (e) => e.team && e.team.trim().toUpperCase() === teamNorm
+    );
+    const params = match?.season ? `?season=${encodeURIComponent(match.season)}` : "";
+    navigate(`/rosters/${encodeURIComponent(rosterId)}${params}`);
   };
 
   return (
