@@ -221,69 +221,193 @@ first_appearance AS (
   ORDER BY gs.match_date ASC NULLS LAST, gs.season ASC, gs.split ASC, gs.event ASC
   LIMIT 1
 ),
-series_summary AS (
-  SELECT
-    ss.series_id,
-    MAX(ss.season) AS season,
-    MAX(ss.split) AS split,
-    MAX(ss.event) AS event,
-    MAX(ss.stage) AS stage,
-    MIN(ss.round) AS round,
-    MAX(ss.best_of) AS best_of,
-    COUNT(DISTINCT CASE WHEN ss."Victory" = true THEN ss."Game Number" END) AS wins
-  FROM scope_stats ss
-  GROUP BY ss.series_id
+roster_events AS (
+  SELECT DISTINCT
+    gs.season,
+    gs.split,
+    gs.event
+  FROM group_scope gs
+  WHERE gs.season IS NOT NULL
+    AND gs.event IS NOT NULL
+    AND COALESCE(gs.scope, '') <> 'international'
 ),
-series_winners AS (
-  SELECT
-    ssum.*,
-    ssum.wins >= CEIL(COALESCE(ssum.best_of, 0) / 2.0) AS won_series
-  FROM series_summary ssum
+event_all_stats AS (
+  SELECT s.*
+  FROM stats s
+  JOIN roster_events re
+    ON TRIM(s."Season") IS NOT DISTINCT FROM re.season
+   AND TRIM(s."Split") IS NOT DISTINCT FROM re.split
+   AND TRIM(s."Event") IS NOT DISTINCT FROM re.event
+  WHERE s.series_id IS NOT NULL
+    AND s."Team" IS NOT NULL
+    AND TRIM(s."Team") <> ''
 ),
-event_gf AS (
+event_has_playoffs AS (
+  SELECT
+    TRIM("Season") AS season,
+    TRIM("Split") AS split,
+    TRIM("Event") AS event,
+    BOOL_OR(LOWER(TRIM("Stage")) LIKE '%playoff%') AS has_playoffs
+  FROM event_all_stats
+  GROUP BY TRIM("Season"), TRIM("Split"), TRIM("Event")
+),
+event_scoped AS (
+  SELECT eas.*
+  FROM event_all_stats eas
+  JOIN event_has_playoffs ehp
+    ON TRIM(eas."Season") IS NOT DISTINCT FROM ehp.season
+   AND TRIM(eas."Split") IS NOT DISTINCT FROM ehp.split
+   AND TRIM(eas."Event") IS NOT DISTINCT FROM ehp.event
+  WHERE (ehp.has_playoffs AND LOWER(TRIM(eas."Stage")) LIKE '%playoff%')
+     OR (NOT ehp.has_playoffs)
+),
+event_team_rounds AS (
+  SELECT
+    TRIM("Season") AS season,
+    TRIM("Split") AS split,
+    TRIM("Event") AS event,
+    UPPER(TRIM("Team")) AS team_norm,
+    UPPER(TRIM("Round")) AS rnd,
+    CASE UPPER(TRIM("Round"))
+      WHEN 'GF'      THEN 100
+      WHEN 'GF 1'    THEN 100
+      WHEN 'GF1'     THEN 100
+      WHEN 'GF 2'    THEN 100
+      WHEN 'GF2'     THEN 100
+      WHEN 'UF'      THEN 90
+      WHEN 'LF'      THEN 90
+      WHEN 'SF'      THEN 80
+      WHEN 'USF'     THEN 80
+      WHEN 'LSF'     THEN 80
+      WHEN 'QF'      THEN 70
+      WHEN 'UQF'     THEN 70
+      WHEN 'LQF'     THEN 70
+      WHEN 'LR3'     THEN 60
+      WHEN 'LR2'     THEN 50
+      WHEN 'LR1'     THEN 40
+      WHEN 'UR1'     THEN 40
+      WHEN 'R1'      THEN 40
+      WHEN 'SWISS 5' THEN 30
+      WHEN 'SWISS 4' THEN 28
+      WHEN 'SWISS 3' THEN 26
+      WHEN 'SWISS 2' THEN 24
+      WHEN 'SWISS 1' THEN 22
+      WHEN 'GROUPS'  THEN 12
+      ELSE 0
+    END AS depth,
+    (
+      SUM(CASE WHEN "Victory" = true THEN 1 ELSE 0 END)
+      >
+      SUM(CASE WHEN COALESCE("Victory", false) = false THEN 1 ELSE 0 END)
+    ) AS won_round
+  FROM event_scoped
+  WHERE "Round" IS NOT NULL
+    AND TRIM("Round") <> ''
+  GROUP BY TRIM("Season"), TRIM("Split"), TRIM("Event"), UPPER(TRIM("Team")), UPPER(TRIM("Round"))
+),
+event_team_latest AS (
+  SELECT DISTINCT ON (season, split, event, team_norm)
+    season,
+    split,
+    event,
+    team_norm,
+    rnd AS deep_round,
+    depth AS round_depth,
+    won_round AS won_deepest
+  FROM event_team_rounds
+  ORDER BY season, split, event, team_norm, depth DESC
+),
+event_classified AS (
+  SELECT
+    etl.*,
+    (etl.round_depth = 100 AND etl.won_deepest) AS is_champion,
+    (NOT (etl.round_depth = 100 AND etl.won_deepest) AND NOT etl.won_deepest) AS is_eliminated
+  FROM event_team_latest etl
+),
+event_placement_basis AS (
+  SELECT
+    ec.*,
+    CASE
+      WHEN ec.is_champion THEN NULL::int
+      WHEN ec.is_eliminated THEN ec.round_depth
+      ELSE COALESCE(
+        (
+          SELECT MIN(e.round_depth)
+          FROM (
+            SELECT DISTINCT season, split, event, round_depth
+            FROM event_classified
+            WHERE is_eliminated
+          ) e
+          WHERE e.season IS NOT DISTINCT FROM ec.season
+            AND e.split IS NOT DISTINCT FROM ec.split
+            AND e.event IS NOT DISTINCT FROM ec.event
+            AND e.round_depth > ec.round_depth
+        ),
+        ec.round_depth
+      )
+    END AS effective_depth
+  FROM event_classified ec
+),
+event_elim_groups AS (
   SELECT
     season,
     split,
     event,
-    stage,
-    MAX(
-      CASE
-        WHEN round ILIKE '%GF 2%' OR round ILIKE '%GF2%' THEN 2
-        WHEN round ILIKE '%GF 1%' OR round ILIKE '%GF1%' THEN 1
-        WHEN round ILIKE '%GF%' THEN 1
-        ELSE 0
-      END
-    ) AS gf_tier
-  FROM series_summary
-  GROUP BY season, split, event, stage
+    effective_depth AS round_depth,
+    COUNT(*) AS team_count
+  FROM event_placement_basis
+  WHERE NOT is_champion
+  GROUP BY season, split, event, effective_depth
 ),
-gf_champs AS (
-  SELECT s.*
-  FROM series_winners s
-  JOIN event_gf e
-    ON s.season IS NOT DISTINCT FROM e.season
-   AND s.split IS NOT DISTINCT FROM e.split
-   AND s.event IS NOT DISTINCT FROM e.event
-   AND s.stage IS NOT DISTINCT FROM e.stage
-  WHERE s.won_series = true
-    AND (
-      (e.gf_tier = 2 AND (s.round ILIKE '%GF 2%' OR s.round ILIKE '%GF2%'))
-      OR (e.gf_tier <= 1 AND s.round ILIKE '%GF%')
-    )
+event_elim_ranges AS (
+  SELECT
+    eeg.season,
+    eeg.split,
+    eeg.event,
+    eeg.round_depth,
+    eeg.team_count,
+    COALESCE(
+      SUM(eeg.team_count) OVER (
+        PARTITION BY eeg.season, eeg.split, eeg.event
+        ORDER BY eeg.round_depth DESC
+        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+      ),
+      0
+    ) + 2 AS placement_start
+  FROM event_elim_groups eeg
+),
+event_team_placements AS (
+  SELECT
+    epb.season,
+    epb.split,
+    epb.event,
+    epb.team_norm,
+    CASE
+      WHEN epb.is_champion THEN 1
+      WHEN epb.effective_depth IS NOT NULL THEN eer.placement_start + eer.team_count - 1
+      ELSE 999
+    END AS placement_end
+  FROM event_placement_basis epb
+  LEFT JOIN event_elim_ranges eer
+    ON eer.season IS NOT DISTINCT FROM epb.season
+   AND eer.split IS NOT DISTINCT FROM epb.split
+   AND eer.event IS NOT DISTINCT FROM epb.event
+   AND eer.round_depth = epb.effective_depth
+),
+roster_team_norms AS (
+  SELECT DISTINCT UPPER(TRIM(gs.team_label)) AS team_norm
+  FROM group_scope gs
+  WHERE gs.team_label IS NOT NULL
+    AND TRIM(gs.team_label) <> ''
 ),
 best_result AS (
   SELECT
     CASE
-      WHEN EXISTS (SELECT 1 FROM gf_champs) THEN 'Top 1'
-      WHEN EXISTS (SELECT 1 FROM series_summary WHERE round ILIKE '%GF%') THEN 'Top 2'
-      WHEN EXISTS (SELECT 1 FROM series_summary WHERE round ILIKE '%SF%') THEN 'Top 4'
-      WHEN EXISTS (SELECT 1 FROM series_summary WHERE round ILIKE '%QF%') THEN 'Top 8'
-      WHEN EXISTS (SELECT 1 FROM series_summary WHERE round ILIKE '%R16%' OR round ILIKE '%16%') THEN 'Top 16'
-      WHEN EXISTS (SELECT 1 FROM series_summary WHERE round ILIKE '%R32%' OR round ILIKE '%32%') THEN 'Top 32'
-      WHEN EXISTS (SELECT 1 FROM series_summary WHERE stage ILIKE '%Playoff%') THEN 'Top 8'
-      WHEN EXISTS (SELECT 1 FROM series_summary WHERE stage ILIKE '%Swiss%') THEN 'Top 16'
-      ELSE NULL
+      WHEN MIN(etp.placement_end) FILTER (WHERE etp.placement_end < 999) IS NULL THEN NULL
+      ELSE CONCAT('Top ', MIN(etp.placement_end) FILTER (WHERE etp.placement_end < 999)::text)
     END AS placement
+  FROM event_team_placements etp
+  JOIN roster_team_norms rtn ON rtn.team_norm = etp.team_norm
 ),
 roster_season_meta AS (
   SELECT
