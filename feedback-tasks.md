@@ -1,23 +1,11 @@
 # Feedback Tasks
 
 > Fetched from production API (`https://api-production-bfd2.up.railway.app/api/feedback`) on 2026-03-03.
-> 17 submissions total: 4 resolved, 13 open.
+> 17 submissions total: 6 resolved, 11 open.
 
 ---
 
-## Open Bugs (3)
-
-### #17 — Mobile: performance stats misaligned on player profiles
-- **Date:** 2026-02-19
-- **Page:** `/players/SSA-P-10054`
-- **Device:** Mobile (Android, 360x880)
-- **Message:** On mobile the performance stats section on player profiles is out of alignment.
-
-### #12 — Incorrect "best placement" for many teams
-- **Date:** 2026-02-18
-- **Page:** `/rosters/org%3ASYNTHESIS`
-- **Device:** Desktop (1920x1080)
-- **Message:** A decent majority of teams have incorrect best placement results. Most say they finished Top 4. Examples: Unity, Punishers, Synthesis, Death Cloud Esports.
+## Open Bugs (1)
 
 ### #3 — Missing/broken team org logos
 - **Date:** 2026-02-17
@@ -95,7 +83,19 @@
 
 ---
 
-## Resolved (4)
+## Resolved (6)
+
+### ~~#17 — Mobile: performance stats misaligned on player profiles~~ ✅
+- **Date:** 2026-02-19 | **Resolved:** 2026-03-03
+- **Type:** Bug
+- **Page:** `/players/SSA-P-10054`
+- **Message:** On mobile the performance stats section on player profiles is out of alignment.
+
+### ~~#12 — Incorrect "best placement" for many teams~~ ✅
+- **Date:** 2026-02-18 | **Resolved:** 2026-03-03
+- **Type:** Bug
+- **Page:** `/rosters/org%3ASYNTHESIS`
+- **Message:** A decent majority of teams have incorrect best placement results. Most say they finished Top 4. Examples: Unity, Punishers, Synthesis, Death Cloud Esports.
 
 ### ~~#18 — Show tournament placement instead of last loss~~ ✅
 - **Date:** 2026-02-20 | **Resolved:** 2026-02-22
