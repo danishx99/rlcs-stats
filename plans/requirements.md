@@ -51,7 +51,7 @@
 - ✅ Current roster shown under team header
 - ✅ Team info includes seasons competed, best result, debut season
 - ✅ Player photos removed from roster starters/alternates list (team-focused layout)
-- [ ] When navigating from a player profile to a team page (via the Teams list), auto-select the season where that player was on that team
+- ✅ When navigating from a player profile to a team page (via the Teams list), auto-select the season where that player was on that team
 
 ### Player Profile Page
 - ✅ Player image and player name in header
@@ -94,9 +94,10 @@
 
 ### Visual & UX
 - [ ] Make overall UI more compact
+- ✅ Improve mobile responsiveness (player profile performance stats, season table, overview layout)
 - ✅ Add better placeholder icons for missing team logos and player photos
 - ✅ Redesign the Team / Roster page UI
-- [ ] Improve general UX across the app (especially loading experience)
+- ✅ Improve general UX across the app (especially loading experience)
 
 ### Data & Content
 - ✅ Add 1v1 and Majors data to the database

@@ -526,6 +526,7 @@ body {
   padding: 18px 20px;
   box-shadow: var(--shadow);
   animation: panel-in 0.6s ease both;
+  min-width: 0;
 }
 
 .panel-header {
@@ -555,6 +556,8 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .section-title {
@@ -797,6 +800,12 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.profile-filter-row > * {
+  min-width: 0;
 }
 
 .filters select,
@@ -1920,6 +1929,7 @@ body {
 /* Season Table */
 .season-table {
   width: 100%;
+  min-width: 560px;
   border: 1px solid var(--panel-border);
   border-left: 3px solid var(--accent-2);
   border-radius: 8px;
@@ -1927,6 +1937,13 @@ body {
   background: var(--panel);
   animation: card-in 0.5s ease both;
   animation-delay: 0.2s;
+}
+
+.season-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .season-row {
@@ -1971,7 +1988,10 @@ body {
 }
 
 .table-wrap {
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
 }
@@ -3889,6 +3909,10 @@ th {
 }
 
 .results-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   animation: card-in 0.5s ease both;
   animation-delay: 0.24s;
 }
@@ -3902,7 +3926,7 @@ th {
   background: var(--panel);
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 0;
+  min-width: 560px;
 }
 
 .results-table th {
@@ -3937,7 +3961,10 @@ th {
 }
 
 .feedback-table-wrap {
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .feedback-filters {
@@ -4342,6 +4369,10 @@ th {
 }
 
 @media (max-width: 640px) {
+  html {
+    font-size: 62.5%;
+  }
+
   .page {
     --nav-height: 120px;
     padding: calc(var(--nav-height) + 16px) 16px 60px;
@@ -4351,17 +4382,12 @@ th {
     padding: 12px 16px;
   }
 
-  .brand h1 {
-    font-size: 2.1rem;
-  }
-
   .search-input {
     flex-direction: column;
     align-items: stretch;
   }
 
   .dash-hero { padding-top: 32px; }
-  .dash-title { font-size: 3rem; }
 
   .featured-cards {
     grid-template-columns: repeat(2, 1fr);
@@ -4377,7 +4403,12 @@ th {
   }
 
   .dash-query-tile {
-    padding: 10px 12px;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .dash-query-tile:not(.is-expanded) {
+    min-height: 85px;
   }
 
   .dash-query-list {
@@ -4405,6 +4436,57 @@ th {
 
   .feedback-modal-card {
     padding: 12px;
+  }
+
+  .panel-header,
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .section-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .profile-filter-row {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .profile-filter-row select,
+  .profile-filter-row .checkbox-inline {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .checkbox-inline {
+    white-space: normal;
+  }
+
+  .season-row {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .season-header {
+    letter-spacing: 0.12em;
+  }
+
+  .results-table th {
+    padding: 10px 12px;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+  }
+
+  .results-table td {
+    padding: 9px 12px;
+    font-size: 0.84rem;
   }
 
 }
@@ -4570,6 +4652,6 @@ th {
   }
 
   .page-heading {
-    font-size: 1.6rem;
+    font-size: 1.35rem;
   }
 }
