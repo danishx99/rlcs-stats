@@ -70,7 +70,6 @@ export async function handleRosterProfile(
         defaultSeason: row.default_season ?? null,
         seasonsCompeted: row.seasons_competed ?? [],
         seasonRosters: row.season_rosters ?? [],
-        otherTeamNames: row.other_team_names ?? [],
         debut,
         bestResult: row.best_result,
         games: Number(row.games ?? 0),

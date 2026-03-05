@@ -27,10 +27,14 @@ export function normalizeSocialLink(value: string | null | undefined, type: "twi
 export const DEFAULT_PLAYER_PHOTO = "https://rlesport.gg/downloads/player_pics/default_nologo.png";
 export const DEFAULT_TEAM_LOGO = "https://rlesport.gg/downloads/org_logos/default_team.jpg";
 
-export function proxyImageUrl(value?: string | null) {
+type ProxyImageOptions = {
+  size?: number;
+};
+
+export function proxyImageUrl(value?: string | null, options?: ProxyImageOptions) {
   const url = normalizeHandle(value);
   if (!url) return null;
-  const optimized = optimizeLiquipediaImage(url);
+  const optimized = optimizeLiquipediaImage(url, options?.size);
   const base = (import.meta.env.VITE_API_URL ?? "").trim();
   const encoded = encodeURIComponent(optimized);
 
@@ -50,13 +54,22 @@ export function proxyImageUrl(value?: string | null) {
 }
 
 const LIQUIPEDIA_THUMB_PX = 600;
+const LIQUIPEDIA_MIN_THUMB_PX = 40;
+const LIQUIPEDIA_MAX_THUMB_PX = 1200;
 
-function optimizeLiquipediaImage(input: string) {
+function normalizeThumbSize(size?: number) {
+  if (!Number.isFinite(size)) return LIQUIPEDIA_THUMB_PX;
+  const rounded = Math.round(size as number);
+  return Math.max(LIQUIPEDIA_MIN_THUMB_PX, Math.min(LIQUIPEDIA_MAX_THUMB_PX, rounded));
+}
+
+function optimizeLiquipediaImage(input: string, size?: number) {
   try {
     const url = new URL(input);
     if (!url.hostname.endsWith("liquipedia.net") && !url.hostname.endsWith("liquipedia.org")) {
       return input;
     }
+    const thumbSize = normalizeThumbSize(size);
 
     const path = url.pathname;
     const thumbMarker = "/images/thumb/";
@@ -69,7 +82,7 @@ function optimizeLiquipediaImage(input: string) {
       if (parts.length < 3) return input;
       const filename = parts[parts.length - 2];
       const pathParts = parts.slice(0, -1);
-      return `${url.origin}${path.slice(0, idx)}${thumbMarker}${pathParts.join("/")}/${LIQUIPEDIA_THUMB_PX}px-${filename}`;
+      return `${url.origin}${path.slice(0, idx)}${thumbMarker}${pathParts.join("/")}/${thumbSize}px-${filename}`;
     }
 
     if (path.includes(rawMarker)) {
@@ -78,7 +91,7 @@ function optimizeLiquipediaImage(input: string) {
       const parts = after.split("/").filter(Boolean);
       if (parts.length < 1) return input;
       const filename = parts[parts.length - 1];
-      return `${url.origin}${path.slice(0, idx)}${thumbMarker}${parts.join("/")}/${LIQUIPEDIA_THUMB_PX}px-${filename}`;
+      return `${url.origin}${path.slice(0, idx)}${thumbMarker}${parts.join("/")}/${thumbSize}px-${filename}`;
     }
 
     return input;

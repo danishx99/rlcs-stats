@@ -86,20 +86,9 @@ group_scope_anchor AS (
   FROM grouped_series gs
   JOIN params p ON p.team_group_id = gs.team_group_id
 ),
-group_scope_rosters AS (
-  SELECT DISTINCT gsa.roster_id
-  FROM group_scope_anchor gsa
-),
 group_scope AS (
   SELECT gsa.*
   FROM group_scope_anchor gsa
-  UNION ALL
-  SELECT gs.*
-  FROM grouped_series gs
-  JOIN group_scope_rosters gsr ON gsr.roster_id = gs.roster_id
-  JOIN params p ON true
-  WHERE p.team_group_id LIKE 'org:%'
-    AND gs.team_group_id <> p.team_group_id
 ),
 scope_stats AS (
   SELECT
@@ -593,11 +582,6 @@ iteration_rows AS (
     ism.first_seen_date,
     ism.last_seen_date,
     COALESCE((
-      SELECT array_agg(name ORDER BY name)
-      FROM unnest(ism.team_names) AS name
-      WHERE UPPER(TRIM(name)) <> UPPER(TRIM(ism.team_label_used))
-    ), ARRAY[]::text[]) AS also_competed_under,
-    COALESCE((
       SELECT json_agg(
         json_build_object('id', sp.starter_id, 'handle', sp.handle)
         ORDER BY COALESCE(sp.handle, sp.starter_id), sp.starter_id
@@ -653,7 +637,6 @@ season_rosters AS (
         'seriesPlayed', ir.series_played,
         'firstSeenDate', ir.first_seen_date,
         'lastSeenDate', ir.last_seen_date,
-        'alsoCompetedUnder', ir.also_competed_under,
         'starters', ir.starters,
         'alternates', ir.alternates,
         'events', ir.events
@@ -693,15 +676,6 @@ SELECT
       WHERE ir.season IS NOT NULL
     ) seasons
   ), ARRAY[]::text[]) AS seasons_competed,
-  COALESCE((
-    SELECT array_agg(name ORDER BY name)
-    FROM (
-      SELECT DISTINCT gs.team_label AS name
-      FROM group_scope gs
-      JOIN group_identity gi2 ON true
-      WHERE UPPER(TRIM(gs.team_label)) <> UPPER(TRIM(gi2.team_name))
-    ) aliases
-  ), ARRAY[]::text[]) AS other_team_names,
   COALESCE((
     SELECT json_agg(
       json_build_object('season', sr.season, 'iterations', sr.iterations)

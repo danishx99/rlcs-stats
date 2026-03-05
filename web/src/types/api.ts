@@ -145,7 +145,6 @@ export type RosterProfile = {
   currentAlternates?: RosterAlternate[];
   defaultSeason?: string | null;
   seasonsCompeted?: string[];
-  otherTeamNames?: string[];
   seasonRosters?: {
     season: string;
     iterations: {
@@ -154,7 +153,6 @@ export type RosterProfile = {
       seriesPlayed: number;
       firstSeenDate: string | null;
       lastSeenDate: string | null;
-      alsoCompetedUnder?: string[];
       starters: RosterStarter[];
       alternates: RosterAlternate[];
       events?: {

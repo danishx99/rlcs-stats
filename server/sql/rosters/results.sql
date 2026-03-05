@@ -78,20 +78,9 @@ group_scope_anchor AS (
   FROM grouped_series gs
   JOIN params p ON p.team_group_id = gs.team_group_id
 ),
-group_scope_rosters AS (
-  SELECT DISTINCT gsa.roster_id
-  FROM group_scope_anchor gsa
-),
 group_scope AS (
   SELECT gsa.*
   FROM group_scope_anchor gsa
-  UNION ALL
-  SELECT gs.*
-  FROM grouped_series gs
-  JOIN group_scope_rosters gsr ON gsr.roster_id = gs.roster_id
-  JOIN params p ON true
-  WHERE p.team_group_id LIKE 'org:%'
-    AND gs.team_group_id <> p.team_group_id
 ),
 roster_season_meta AS (
   SELECT

@@ -4,7 +4,6 @@ import { api } from "../api";
 import type { RosterEventResultRow, RosterProfile } from "../types/api";
 import { proxyImageUrl, normalizeSocialLink, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import { formatRosterStarters } from "../utils/roster";
-import { resolveTeamRosterId } from "../utils/team-routing";
 import { buildEventPath } from "../utils/event-routing";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import SocialIconLink from "../components/SocialIconLink";
@@ -41,22 +40,6 @@ function rosterEventLabel(split: string | null, event: string | null) {
 }
 
 export default function RosterPage() {
-  const normalizeTeamName = (value: string | null | undefined) => value?.trim().toUpperCase() ?? "";
-  const uniqueTeamNames = (names: string[], excludedNames: Array<string | null | undefined>) => {
-    const excluded = new Set(excludedNames.map((name) => normalizeTeamName(name)).filter(Boolean));
-    const seen = new Set<string>();
-    const output: string[] = [];
-
-    for (const name of names) {
-      const key = normalizeTeamName(name);
-      if (!key || excluded.has(key) || seen.has(key)) continue;
-      seen.add(key);
-      output.push(name);
-    }
-
-    return output;
-  };
-
   const { rosterId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -227,10 +210,6 @@ export default function RosterPage() {
   const tiktokLink = normalizeSocialLink(rosterProfile.tiktok, "tiktok");
   const youtubeLink = normalizeSocialLink(rosterProfile.youtube, "youtube");
   const twitchLink = normalizeSocialLink(rosterProfile.twitch, "twitch");
-  const navigateToTeam = async (teamName: string) => {
-    const nextRosterId = await resolveTeamRosterId(teamName);
-    navigate(`/rosters/${encodeURIComponent(nextRosterId)}`);
-  };
 
   const iterations = selectedSeasonEntry?.iterations ?? [];
   const multipleIterations = iterations.length > 1;
@@ -304,27 +283,6 @@ export default function RosterPage() {
               </dl>
             </div>
           </div>
-
-          {uniqueTeamNames(rosterProfile.otherTeamNames ?? [], [rosterProfile.name]).length > 0 && (
-            <div className="profile-teams roster-profile-aliases">
-              <div className="section-title">Also Competed Under</div>
-              <div className="tag-list">
-                {uniqueTeamNames(rosterProfile.otherTeamNames ?? [], [rosterProfile.name]).map((teamName) => (
-                  <button
-                    key={teamName}
-                    type="button"
-                    className="tag tag-button"
-                    onClick={() => {
-                      void navigateToTeam(teamName);
-                    }}
-                    title={`View ${teamName} team page`}
-                  >
-                    <TeamNameWithLogo team={teamName} link={false} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="panel roster-rosters-panel">
@@ -379,10 +337,6 @@ export default function RosterPage() {
             <div className="roster-iterations-grid roster-iterations-grid--stacked">
               {iterations.map((iteration) => {
                 const iterationDisplayName = iteration.teamLabelUsed ?? rosterProfile.name ?? "Team";
-                const iterationOtherNames = uniqueTeamNames(
-                  iteration.alsoCompetedUnder ?? [],
-                  [iteration.teamLabelUsed, rosterProfile.name]
-                );
 
                 return (
                   <div key={`${selectedSeasonEntry?.season}-${iteration.rosterId}`} className="roster-iteration-card panel">
@@ -415,26 +369,6 @@ export default function RosterPage() {
                             <span key={`${iteration.rosterId}-${idx}`} className="tag">
                               {rosterEventLabel(ev.split, ev.event)}
                             </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {iterationOtherNames.length > 0 && (
-                      <div className="roster-iteration-block">
-                        <div className="section-title">Also Competed Under</div>
-                        <div className="tag-list">
-                          {iterationOtherNames.map((teamName) => (
-                            <button
-                              key={teamName}
-                              type="button"
-                              className="tag tag-button"
-                              onClick={() => {
-                                void navigateToTeam(teamName);
-                              }}
-                            >
-                              <TeamNameWithLogo team={teamName} link={false} />
-                            </button>
                           ))}
                         </div>
                       </div>

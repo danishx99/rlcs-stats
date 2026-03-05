@@ -26,6 +26,10 @@ export type HomePageProps = {
 
 const SEARCH_DEBOUNCE_MS = 200;
 const PLAYER_SEARCH_DEBOUNCE_MS = 200;
+const HOME_SEARCH_AVATAR_PX = 80;
+const HOME_STANDINGS_LOGO_PX = 80;
+const HOME_FEATURED_PHOTO_PX = 280;
+const HOME_PLAYER_SEARCH_AVATAR_PX = 80;
 const ROTATING_FEATURED_METRICS = ["rating", "goals", "saves", "demos", "shots", "assists"] as const;
 const HOME_TRACK = {
   gameMode: "3s",
@@ -293,7 +297,8 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                   <div className="dash-search-group">
                     <div className="dash-search-group-title">Players</div>
                     {players.slice(0, 5).map((p) => {
-                      const img = proxyImageUrl(p.meta?.photoUrl) ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
+                      const img = proxyImageUrl(p.meta?.photoUrl, { size: HOME_SEARCH_AVATAR_PX })
+                        ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                       return (
                         <div
                           key={p.id}
@@ -301,7 +306,13 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                           onClick={() => { setSearchQuery(""); navigate(`/players/${p.id}`); }}
                         >
                           <div className="dash-search-avatar">
-                            <img src={img} alt="" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }} />
+                            <img
+                              src={img}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }}
+                            />
                           </div>
                           <div className="dash-search-item-info">
                             <strong>{p.label}</strong>
@@ -317,7 +328,8 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                   <div className="dash-search-group">
                     <div className="dash-search-group-title">Teams</div>
                     {teams.slice(0, 5).map((team) => {
-                      const img = proxyImageUrl(team.meta?.photoUrl) ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!;
+                      const img = proxyImageUrl(team.meta?.photoUrl, { size: HOME_SEARCH_AVATAR_PX })
+                        ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!;
                       return (
                         <div
                           key={team.id}
@@ -325,7 +337,13 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                           onClick={() => { setSearchQuery(""); navigate(`/rosters/${encodeURIComponent(team.id)}`); }}
                         >
                           <div className="dash-search-avatar dash-search-avatar--logo">
-                            <img src={img} alt="" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_TEAM_LOGO)!; }} />
+                            <img
+                              src={img}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_TEAM_LOGO)!; }}
+                            />
                           </div>
                           <div className="dash-search-item-info">
                             <strong>{team.label}</strong>
@@ -463,7 +481,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
               ? standings.rows.slice(0, 8).map((row) => {
                   const maxPts = standings.rows[0].points || 1;
                   const barWidth = Math.round((row.points / maxPts) * 100);
-                  const logoSrc = proxyImageUrl(row.logoUrl);
+                  const logoSrc = proxyImageUrl(row.logoUrl, { size: HOME_STANDINGS_LOGO_PX });
                   const orgId = toOrgRosterId(row.teamName);
                   return (
                     <li
@@ -473,7 +491,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                     >
                       <span className="dash-standings-rank">{row.rank}</span>
                       <div className="dash-standings-logo">
-                        {logoSrc ? <img src={logoSrc} alt="" /> : null}
+                        {logoSrc ? <img src={logoSrc} alt="" loading="lazy" decoding="async" /> : null}
                       </div>
                       <div className="dash-standings-bar-wrap">
                         <span className="dash-standings-team">{row.teamName}</span>
@@ -595,11 +613,13 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
             <div className="featured-cards" aria-hidden="true">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div key={`featured-skeleton-${index}`} className="featured-card">
-                  <SkeletonBlock width={58} height={58} rounded="pill" />
-                  <div className="featured-card-info" style={{ width: "100%" }}>
+                  <div className="featured-card-photo">
+                    <SkeletonBlock height="100%" width="100%" rounded="sm" />
+                  </div>
+                  <div className="featured-card-info">
                     <SkeletonBlock height={14} width="74%" />
-                    <SkeletonBlock height={12} width="60%" />
-                    <SkeletonBlock height={12} width="42%" />
+                    <SkeletonBlock height={11} width="50%" />
+                    <SkeletonBlock height={14} width="35%" />
                   </div>
                 </div>
               ))}
@@ -611,7 +631,8 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
           {!featuredLoading && featuredLeaderboard?.rows?.length ? (
             <div className="featured-cards">
               {featuredLeaderboard.rows.slice(0, 6).map((row, index) => {
-                const imgSrc = proxyImageUrl(row.photoUrl) ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
+                const imgSrc = proxyImageUrl(row.photoUrl, { size: HOME_FEATURED_PHOTO_PX })
+                  ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                 return (
                   <div
                     key={row.id}
@@ -623,7 +644,9 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                       <img
                         src={imgSrc}
                         alt={row.label}
-                        loading="lazy"
+                        loading={index < 2 ? "eager" : "lazy"}
+                        decoding="async"
+                        fetchPriority={index < 2 ? "high" : "auto"}
                         onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
                         onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }}
                       />
@@ -665,7 +688,8 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                 {!playerSearchLoading && playerSearchError && <p className="dash-empty">{playerSearchError}</p>}
                 {!playerSearchLoading && playerResults.length > 0 &&
                   playerResults.slice(0, 6).map((player) => {
-                    const imgSrc = proxyImageUrl(player.meta?.photoUrl) ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
+                    const imgSrc = proxyImageUrl(player.meta?.photoUrl, { size: HOME_PLAYER_SEARCH_AVATAR_PX })
+                      ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                     return (
                       <div
                         key={player.id}
@@ -673,7 +697,13 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                         onClick={() => { setPlayerQuery(""); navigate(`/players/${player.id}`); }}
                       >
                         <div className="dash-search-avatar">
-                          <img src={imgSrc} alt="" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }} />
+                          <img
+                            src={imgSrc}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }}
+                          />
                         </div>
                         <div className="dash-player-card-info">
                           <strong>{player.label}</strong>

@@ -94,6 +94,7 @@
 
 ### Visual & UX
 - [ ] Make overall UI more compact
+- [ ] Improve image loading times (very poor, especially in production)
 - ✅ Improve mobile responsiveness (player profile performance stats, season table, overview layout)
 - ✅ Add better placeholder icons for missing team logos and player photos
 - ✅ Redesign the Team / Roster page UI
