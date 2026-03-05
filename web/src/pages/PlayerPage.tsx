@@ -327,6 +327,7 @@ export default function PlayerPage() {
                 src={proxyImageUrl(playerProfile.photoUrl) ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!}
                 alt={playerProfile.handle ?? playerProfile.playerName ?? "Player"}
                 loading="lazy"
+                onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }}
               />
             </div>
             <div className="player-overview-name">

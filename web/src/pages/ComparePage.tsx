@@ -14,7 +14,7 @@ import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
-const SEARCH_DEBOUNCE_MS = 500;
+const SEARCH_DEBOUNCE_MS = 200;
 const MAX_COMPARE_SELECTION = 6;
 const DEFAULT_FILTERS: Filters = {
   mode: "3s",
@@ -116,6 +116,7 @@ export default function ComparePage() {
       setSearchError(null);
       return;
     }
+    const controller = new AbortController();
     setSearchLoading(true);
     setSearchError(null);
     const handle = window.setTimeout(async () => {
@@ -129,17 +130,21 @@ export default function ComparePage() {
           season: filters.season || undefined,
           split: filters.split || undefined,
           event: filters.event || undefined
-        });
+        }, { signal: controller.signal });
         setSearchResults([...response.players, ...response.rosters]);
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error(error);
         setSearchResults([]);
         setSearchError("Search failed. Please try again.");
       } finally {
-        setSearchLoading(false);
+        if (!controller.signal.aborted) setSearchLoading(false);
       }
     }, SEARCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(handle);
+    return () => {
+      window.clearTimeout(handle);
+      controller.abort();
+    };
   }, [filters.event, filters.mode, filters.scope, filters.season, filters.split, filters.tier, searchQuery]);
 
   const filteredResults = useMemo(() => {
@@ -214,7 +219,7 @@ export default function ComparePage() {
                       onClick={() => !already && !atMax && handleAddResult(item)}
                     >
                       <div className={`dash-search-avatar${item.type === "roster" ? " dash-search-avatar--logo" : ""}`}>
-                        <img src={image} alt="" />
+                        <img src={image} alt="" onError={(e) => { e.currentTarget.src = proxyImageUrl(item.type === "roster" ? DEFAULT_TEAM_LOGO : DEFAULT_PLAYER_PHOTO)!; }} />
                       </div>
                       <div className="dash-search-item-info">
                         <strong>{item.label}</strong>

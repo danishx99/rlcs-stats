@@ -24,8 +24,8 @@ export type HomePageProps = {
   featuredOptions: StatOption[];
 };
 
-const SEARCH_DEBOUNCE_MS = 500;
-const PLAYER_SEARCH_DEBOUNCE_MS = 500;
+const SEARCH_DEBOUNCE_MS = 200;
+const PLAYER_SEARCH_DEBOUNCE_MS = 200;
 const ROTATING_FEATURED_METRICS = ["rating", "goals", "saves", "demos", "shots", "assists"] as const;
 const HOME_TRACK = {
   gameMode: "3s",
@@ -154,10 +154,9 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
       setSearchLoading(false);
       return;
     }
-    let isActive = true;
+    const controller = new AbortController();
+    setSearchLoading(true);
     const timeout = setTimeout(async () => {
-      if (!isActive) return;
-      setSearchLoading(true);
       setSearchError(null);
       try {
         // Intentionally omit gameMode so home search includes all modes (1s/2s/3s).
@@ -165,22 +164,20 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
           q: searchQuery,
           scope: HOME_TRACK.scope,
           tier: HOME_TRACK.tier
-        });
-        if (!isActive) return;
+        }, { signal: controller.signal });
         setSearchResults(response);
       } catch (error) {
-        if (!isActive) return;
+        if (controller.signal.aborted) return;
         console.error(error);
         setSearchResults(null);
         setSearchError("Search failed. Please try again.");
       } finally {
-        if (!isActive) return;
-        setSearchLoading(false);
+        if (!controller.signal.aborted) setSearchLoading(false);
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => {
-      isActive = false;
       clearTimeout(timeout);
+      controller.abort();
     };
   }, [searchQuery]);
 
@@ -214,10 +211,9 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
       setPlayerSearchLoading(false);
       return;
     }
-    let isActive = true;
+    const controller = new AbortController();
+    setPlayerSearchLoading(true);
     const timeout = setTimeout(async () => {
-      if (!isActive) return;
-      setPlayerSearchLoading(true);
       setPlayerSearchError(null);
       try {
         const response = await api.search({
@@ -225,22 +221,20 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
           gameMode: HOME_TRACK.gameMode,
           scope: HOME_TRACK.scope,
           tier: HOME_TRACK.tier
-        });
-        if (!isActive) return;
+        }, { signal: controller.signal });
         setPlayerResults(response.players ?? []);
       } catch (error) {
-        if (!isActive) return;
+        if (controller.signal.aborted) return;
         console.error(error);
         setPlayerResults([]);
         setPlayerSearchError("Search failed. Please try again.");
       } finally {
-        if (!isActive) return;
-        setPlayerSearchLoading(false);
+        if (!controller.signal.aborted) setPlayerSearchLoading(false);
       }
     }, PLAYER_SEARCH_DEBOUNCE_MS);
     return () => {
-      isActive = false;
       clearTimeout(timeout);
+      controller.abort();
     };
   }, [playerQuery]);
 
@@ -307,7 +301,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                           onClick={() => { setSearchQuery(""); navigate(`/players/${p.id}`); }}
                         >
                           <div className="dash-search-avatar">
-                            <img src={img} alt="" />
+                            <img src={img} alt="" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }} />
                           </div>
                           <div className="dash-search-item-info">
                             <strong>{p.label}</strong>
@@ -331,7 +325,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                           onClick={() => { setSearchQuery(""); navigate(`/rosters/${encodeURIComponent(team.id)}`); }}
                         >
                           <div className="dash-search-avatar dash-search-avatar--logo">
-                            <img src={img} alt="" />
+                            <img src={img} alt="" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_TEAM_LOGO)!; }} />
                           </div>
                           <div className="dash-search-item-info">
                             <strong>{team.label}</strong>
@@ -631,6 +625,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                         alt={row.label}
                         loading="lazy"
                         onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
+                        onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }}
                       />
                     </div>
                     <div className="featured-card-info">
@@ -678,7 +673,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                         onClick={() => { setPlayerQuery(""); navigate(`/players/${player.id}`); }}
                       >
                         <div className="dash-search-avatar">
-                          <img src={imgSrc} alt="" />
+                          <img src={imgSrc} alt="" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }} />
                         </div>
                         <div className="dash-player-card-info">
                           <strong>{player.label}</strong>

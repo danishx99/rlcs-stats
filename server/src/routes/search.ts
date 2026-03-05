@@ -4,7 +4,7 @@ import { json } from "../utils/http";
 import { buildFilterClauses } from "../utils/filters";
 import { formatSql, loadSql } from "../utils/sql";
 import { getAllStatOptions } from "../utils/stats";
-import { playerKeyExpr, rosterCtes } from "../utils/roster";
+import { playerKeyExpr } from "../utils/roster";
 const playersSql = loadSql("../../sql/search/players.sql", import.meta.url);
 const rostersSql = loadSql("../../sql/search/rosters.sql", import.meta.url);
 const teamsSql = loadSql("../../sql/search/teams.sql", import.meta.url);
@@ -23,13 +23,8 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
   try {
     const like = `%${trimmed}%`;
     const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     const extraWhere = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
 
-    const playersLikeIndex = values.length + 1;
-    const playersLimitIndex = playersLikeIndex + 1;
-    const rostersLikeIndex = values.length + 1;
-    const rostersLimitIndex = rostersLikeIndex + 1;
     const eventsLikeIndex = values.length + 1;
     const eventsLimitIndex = eventsLikeIndex + 1;
     const teamsLikeIndex = values.length + 1;
@@ -46,19 +41,17 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
       pool.query(
         formatSql(playersSql, {
           playerKeyExpr: playerKeyExpr("s"),
-          where,
-          likeParam: `$${playersLikeIndex}`,
-          limitParam: `$${playersLimitIndex}`
+          likeParam: "$1",
+          limitParam: "$2"
         }),
-        [...values, like, limit]
+        [like, limit]
       ),
       pool.query(
         formatSql(rostersSql, {
-          rosterCtes: rosterCtes(where),
-          likeParam: `$${rostersLikeIndex}`,
-          limitParam: `$${rostersLimitIndex}`
+          likeParam: "$1",
+          limitParam: "$2"
         }),
-        [...values, like, limit]
+        [like, limit]
       ),
       pool.query(
         formatSql(eventsSql, {
@@ -79,6 +72,7 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
     ]);
 
     const lowerTrimmed = trimmed.toLowerCase();
+
     const statsResults = statOptions
       .filter((option) => `${option.label} ${option.key}`.toLowerCase().includes(lowerTrimmed))
       .slice(0, limit)

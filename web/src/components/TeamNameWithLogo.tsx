@@ -30,7 +30,7 @@ export default function TeamNameWithLogo({
   const content = (
     <span className={`identity-inline ${className}`.trim()}>
       <span className="identity-avatar identity-avatar--team">
-        <img src={image ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!} alt={label} loading="lazy" />
+        <img src={image ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!} alt={label} loading="lazy" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_TEAM_LOGO)!; }} />
       </span>
       <span>{label}</span>
     </span>

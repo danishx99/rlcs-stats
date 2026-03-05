@@ -30,19 +30,35 @@ export async function handleImage(_req: IncomingMessage, res: ServerResponse, ur
       json(res, 403, { error: "Host not allowed" });
       return;
     }
-    const response = await fetch(targetUrl.toString(), {
-      headers: {
-        "User-Agent": "RLCS-Stats/1.0",
-        Referer: "https://liquipedia.net/",
-        Accept: "image/avif,image/webp,image/*,*/*;q=0.8"
-      },
+    const fetchHeaders = {
+      "User-Agent": "RLCS-Stats/1.0",
+      Referer: "https://liquipedia.net/",
+      Accept: "image/avif,image/webp,image/*,*/*;q=0.8"
+    };
+    let response = await fetch(targetUrl.toString(), {
+      headers: fetchHeaders,
       redirect: "follow"
     });
+    // If a Liquipedia thumbnail 404s, retry with the raw (non-thumb) URL
+    if (!response.ok && targetUrl.pathname.includes("/images/thumb/")) {
+      const rawPath = targetUrl.pathname
+        .replace("/images/thumb/", "/images/")
+        .replace(/\/\d+px-[^/]+$/, "");
+      const rawUrl = new URL(rawPath, targetUrl.origin);
+      response = await fetch(rawUrl.toString(), {
+        headers: fetchHeaders,
+        redirect: "follow"
+      });
+    }
     if (!response.ok || !response.body) {
       json(res, 502, { error: "Failed to fetch image" });
       return;
     }
     const contentType = response.headers.get("content-type") ?? "image/jpeg";
+    if (contentType.startsWith("text/")) {
+      json(res, 502, { error: "Not an image" });
+      return;
+    }
     res.writeHead(200, {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800"

@@ -56,7 +56,8 @@ async function parseApiError(response: Response): Promise<string | null> {
 
 export async function fetchJson<T>(
   path: string,
-  params?: Record<string, string | number | boolean | null | undefined>
+  params?: Record<string, string | number | boolean | null | undefined>,
+  options?: { signal?: AbortSignal }
 ) {
   const url = new URL(resolveApiPath(path), window.location.origin);
   if (params) {
@@ -67,6 +68,9 @@ export async function fetchJson<T>(
   }
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  if (options?.signal) {
+    options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
   let response: Response;
   try {
     response = await fetch(url.toString(), {
@@ -75,6 +79,7 @@ export async function fetchJson<T>(
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      if (options?.signal?.aborted) throw error;
       throw new Error(`API request timed out after ${API_TIMEOUT_MS}ms`);
     }
     throw error;
@@ -165,8 +170,8 @@ export const api = {
   seriesDetail(seriesId: string) {
     return fetchJson<SeriesDetailResponse>(`/api/series/${encodeURIComponent(seriesId)}`);
   },
-  search(params?: Record<string, string | number | boolean | null | undefined>) {
-    return fetchJson<SearchResponse>("/api/search", params);
+  search(params?: Record<string, string | number | boolean | null | undefined>, options?: { signal?: AbortSignal }) {
+    return fetchJson<SearchResponse>("/api/search", params, options);
   },
   players(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<{ players: SearchResponse["players"] }>("/api/players", params);

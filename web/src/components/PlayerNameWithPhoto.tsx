@@ -22,7 +22,7 @@ export default function PlayerNameWithPhoto({
   const content = (
     <span className={`identity-inline ${className}`.trim()}>
       <span className="identity-avatar identity-avatar--player">
-        <img src={image ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!} alt={label} loading="lazy" />
+        <img src={image ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!} alt={label} loading="lazy" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }} />
       </span>
       <span>{label}</span>
     </span>

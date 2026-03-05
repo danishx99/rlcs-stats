@@ -263,6 +263,7 @@ export default function RosterPage() {
                   src={proxyImageUrl(rosterProfile.logoUrl) ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!}
                   alt={rosterProfile.name ?? "Team"}
                   loading="lazy"
+                  onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_TEAM_LOGO)!; }}
                 />
               </div>
               <div className="profile-links roster-profile-links">

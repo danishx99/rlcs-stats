@@ -1,26 +1,29 @@
-WITH base AS (
+(
   SELECT
-    {{playerKeyExpr}} AS player_key,
-    COALESCE(p."Primary Handle", s."Player Name") AS label,
-    p.aka AS aliases,
+    p."Unique ID" AS id,
+    p."Primary Handle" AS label,
     p."Real Name" AS real_name,
     p."Photo URL" AS photo_url,
-    p."Country" AS country,
-    s."Player Name" AS player_name
+    p."Country" AS country
+  FROM players p
+  WHERE p."Primary Handle" ILIKE {{likeParam}}
+     OR p.aka ILIKE {{likeParam}}
+     OR p."Real Name" ILIKE {{likeParam}}
+)
+UNION
+(
+  SELECT DISTINCT ON ({{playerKeyExpr}})
+    {{playerKeyExpr}} AS id,
+    s."Player Name" AS label,
+    NULL AS real_name,
+    NULL AS photo_url,
+    NULL AS country
   FROM stats s
   LEFT JOIN players p ON p."Unique ID" = {{playerKeyExpr}}
-  {{where}}
+  WHERE p."Unique ID" IS NULL
+    AND s."Player Name" ILIKE {{likeParam}}
+  ORDER BY {{playerKeyExpr}}
+  LIMIT {{limitParam}}
 )
-SELECT DISTINCT ON (player_key)
-  player_key AS id,
-  label,
-  real_name,
-  photo_url,
-  country
-FROM base
-WHERE label ILIKE {{likeParam}}
-   OR aliases ILIKE {{likeParam}}
-   OR real_name ILIKE {{likeParam}}
-   OR player_name ILIKE {{likeParam}}
-ORDER BY player_key, label
+ORDER BY label
 LIMIT {{limitParam}};

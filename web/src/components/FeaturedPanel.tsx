@@ -24,7 +24,7 @@ export default function FeaturedPanel({ data }: FeaturedPanelProps) {
             onClick={() => navigate(`/players/${row.id}`)}
           >
             <div className="featured-card-photo">
-              <img src={imgSrc ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!} alt={row.label} loading="lazy" />
+              <img src={imgSrc ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!} alt={row.label} loading="lazy" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }} />
             </div>
             <div className="featured-card-info">
               <strong>{row.label}</strong>

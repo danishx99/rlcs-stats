@@ -1,5 +1,4 @@
-{{rosterCtes}},
-roster_match AS (
+WITH roster_match AS (
   SELECT
     roster_id,
     team,
@@ -8,20 +7,18 @@ roster_match AS (
   WHERE team ILIKE {{likeParam}}
   GROUP BY roster_id, team
 ),
-roster_starters AS (
-  SELECT roster_id, starters
-  FROM series_roster
-),
 starter_profiles AS (
   SELECT
-    rs.roster_id,
+    rm.roster_id,
     starter_id,
-    COALESCE(MIN(p."Primary Handle"), MIN(b."Player Name")) AS handle
-  FROM roster_starters rs
-  CROSS JOIN LATERAL unnest(rs.starters) AS starter_id
-  LEFT JOIN base b ON b.player_key = starter_id
+    COALESCE(MIN(p."Primary Handle"), starter_id) AS handle
+  FROM roster_match rm
+  CROSS JOIN LATERAL unnest(
+    (SELECT sr.starters FROM series_roster sr
+     WHERE sr.roster_id = rm.roster_id LIMIT 1)
+  ) AS starter_id
   LEFT JOIN players p ON p."Unique ID" = starter_id
-  GROUP BY rs.roster_id, starter_id
+  GROUP BY rm.roster_id, starter_id
 )
 SELECT DISTINCT ON (roster_id)
   roster_id AS id,
