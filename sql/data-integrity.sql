@@ -382,12 +382,18 @@ team_event_role_issues AS (
   SELECT
     ters.*,
     (
-      ters.starter_players <> 3
-      OR ters.alternate_players > 1
-      OR ters.mixed_role_players > 0
+      ters.mixed_role_players > 0
       OR ters.unlabeled_players > 0
       OR ters.players_with_unknown_role > 0
-      OR (ters.total_players > 3 AND ters.alternate_players <> 1)
+      OR NOT (
+        (ters.total_players = 3 AND (
+          (ters.starter_players = 3 AND ters.alternate_players = 0)
+          OR
+          (ters.starter_players = 2 AND ters.alternate_players = 1)
+        ))
+        OR
+        (ters.total_players = 4 AND ters.starter_players = 3 AND ters.alternate_players = 1)
+      )
     ) AS has_issue
   FROM team_event_role_summary ters
 ),
