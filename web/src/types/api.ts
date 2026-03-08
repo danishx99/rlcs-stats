@@ -404,6 +404,9 @@ export type TopQueryRow = {
   valueDisplay: string;
   context: string | null;
   photoUrl: string | null;
+  eventId: string | null;
+  teamA: string | null;
+  teamB: string | null;
 };
 
 export type TopQueryCategory = {

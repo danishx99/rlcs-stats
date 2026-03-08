@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { LeaderboardResponse, SearchResponse, StatOption, StandingsResponse, TopQueryCategory } from "../types/api";
 import { api } from "../api";
 import { proxyImageUrl, DEFAULT_PLAYER_PHOTO, DEFAULT_TEAM_LOGO } from "../utils/normalize";
@@ -165,9 +165,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
       try {
         // Intentionally omit gameMode so home search includes all modes (1s/2s/3s).
         const response = await api.search({
-          q: searchQuery,
-          scope: HOME_TRACK.scope,
-          tier: HOME_TRACK.tier
+          q: searchQuery
         }, { signal: controller.signal });
         setSearchResults(response);
       } catch (error) {
@@ -568,7 +566,17 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                     <div className="dash-query-tile-body">
                       {topRow ? (
                         <>
-                          <span className="dash-query-tile-name">{topRow.label}</span>
+                          <span className="dash-query-tile-name">
+                            {topRow.entityType === "player" ? (
+                              <Link to={`/players/${encodeURIComponent(topRow.id)}`} className="dash-query-link">{topRow.label}</Link>
+                            ) : topRow.teamA && topRow.teamB ? (
+                              <>
+                                <Link to={`/rosters/${encodeURIComponent(toOrgRosterId(topRow.teamA))}`} className="dash-query-link">{topRow.teamA}</Link>
+                                {" vs "}
+                                <Link to={`/rosters/${encodeURIComponent(toOrgRosterId(topRow.teamB))}`} className="dash-query-link">{topRow.teamB}</Link>
+                              </>
+                            ) : topRow.label}
+                          </span>
                           <span className="dash-query-tile-value">{topRow.valueDisplay}</span>
                         </>
                       ) : (
@@ -583,12 +591,34 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                             <span className="dash-query-rank">{index + 1}</span>
                             <div className="dash-query-entity">
                               {row.entityType === "player" ? (
-                                <span>{row.label}</span>
+                                <Link to={`/players/${encodeURIComponent(row.id)}`} className="dash-query-link">{row.label}</Link>
+                              ) : row.teamA && row.teamB ? (
+                                <span className="dash-query-match">
+                                  <Link to={`/rosters/${encodeURIComponent(toOrgRosterId(row.teamA))}`} className="dash-query-link">{row.teamA}</Link>
+                                  {" vs "}
+                                  <Link to={`/rosters/${encodeURIComponent(toOrgRosterId(row.teamB))}`} className="dash-query-link">{row.teamB}</Link>
+                                </span>
                               ) : (
                                 <span className="dash-query-match">{row.label}</span>
                               )}
-                              {contextPrimary ? <span className="dash-query-context">{contextPrimary}</span> : null}
-                              {contextTeams ? <span className="dash-query-context-team">{contextTeams}</span> : null}
+                              {contextPrimary ? (
+                                row.eventId ? (
+                                  <Link to={`/events/${encodeURIComponent(row.eventId)}`} className="dash-query-link dash-query-context">{contextPrimary}</Link>
+                                ) : (
+                                  <span className="dash-query-context">{contextPrimary}</span>
+                                )
+                              ) : null}
+                              {contextTeams ? (
+                                row.teamA && row.teamB ? (
+                                  <span className="dash-query-context-team">
+                                    <Link to={`/rosters/${encodeURIComponent(toOrgRosterId(row.teamA))}`} className="dash-query-link">{row.teamA}</Link>
+                                    {" vs "}
+                                    <Link to={`/rosters/${encodeURIComponent(toOrgRosterId(row.teamB))}`} className="dash-query-link">{row.teamB}</Link>
+                                  </span>
+                                ) : (
+                                  <span className="dash-query-context-team">{contextTeams}</span>
+                                )
+                              ) : null}
                             </div>
                             <span className="dash-query-value" title={query.valueLabel}>{row.valueDisplay}</span>
                           </div>

@@ -4651,3 +4651,13 @@ th {
     font-size: 1.35rem;
   }
 }
+
+.dash-query-link {
+  color: inherit;
+  text-decoration: none;
+}
+.dash-query-link:hover {
+  text-decoration: underline;
+  text-decoration-color: rgba(122, 180, 245, 0.7);
+  text-underline-offset: 2px;
+}

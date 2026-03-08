@@ -18,6 +18,7 @@ WITH base_stats AS (
     s."Best of " AS best_of,
     TRIM(s."Team") AS team_key,
     NULLIF(TRIM(s."Unique ID"), '') AS player_key,
+    s."Role" AS role,
     s."Victory" AS victory,
     s."OT" AS ot,
     s."Extra Time" AS extra_time,
@@ -330,6 +331,119 @@ case_team_variants AS (
   WHERE NULLIF(TRIM(b.team_key), '') IS NOT NULL
   GROUP BY UPPER(b.team_key)
   HAVING COUNT(DISTINCT b.team_key) > 1
+),
+team_event_player_roles AS (
+  SELECT
+    NULLIF(TRIM(b.season), '') AS season,
+    NULLIF(TRIM(b.split), '') AS split,
+    NULLIF(TRIM(b.event), '') AS event,
+    UPPER(TRIM(b.team_key)) AS team,
+    b.player_key,
+    BOOL_OR(LOWER(TRIM(COALESCE(b.role, ''))) = 'starter') AS has_starter_role,
+    BOOL_OR(LOWER(TRIM(COALESCE(b.role, ''))) = 'alternate') AS has_alternate_role,
+    BOOL_OR(NULLIF(TRIM(COALESCE(b.role, '')), '') IS NULL) AS has_blank_role,
+    BOOL_OR(
+      NULLIF(TRIM(COALESCE(b.role, '')), '') IS NOT NULL
+      AND LOWER(TRIM(b.role)) NOT IN ('starter', 'alternate')
+    ) AS has_unknown_role
+  FROM base_stats b
+  WHERE NULLIF(TRIM(b.event), '') IS NOT NULL
+    AND NULLIF(TRIM(b.team_key), '') IS NOT NULL
+    AND b.player_key IS NOT NULL
+  GROUP BY
+    NULLIF(TRIM(b.season), ''),
+    NULLIF(TRIM(b.split), ''),
+    NULLIF(TRIM(b.event), ''),
+    UPPER(TRIM(b.team_key)),
+    b.player_key
+),
+team_event_role_summary AS (
+  SELECT
+    tepr.season,
+    tepr.split,
+    tepr.event,
+    tepr.team,
+    COUNT(*) AS total_players,
+    COUNT(*) FILTER (WHERE tepr.has_starter_role AND NOT tepr.has_alternate_role) AS starter_players,
+    COUNT(*) FILTER (WHERE tepr.has_alternate_role AND NOT tepr.has_starter_role) AS alternate_players,
+    COUNT(*) FILTER (WHERE tepr.has_starter_role AND tepr.has_alternate_role) AS mixed_role_players,
+    COUNT(*) FILTER (WHERE NOT tepr.has_starter_role AND NOT tepr.has_alternate_role) AS unlabeled_players,
+    COUNT(*) FILTER (WHERE tepr.has_unknown_role) AS players_with_unknown_role,
+    ARRAY_AGG(tepr.player_key ORDER BY tepr.player_key)
+      FILTER (WHERE tepr.has_starter_role AND tepr.has_alternate_role) AS mixed_role_player_ids,
+    ARRAY_AGG(tepr.player_key ORDER BY tepr.player_key)
+      FILTER (WHERE NOT tepr.has_starter_role AND NOT tepr.has_alternate_role) AS unlabeled_player_ids,
+    ARRAY_AGG(tepr.player_key ORDER BY tepr.player_key)
+      FILTER (WHERE tepr.has_unknown_role) AS unknown_role_player_ids
+  FROM team_event_player_roles tepr
+  GROUP BY tepr.season, tepr.split, tepr.event, tepr.team
+),
+team_event_role_issues AS (
+  SELECT
+    ters.*,
+    (
+      ters.starter_players <> 3
+      OR ters.alternate_players > 1
+      OR ters.mixed_role_players > 0
+      OR ters.unlabeled_players > 0
+      OR ters.players_with_unknown_role > 0
+      OR (ters.total_players > 3 AND ters.alternate_players <> 1)
+    ) AS has_issue
+  FROM team_event_role_summary ters
+),
+team_event_player_role_conflicts AS (
+  SELECT
+    tepr.season,
+    tepr.split,
+    tepr.event,
+    tepr.team,
+    tepr.player_key
+  FROM team_event_player_roles tepr
+  WHERE tepr.has_starter_role
+    AND tepr.has_alternate_role
+),
+team_game_role_summary AS (
+  SELECT
+    NULLIF(TRIM(b.season), '') AS season,
+    NULLIF(TRIM(b.split), '') AS split,
+    NULLIF(TRIM(b.event), '') AS event,
+    UPPER(TRIM(b.team_key)) AS team,
+    b.match_id,
+    b.game_number,
+    COUNT(DISTINCT b.player_key) AS players_in_game,
+    COUNT(DISTINCT b.player_key) FILTER (WHERE LOWER(TRIM(COALESCE(b.role, ''))) = 'starter') AS starter_players_in_game,
+    COUNT(DISTINCT b.player_key) FILTER (WHERE LOWER(TRIM(COALESCE(b.role, ''))) = 'alternate') AS alternate_players_in_game,
+    COUNT(DISTINCT b.player_key) FILTER (WHERE NULLIF(TRIM(COALESCE(b.role, '')), '') IS NULL) AS blank_role_players_in_game,
+    COUNT(DISTINCT b.player_key) FILTER (
+      WHERE NULLIF(TRIM(COALESCE(b.role, '')), '') IS NOT NULL
+      AND LOWER(TRIM(b.role)) NOT IN ('starter', 'alternate')
+    ) AS unknown_role_players_in_game,
+    ARRAY_AGG(DISTINCT b.player_key ORDER BY b.player_key) AS player_ids
+  FROM base_stats b
+  WHERE NULLIF(TRIM(b.event), '') IS NOT NULL
+    AND NULLIF(TRIM(b.team_key), '') IS NOT NULL
+    AND b.match_id IS NOT NULL
+    AND b.game_number IS NOT NULL
+    AND b.player_key IS NOT NULL
+  GROUP BY
+    NULLIF(TRIM(b.season), ''),
+    NULLIF(TRIM(b.split), ''),
+    NULLIF(TRIM(b.event), ''),
+    UPPER(TRIM(b.team_key)),
+    b.match_id,
+    b.game_number
+),
+team_game_role_issues AS (
+  SELECT
+    tgrs.*,
+    (
+      tgrs.players_in_game <> 3
+      OR tgrs.alternate_players_in_game > 1
+      OR tgrs.starter_players_in_game < 2
+      OR tgrs.blank_role_players_in_game > 0
+      OR tgrs.unknown_role_players_in_game > 0
+    ) AS has_issue
+  FROM team_game_role_summary tgrs
 ),
 player_name_id_variants AS (
   SELECT
@@ -997,6 +1111,104 @@ checks AS (
       ) x
     ), '[]'::jsonb)
   FROM match_series_id_gaps
+
+  UNION ALL
+
+  -- C20
+  SELECT
+    'C20_team_event_starter_alternate_shape',
+    'critical',
+    CASE WHEN COUNT(*) FILTER (WHERE tri.has_issue) = 0 THEN 'pass' ELSE 'fail' END,
+    'team_event_groups_with_invalid_starter_alternate_shape',
+    COUNT(*) FILTER (WHERE tri.has_issue)::bigint,
+    '0',
+    COALESCE((
+      SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+        'season', x.season,
+        'split', x.split,
+        'event', x.event,
+        'team', x.team,
+        'total_players', x.total_players,
+        'starter_players', x.starter_players,
+        'alternate_players', x.alternate_players,
+        'mixed_role_players', x.mixed_role_players,
+        'unlabeled_players', x.unlabeled_players,
+        'players_with_unknown_role', x.players_with_unknown_role,
+        'mixed_role_player_ids', x.mixed_role_player_ids,
+        'unlabeled_player_ids', x.unlabeled_player_ids,
+        'unknown_role_player_ids', x.unknown_role_player_ids
+      ))
+      FROM (
+        SELECT tri.*
+        FROM team_event_role_issues tri
+        WHERE tri.has_issue
+        ORDER BY tri.season, tri.split, tri.event, tri.team
+        LIMIT 20
+      ) x
+    ), '[]'::jsonb)
+  FROM team_event_role_issues tri
+
+  UNION ALL
+
+  -- C21
+  SELECT
+    'C21_team_event_player_role_conflict',
+    'critical',
+    CASE WHEN COUNT(*) = 0 THEN 'pass' ELSE 'fail' END,
+    'team_event_players_marked_as_both_starter_and_alternate',
+    COUNT(*)::bigint,
+    '0',
+    COALESCE((
+      SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+        'season', x.season,
+        'split', x.split,
+        'event', x.event,
+        'team', x.team,
+        'player_id', x.player_key
+      ))
+      FROM (
+        SELECT teprc.*
+        FROM team_event_player_role_conflicts teprc
+        ORDER BY teprc.season, teprc.split, teprc.event, teprc.team, teprc.player_key
+        LIMIT 20
+      ) x
+    ), '[]'::jsonb)
+  FROM team_event_player_role_conflicts
+
+  UNION ALL
+
+  -- C22
+  SELECT
+    'C22_team_game_lineup_starter_alternate_shape',
+    'critical',
+    CASE WHEN COUNT(*) FILTER (WHERE tgi.has_issue) = 0 THEN 'pass' ELSE 'fail' END,
+    'team_games_with_invalid_starter_alternate_lineup_shape',
+    COUNT(*) FILTER (WHERE tgi.has_issue)::bigint,
+    '0',
+    COALESCE((
+      SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+        'season', x.season,
+        'split', x.split,
+        'event', x.event,
+        'team', x.team,
+        'match_id', x.match_id,
+        'game_number', x.game_number,
+        'players_in_game', x.players_in_game,
+        'starter_players_in_game', x.starter_players_in_game,
+        'alternate_players_in_game', x.alternate_players_in_game,
+        'blank_role_players_in_game', x.blank_role_players_in_game,
+        'unknown_role_players_in_game', x.unknown_role_players_in_game,
+        'player_ids', x.player_ids
+      ))
+      FROM (
+        SELECT tgi2.*
+        FROM team_game_role_issues tgi2
+        WHERE tgi2.has_issue
+        ORDER BY tgi2.season, tgi2.split, tgi2.event, tgi2.team, tgi2.match_id, tgi2.game_number
+        LIMIT 20
+      ) x
+    ), '[]'::jsonb)
+  FROM team_game_role_issues tgi
 
   UNION ALL
 

@@ -12,6 +12,9 @@ type QueryRow = {
   valueDisplay: string;
   context: string | null;
   photoUrl: string | null;
+  eventId: string | null;
+  teamA: string | null;
+  teamB: string | null;
 };
 
 type QueryCategory = {
@@ -136,7 +139,15 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           s."Event" AS event,
           MIN(s."Team") OVER (PARTITION BY s."Match ID", s."Game Number") AS team_a,
           MAX(s."Team") OVER (PARTITION BY s."Match ID", s."Game Number") AS team_b,
-          p."Photo URL" AS photo_url
+          p."Photo URL" AS photo_url,
+          md5(
+            LOWER(TRIM(COALESCE(s."Season", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."Split", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."Event", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."mode", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."scope", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."tier", '')))
+          ) AS event_id
         FROM stats s
         LEFT JOIN players p ON p."Unique ID" = s."Unique ID"
         ${baseWhere}
@@ -169,7 +180,15 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           MIN(sr."Event") AS event,
           MIN(sr.team_a) AS team_a,
           MIN(sr.team_b) AS team_b,
-          MIN(p."Photo URL") AS photo_url
+          MIN(p."Photo URL") AS photo_url,
+          md5(
+            LOWER(TRIM(COALESCE(MIN(sr."Season"), ''))) || '|' ||
+            LOWER(TRIM(COALESCE(MIN(sr."Split"), ''))) || '|' ||
+            LOWER(TRIM(COALESCE(MIN(sr."Event"), ''))) || '|' ||
+            LOWER(TRIM(COALESCE(MIN(sr."mode"), ''))) || '|' ||
+            LOWER(TRIM(COALESCE(MIN(sr."scope"), ''))) || '|' ||
+            LOWER(TRIM(COALESCE(MIN(sr."tier"), '')))
+          ) AS event_id
         FROM series_rows sr
         LEFT JOIN players p ON p."Unique ID" = sr."Unique ID"
         GROUP BY sr.series_id, sr."Unique ID"
@@ -218,7 +237,15 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
             MIN(s."Split") AS split,
             MIN(s."Event") AS event,
             MAX(s."Extra Time") AS value,
-            ARRAY_AGG(DISTINCT s."Team" ORDER BY s."Team") AS teams
+            ARRAY_AGG(DISTINCT s."Team" ORDER BY s."Team") AS teams,
+            md5(
+              LOWER(TRIM(COALESCE(MIN(s."Season"), ''))) || '|' ||
+              LOWER(TRIM(COALESCE(MIN(s."Split"), ''))) || '|' ||
+              LOWER(TRIM(COALESCE(MIN(s."Event"), ''))) || '|' ||
+              LOWER(TRIM(COALESCE(MIN(s."mode"), ''))) || '|' ||
+              LOWER(TRIM(COALESCE(MIN(s."scope"), ''))) || '|' ||
+              LOWER(TRIM(COALESCE(MIN(s."tier"), '')))
+            ) AS event_id
           FROM stats s
           ${withExtraFilter(baseWhere, "s.\"OT\" = true")}
           GROUP BY s."Match ID", s."Game Number"
@@ -233,7 +260,8 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           event,
           COALESCE(teams[1], '—') AS team_a,
           COALESCE(teams[2], '—') AS team_b,
-          NULL::text AS photo_url
+          NULL::text AS photo_url,
+          event_id
         FROM game_rows
         ORDER BY value DESC NULLS LAST
         LIMIT ${limitParam};
@@ -280,7 +308,15 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
           s."Event" AS event,
           MIN(s."Team") OVER (PARTITION BY s."Match ID", s."Game Number") AS team_a,
           MAX(s."Team") OVER (PARTITION BY s."Match ID", s."Game Number") AS team_b,
-          p."Photo URL" AS photo_url
+          p."Photo URL" AS photo_url,
+          md5(
+            LOWER(TRIM(COALESCE(s."Season", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."Split", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."Event", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."mode", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."scope", ''))) || '|' ||
+            LOWER(TRIM(COALESCE(s."tier", '')))
+          ) AS event_id
         FROM stats s
         LEFT JOIN players p ON p."Unique ID" = s."Unique ID"
         ${baseWhere}
@@ -307,7 +343,10 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
         value: Number(row.value ?? 0),
         valueDisplay: definition.valueDisplay(row.value),
         context: contextLabel(definition.key, row),
-        photoUrl: typeof row.photo_url === "string" ? row.photo_url : null
+        photoUrl: typeof row.photo_url === "string" ? row.photo_url : null,
+        eventId: typeof row.event_id === "string" ? row.event_id : null,
+        teamA: typeof row.team_a === "string" ? row.team_a : null,
+        teamB: typeof row.team_b === "string" ? row.team_b : null
       }));
       return {
         key: definition.key,

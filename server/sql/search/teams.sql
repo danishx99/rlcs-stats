@@ -32,7 +32,7 @@ grouped AS (
     tpn.logo_url,
     CASE
       WHEN tpn.org_name IS NOT NULL THEN 'org:' || tpn.team_norm
-      ELSE 'roster:' || sr.roster_id
+      ELSE 'org:' || UPPER(TRIM(sr.team))
     END AS team_group_id,
     COALESCE(tpn.org_name, TRIM(sr.team)) AS display_name
   FROM series_roster sr
