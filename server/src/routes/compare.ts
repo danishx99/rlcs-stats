@@ -2,10 +2,10 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode, parseListParam } from "../utils/filters";
-import { DEFAULT_COMPARE_STATS, metricExpression, resolveStatOptionAsync, shouldUseGameDenominatorForTeamAvg } from "../utils/stats";
+import { DEFAULT_COMPARE_STATS, getAllStatOptions, metricExpression, shouldUseGameDenominatorForTeamAvg } from "../utils/stats";
 import type { StatOption } from "../types";
 import { formatSql, loadSql } from "../utils/sql";
-import { playerKeyExpr, rosterCtes } from "../utils/roster";
+import { playerKeyExpr } from "../utils/roster";
 const comparePlayersSql = loadSql("../../sql/compare/compare_players.sql", import.meta.url);
 const compareTeamsSql = loadSql("../../sql/compare/compare_teams.sql", import.meta.url);
 const compareRostersSql = loadSql("../../sql/compare/compare_rosters.sql", import.meta.url);
@@ -13,6 +13,7 @@ const historyPlayersSql = loadSql("../../sql/compare/history_players.sql", impor
 const historyRostersSql = loadSql("../../sql/compare/history_rosters.sql", import.meta.url);
 const DEFAULT_HISTORY_LIMIT = 5;
 const MAX_HISTORY_LIMIT = 50;
+const MAX_COMPARE_IDS = 6;
 
 function parseHistoryPagination(url: URL) {
   const limitRaw = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
@@ -34,10 +35,17 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
     json(res, 400, { error: "ids is required" });
     return;
   }
+  if (ids.length > MAX_COMPARE_IDS) {
+    json(res, 400, { error: `A maximum of ${MAX_COMPARE_IDS} ids is allowed` });
+    return;
+  }
 
   const metrics = metricsRaw.length ? metricsRaw : DEFAULT_COMPARE_STATS;
-  const resolved = await Promise.all(metrics.map((key) => resolveStatOptionAsync(key)));
-  const options = resolved.filter((option): option is StatOption => Boolean(option));
+  const allStatOptions = await getAllStatOptions();
+  const optionByKey = new Map(allStatOptions.map((option) => [option.key, option] as const));
+  const options = metrics
+    .map((key) => optionByKey.get(key))
+    .filter((option): option is StatOption => Boolean(option));
 
   if (!options.length) {
     json(res, 400, { error: "No valid metrics" });
@@ -45,7 +53,7 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
   }
 
   if (type === "rosters") {
-    const { clauses, values } = buildFilterClauses(url.searchParams, "fb");
+    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
     const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
     const idsIndex = values.length + 1;
     const rosterGameCountExpr = 'COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game Number"))';
@@ -62,7 +70,6 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
     try {
       const result = await pool.query(
         formatSql(compareRostersSql, {
-          rosterCtes: rosterCtes(""),
           idsParam: `$${idsIndex}`,
           metricSelect,
           filterClauses
@@ -138,7 +145,7 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
   }
 
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
   const idsIndex = values.length + 1;
   const metricSelect = options
     .map((option) => `${metricExpression(option, mode, "player_scope")} AS "${option.key}"`)
@@ -147,10 +154,10 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
   try {
     const result = await pool.query(
       formatSql(comparePlayersSql, {
-        where,
         playerKeyExpr: playerKeyExpr("s"),
         idsParam: `$${idsIndex}`,
-        metricSelect
+        metricSelect,
+        filterClauses
       }),
       [...values, ids]
     );
@@ -188,6 +195,10 @@ export async function handleCompareHistory(
     json(res, 200, { rows: [], total: 0, limit, offset });
     return;
   }
+  if (ids.length > MAX_COMPARE_IDS) {
+    json(res, 400, { error: `A maximum of ${MAX_COMPARE_IDS} ids is allowed` });
+    return;
+  }
 
   try {
     if (type === "rosters") {
@@ -218,18 +229,25 @@ export async function handleCompareHistory(
 
     const { clauses, values } = buildFilterClauses(url.searchParams, "s");
     const idsIndex = values.length + 1;
+    const limitIndex = idsIndex + 1;
+    const offsetIndex = idsIndex + 2;
     const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
     const result = await pool.query(
       formatSql(historyPlayersSql, {
         filterClauses,
         playerKeyExpr: playerKeyExpr("s"),
-        idsParam: `$${idsIndex}`
+        idsParam: `$${idsIndex}`,
+        limitParam: `$${limitIndex}`,
+        offsetParam: `$${offsetIndex}`
       }),
-      [...values, ids]
+      [...values, ids, limit, offset]
     );
 
-    const total = result.rows.length;
-    const rows = result.rows.slice(offset, offset + limit);
+    const total = Number(result.rows[0]?.total_count ?? 0);
+    const rows = result.rows.filter((row) => row.series_id !== null).map((row) => {
+      const { total_count, ...rest } = row as Record<string, unknown>;
+      return rest;
+    });
     json(res, 200, { rows, total, limit, offset });
   } catch (error) {
     console.error(error);

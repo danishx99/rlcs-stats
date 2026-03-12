@@ -496,6 +496,11 @@ body {
   gap: 10px;
 }
 
+/* Single skeleton row shown beneath existing data during reload */
+.skel-reload-row {
+  padding: 10px 14px;
+}
+
 /* Stat toggle chips skeleton */
 .skel-toggles {
   display: flex;

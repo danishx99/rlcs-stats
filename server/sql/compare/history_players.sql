@@ -166,6 +166,7 @@ entity_labels AS (
   GROUP BY pr.player_key
 )
 SELECT
+  tc.total_count,
   t.series_id,
   t.match_date AS date,
   t."Season" AS season,
@@ -186,45 +187,57 @@ SELECT
   t.team_a_wins,
   t.team_b_wins,
   t.best_of,
-  JSON_BUILD_ARRAY(
-    JSON_BUILD_OBJECT(
-      'team', t.team_a,
-      'wins', t.team_a_wins,
-      'entities', (
-        SELECT JSON_AGG(
-          JSON_BUILD_OBJECT(
-            'id', e.entity_id,
-            'label', l.label
+  CASE
+    WHEN t.series_id IS NULL THEN NULL
+    ELSE JSON_BUILD_ARRAY(
+      JSON_BUILD_OBJECT(
+        'team', t.team_a,
+        'wins', t.team_a_wins,
+        'entities', (
+          SELECT JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id', e.entity_id,
+              'label', l.label
+            )
+            ORDER BY l.label
           )
-          ORDER BY l.label
+          FROM UNNEST(se.entity_ids) AS e(entity_id)
+          JOIN entity_labels l ON l.id = e.entity_id
+          WHERE se.team = t.team_a
         )
-        FROM UNNEST(se.entity_ids) AS e(entity_id)
-        JOIN entity_labels l ON l.id = e.entity_id
-        WHERE se.team = t.team_a
-      )
-    ),
-    JSON_BUILD_OBJECT(
-      'team', t.team_b,
-      'wins', t.team_b_wins,
-      'entities', (
-        SELECT JSON_AGG(
-          JSON_BUILD_OBJECT(
-            'id', e.entity_id,
-            'label', l.label
+      ),
+      JSON_BUILD_OBJECT(
+        'team', t.team_b,
+        'wins', t.team_b_wins,
+        'entities', (
+          SELECT JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id', e.entity_id,
+              'label', l.label
+            )
+            ORDER BY l.label
           )
-          ORDER BY l.label
+          FROM UNNEST(se2.entity_ids) AS e(entity_id)
+          JOIN entity_labels l ON l.id = e.entity_id
+          WHERE se2.team = t.team_b
         )
-        FROM UNNEST(se2.entity_ids) AS e(entity_id)
-        JOIN entity_labels l ON l.id = e.entity_id
-        WHERE se2.team = t.team_b
       )
     )
-  ) AS teams
-FROM totals t
+  END AS teams
+FROM (
+  SELECT COUNT(*)::INT AS total_count FROM totals
+) tc
+LEFT JOIN (
+  SELECT *
+  FROM totals
+  ORDER BY match_date DESC NULLS LAST, series_id DESC
+  LIMIT {{limitParam}}
+  OFFSET {{offsetParam}}
+) t ON TRUE
 LEFT JOIN series_entities se
   ON se.series_id = t.series_id
   AND se.team = t.team_a
 LEFT JOIN series_entities se2
   ON se2.series_id = t.series_id
   AND se2.team = t.team_b
-ORDER BY t.match_date DESC NULLS LAST;
+ORDER BY t.match_date DESC NULLS LAST, t.series_id DESC;

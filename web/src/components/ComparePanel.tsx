@@ -181,9 +181,14 @@ export default function ComparePanel({
     return bests;
   }, [compareResults]);
 
+  const hasCompareData = compareResults && compareResults.rows.length > 0;
+  const showCompareSkeleton = compareLoading && !hasCompareData;
+  const hasHistoryData = compareHistory.length > 0;
+  const showHistorySkeleton = compareHistoryLoading && !hasHistoryData;
+
   return (
     <>
-      {compareLoading ? (
+      {showCompareSkeleton ? (
         <div className="skel-compare-grid" role="status" aria-busy="true">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={`compare-skel-${i}`} className="skel-compare-card">
@@ -212,7 +217,7 @@ export default function ComparePanel({
       {!compareLoading && !compareError && compareSelection.length > 0 && compareMetrics.length > 0 && (!compareResults || compareResults.rows.length === 0) ? (
         <PanelState state="empty" message="No comparison data found for the selected filters." />
       ) : null}
-      {compareResults && compareResults.rows.length > 0 && (
+      {hasCompareData && (
         <div className="sg-grid">
           {/* Games card */}
           <div className="sg-card">
@@ -241,6 +246,11 @@ export default function ComparePanel({
                   </div>
                 );
               })}
+            {compareLoading && (
+              <div className="skel-reload-row">
+                <SkeletonBlock height={12} width="100%" rounded="pill" />
+              </div>
+            )}
           </div>
           {/* Metric cards */}
           {compareResults.metrics.map((metric) => {
@@ -278,6 +288,11 @@ export default function ComparePanel({
                     </div>
                   );
                 })}
+                {compareLoading && (
+                  <div className="skel-reload-row">
+                    <SkeletonBlock height={12} width="100%" rounded="pill" />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -292,7 +307,7 @@ export default function ComparePanel({
               <h4>Head-to-Head Series</h4>
             </div>
           </div>
-          {compareHistoryLoading ? (
+          {showHistorySkeleton ? (
             <div className="skel-table" role="status" aria-busy="true">
               <div className="skel-table-header" style={{ gridTemplateColumns: "80px 2fr 1.5fr 1.5fr" }}>
                 <SkeletonBlock height={12} width="70%" />
@@ -309,9 +324,9 @@ export default function ComparePanel({
                 </div>
               ))}
             </div>
-          ) : compareHistoryError ? (
+          ) : !compareHistoryLoading && compareHistoryError ? (
             <PanelState state="error" message={compareHistoryError} />
-          ) : compareHistory.length ? (
+          ) : hasHistoryData ? (
             <div className="table-wrap">
               <table>
                 <thead>
@@ -412,6 +427,17 @@ export default function ComparePanel({
                     );
                   })}
                 </tbody>
+              {compareHistoryLoading && (
+                <tfoot>
+                  <tr>
+                    <td colSpan={4}>
+                      <div className="skel-reload-row">
+                        <SkeletonBlock height={12} width="100%" rounded="pill" />
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
               </table>
             </div>
           ) : (

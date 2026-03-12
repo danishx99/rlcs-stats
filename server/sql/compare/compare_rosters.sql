@@ -1,14 +1,29 @@
-{{rosterCtes}},
-filtered_base AS (
-  SELECT * FROM base fb WHERE 1=1 {{filterClauses}}
-),
-roster_scope AS (
-  SELECT fb.*, sr.roster_id
-  FROM filtered_base fb
-  JOIN series_roster sr
-    ON fb.series_id = sr.series_id
-   AND fb.team = sr.team
+WITH roster_scope AS (
+  SELECT
+    s.*,
+    sr.roster_id
+  FROM series_roster sr
+  JOIN stats s
+    ON s.series_id = sr.series_id
+   AND s."Team" = sr.team
   WHERE sr.roster_id = ANY({{idsParam}})
+    {{filterClauses}}
+),
+roster_counts AS (
+  SELECT
+    sr.roster_id,
+    sr.team,
+    COUNT(*) AS series_count
+  FROM series_roster sr
+  WHERE sr.roster_id = ANY({{idsParam}})
+  GROUP BY sr.roster_id, sr.team
+),
+roster_names AS (
+  SELECT DISTINCT ON (roster_id)
+    roster_id,
+    team AS roster_name
+  FROM roster_counts
+  ORDER BY roster_id, series_count DESC, team
 )
 SELECT
   roster_scope.roster_id AS id,
