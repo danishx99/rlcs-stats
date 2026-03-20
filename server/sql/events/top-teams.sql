@@ -159,40 +159,42 @@ placement_basis AS (
           WHEN c.round_depth = 100 THEN 100
           ELSE COALESCE(c.elimination_depth, c.round_depth)
         END
-      ELSE COALESCE(
-        (
-          SELECT MIN(e.round_depth)
-          FROM (
-            SELECT DISTINCT round_depth
-            FROM classified
-            WHERE is_eliminated
-          ) e
-          WHERE e.round_depth > c.round_depth
-        ),
-        c.round_depth
-      )
+      ELSE NULL::int  -- still competing (TBD)
     END AS effective_depth
   FROM classified c
+),
+competing_count AS (
+  SELECT COUNT(*) AS cnt
+  FROM placement_basis
+  WHERE NOT is_champion AND NOT is_eliminated
+),
+placement_offset AS (
+  SELECT
+    COUNT(*) FILTER (WHERE is_champion)
+    + (SELECT cnt FROM competing_count)
+    + 1 AS val
+  FROM placement_basis
 ),
 elim_groups AS (
   SELECT
     effective_depth AS round_depth,
     COUNT(*) AS team_count
   FROM placement_basis
-  WHERE NOT is_champion
+  WHERE NOT is_champion AND effective_depth IS NOT NULL
   GROUP BY effective_depth
 ),
 elim_ranges AS (
   SELECT
     eg.round_depth,
     eg.team_count,
-    COALESCE(
+    (SELECT val FROM placement_offset)
+    + COALESCE(
       SUM(eg.team_count) OVER (
         ORDER BY eg.round_depth DESC
         ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
       ),
       0
-    ) + 2 AS placement_start
+    ) AS placement_start
   FROM elim_groups eg
 ),
 playoff_placed AS (
@@ -206,11 +208,13 @@ playoff_placed AS (
     CASE
       WHEN pb.is_champion THEN 1
       WHEN pb.effective_depth IS NOT NULL THEN er.placement_start
+      WHEN NOT pb.is_eliminated THEN 1
       ELSE 999
     END AS placement_start,
     CASE
       WHEN pb.is_champion THEN 1
       WHEN pb.effective_depth IS NOT NULL THEN er.placement_start + er.team_count - 1
+      WHEN NOT pb.is_eliminated THEN (SELECT cnt FROM competing_count)
       ELSE 999
     END AS placement_end
   FROM placement_basis pb

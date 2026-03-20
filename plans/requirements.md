@@ -94,7 +94,7 @@
 
 ### Visual & UX
 - [ ] Make overall UI more compact
-- [ ] Improve image loading times (very poor, especially in production)
+- [ ] Improve image loading times (very poor, especially in production) (Images are very large)
 - ✅ Improve mobile responsiveness (player profile performance stats, season table, overview layout)
 - ✅ Add better placeholder icons for missing team logos and player photos
 - ✅ Redesign the Team / Roster page UI
@@ -104,7 +104,7 @@
 - ✅ Add 1v1 and Majors data to the database
 - ✅ Ensure player aliases are listed (sourced from CSV `AKA` column)
 - ✅ Add Stat page filter to exclude non-SSA players (currently included by default; default should be SSA-only)
-- [ ] Verify roster correctness (ensure roster iterations, starters, and alternates are accurate across seasons)
+- ✅ Verify roster correctness (ensure roster iterations, starters, and alternates are accurate across seasons)
 
 ### Home Additions
 - ✅ Rotating featured players from common stats (rating, goals, saves, demos, shots, assists)

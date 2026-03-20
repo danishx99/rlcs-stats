@@ -24,6 +24,14 @@ SELECT
   MAX(scoped."Date"::text) AS max_date,
   COUNT(DISTINCT scoped.series_id) AS total_series,
   COUNT(DISTINCT NULLIF(TRIM(scoped."Unique ID"), '')) AS total_players,
-  MIN(scoped.event_id) AS event_id
+  MIN(scoped.event_id) AS event_id,
+  CASE
+    WHEN EXISTS (
+      SELECT 1 FROM scoped
+      WHERE scoped.event_id = $1
+        AND UPPER(TRIM("Round")) IN ('GF','GF 1','GF1','GF 2','GF2')
+    ) THEN 'completed'
+    ELSE 'in_progress'
+  END AS status
 FROM scoped
 WHERE scoped.event_id = $1;

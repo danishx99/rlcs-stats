@@ -3451,6 +3451,18 @@ th {
   color: var(--accent);
 }
 
+.badge--in-progress {
+  display: inline-block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid rgba(255, 130, 67, 0.35);
+  padding: 3px 10px;
+  border-radius: 3px;
+}
+
 .event-resource-header a {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.72rem;
@@ -3482,6 +3494,10 @@ th {
 
 .event-grid--stats {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.event-grid--stats > .panel {
+  animation: none;
 }
 
 .event-panel {

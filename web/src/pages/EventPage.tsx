@@ -365,7 +365,8 @@ export default function EventPage() {
     return acc;
   }, []);
   const selectedExtraStats = selectedStats.filter((k) => !CORE_LEADERBOARD_KEYS.has(k));
-  const visibleTeams = showAllPlacements ? teams : teams.slice(0, TOP_TEAMS_LIMIT);
+  const isInProgress = event.status === "in_progress";
+  const visibleTeams = showAllPlacements || isInProgress ? teams : teams.slice(0, TOP_TEAMS_LIMIT);
   const isOnesEvent = event.mode === "1s";
   return (
     <div className="page page-no-nav">
@@ -526,29 +527,46 @@ export default function EventPage() {
           <div className="event-grid">
             <div className="event-panel event-panel--bracket panel">
               <div className="event-resource-header">
-                <h3>{showAllPlacements ? "All Placements" : "Top Teams"}</h3>
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => setShowAllPlacements((prev) => !prev)}
-                >
-                  {showAllPlacements ? "Show Top 8" : "Show All"}
-                </button>
+                <h3>
+                  {event.status === "in_progress"
+                    ? "Current Standings"
+                    : showAllPlacements ? "All Placements" : "Top Teams"}
+                </h3>
+                {event.status === "in_progress" ? (
+                  <span className="badge badge--in-progress">In Progress</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setShowAllPlacements((prev) => !prev)}
+                  >
+                    {showAllPlacements ? "Show Top 8" : "Show All"}
+                  </button>
+                )}
               </div>
               {visibleTeams.length > 0 ? (
                 <ol className={`event-teams-list${isOnesEvent ? " event-teams-list--ones" : ""}`}>
                   {visibleTeams.map((t, i) => {
                     const prev = i > 0 ? visibleTeams[i - 1] : null;
-                    const showGroupHeader = !prev || prev.placementStart !== t.placementStart || prev.placementEnd !== t.placementEnd;
+                    const isEliminated = !t.wonDeepest;
+                    const prevEliminated = prev ? !prev.wonDeepest : false;
+                    const showGroupHeader = isInProgress
+                      ? (isEliminated
+                          ? (!prevEliminated || prev!.placementStart !== t.placementStart || prev!.placementEnd !== t.placementEnd)
+                          : i === 0 || prevEliminated)
+                      : (!prev || prev.placementStart !== t.placementStart || prev.placementEnd !== t.placementEnd);
+                    const groupLabel = isInProgress && !isEliminated
+                      ? "TBD"
+                      : placementLabel(t.placementStart, t.placementEnd);
                     return (
                       <Fragment key={t.team}>
                         {showGroupHeader && (
                           <li className="event-team-group-label">
-                            {placementLabel(t.placementStart, t.placementEnd)}
+                            {groupLabel}
                           </li>
                         )}
                         <li>
-                          <span className="event-team-rank">{i + 1}</span>
+                          <span className="event-team-rank">{isInProgress && !isEliminated ? "–" : i + 1}</span>
                           {isOnesEvent ? (
                             <strong>
                               <PlayerNameWithPhoto

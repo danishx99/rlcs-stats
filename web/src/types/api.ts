@@ -369,6 +369,7 @@ export type EventDetail = {
   maxDate: string | null;
   totalSeries: number;
   totalPlayers: number;
+  status: "completed" | "in_progress";
 };
 
 export type EventTeam = {

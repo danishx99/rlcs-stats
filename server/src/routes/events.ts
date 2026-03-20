@@ -67,8 +67,9 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
       return { key, option, sql };
     });
 
+    const effectiveTeamsLimit = detail.status === "in_progress" ? MAX_TEAMS_LIMIT : teamsLimit;
     const [teamsResult, ...leaderboardResults] = await Promise.all([
-      pool.query(topTeamsSql, [eventName, season, split, mode, scope, tier, teamsLimit]),
+      pool.query(topTeamsSql, [eventName, season, split, mode, scope, tier, effectiveTeamsLimit]),
       ...leaderboardQueries.map((q) => pool.query(q.sql, [eventName, season, split, mode, scope, tier, 10]))
     ]);
 
@@ -109,7 +110,8 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         minDate: detail.min_date,
         maxDate: detail.max_date,
         totalSeries: Number(detail.total_series ?? 0),
-        totalPlayers: Number(detail.total_players ?? 0)
+        totalPlayers: Number(detail.total_players ?? 0),
+        status: detail.status ?? "completed"
       },
       teams: teamsResult.rows.map((row) => ({
         team: row.team,
