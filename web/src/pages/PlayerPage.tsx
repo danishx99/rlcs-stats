@@ -518,11 +518,13 @@ export default function PlayerPage() {
                     : null;
                   const placement = isLanResult
                     ? "—"
-                    : formatPlacement(
-                        event.placement,
-                        event.placementStart,
-                        event.placementEnd
-                      );
+                    : event.status === "in_progress"
+                      ? "In Progress"
+                      : formatPlacement(
+                          event.placement,
+                          event.placementStart,
+                          event.placementEnd
+                        );
                   const isChampion =
                     !isLanResult && (
                       (event.placementStart === 1 && event.placementEnd === 1) || placement === "1st"

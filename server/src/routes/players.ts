@@ -153,6 +153,7 @@ export async function handlePlayerResults(
           ? null
           : Number(row.placement_end),
       placement: row.placement ?? null,
+      status: row.status ?? "completed",
       series: (row.series ?? []).map((s: Record<string, unknown>) => ({
         seriesId: s.series_id ?? "",
         opponent: s.opponent ?? "",

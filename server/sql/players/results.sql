@@ -687,6 +687,16 @@ SELECT
   ep.placement_start,
   ep.placement_end,
   ep.placement,
+  CASE
+    WHEN EXISTS (
+      SELECT 1 FROM stats_base sb
+      WHERE LOWER(TRIM(sb."Season")) = LOWER(TRIM(ep.season))
+        AND LOWER(TRIM(sb."Split")) = LOWER(TRIM(ep.split))
+        AND LOWER(TRIM(sb."Event")) = LOWER(TRIM(ep.event))
+        AND UPPER(TRIM(sb."Round")) IN ('GF','GF 1','GF1','GF 2','GF2')
+    ) THEN 'completed'
+    ELSE 'in_progress'
+  END AS status,
   sbe.series,
   asj.available_seasons
 FROM event_placement ep

@@ -349,6 +349,7 @@ export type PlayerResultEvent = {
   placementStart: number | null;
   placementEnd: number | null;
   placement: string | null;
+  status?: "completed" | "in_progress";
   series: PlayerResultSeries[];
 };
 
