@@ -548,8 +548,8 @@ export default function EventPage() {
                 <ol className={`event-teams-list${isOnesEvent ? " event-teams-list--ones" : ""}`}>
                   {visibleTeams.map((t, i) => {
                     const prev = i > 0 ? visibleTeams[i - 1] : null;
-                    const isEliminated = !t.wonDeepest;
-                    const prevEliminated = prev ? !prev.wonDeepest : false;
+                    const isEliminated = t.isEliminated;
+                    const prevEliminated = prev ? prev.isEliminated : false;
                     const showGroupHeader = isInProgress
                       ? (isEliminated
                           ? (!prevEliminated || prev!.placementStart !== t.placementStart || prev!.placementEnd !== t.placementEnd)

@@ -139,12 +139,24 @@ team_loss_depths AS (
     tl.elimination_depth
   FROM team_latest_losses tl
 ),
+upper_only_losses AS (
+  SELECT participant_norm
+  FROM team_rounds
+  WHERE NOT won_round AND rnd LIKE 'U%'
+  EXCEPT
+  SELECT participant_norm
+  FROM team_rounds
+  WHERE NOT won_round AND rnd NOT LIKE 'U%'
+),
 classified AS (
   SELECT
     tl.*,
     tld.elimination_depth,
     (tl.round_depth = 100 AND tl.won_deepest) AS is_champion,
-    (NOT (tl.round_depth = 100 AND tl.won_deepest) AND NOT tl.won_deepest) AS is_eliminated
+    (NOT (tl.round_depth = 100 AND tl.won_deepest)
+      AND NOT tl.won_deepest
+      AND tl.participant_norm NOT IN (SELECT participant_norm FROM upper_only_losses)
+    ) AS is_eliminated
   FROM team_latest tl
   LEFT JOIN team_loss_depths tld
     ON tld.participant_norm = tl.participant_norm
@@ -205,6 +217,7 @@ playoff_placed AS (
     pb.deep_round,
     pb.round_depth,
     pb.won_deepest,
+    pb.is_eliminated,
     CASE
       WHEN pb.is_champion THEN 1
       WHEN pb.effective_depth IS NOT NULL THEN er.placement_start
@@ -380,6 +393,7 @@ non_playoff_placed AS (
     npe.deep_round,
     npe.round_depth,
     false AS won_deepest,
+    true AS is_eliminated,
     npr.placement_start,
     npr.placement_start + npr.team_count - 1 AS placement_end
   FROM non_playoff_elimination npe
@@ -387,10 +401,10 @@ non_playoff_placed AS (
     ON npr.round_depth = npe.round_depth
 ),
 all_placed AS (
-  SELECT participant_norm, unique_id, team, deep_round, round_depth, won_deepest, placement_start, placement_end
+  SELECT participant_norm, unique_id, team, deep_round, round_depth, won_deepest, is_eliminated, placement_start, placement_end
   FROM playoff_placed
   UNION ALL
-  SELECT participant_norm, unique_id, team, deep_round, round_depth, won_deepest, placement_start, placement_end
+  SELECT participant_norm, unique_id, team, deep_round, round_depth, won_deepest, is_eliminated, placement_start, placement_end
   FROM non_playoff_placed
 ),
 lan_group_overrides AS (
@@ -426,6 +440,7 @@ final_placed AS (
     ap.deep_round,
     ap.round_depth,
     ap.won_deepest,
+    ap.is_eliminated,
     COALESCE(lgo.placement_start, ap.placement_start) AS placement_start,
     COALESCE(lgo.placement_end, ap.placement_end) AS placement_end
   FROM all_placed ap
@@ -438,6 +453,7 @@ SELECT
   p.deep_round,
   p.round_depth,
   p.won_deepest,
+  p.is_eliminated,
   p.placement_start,
   p.placement_end,
   (

@@ -214,11 +214,29 @@ event_team_latest AS (
   FROM event_team_rounds
   ORDER BY season, split, event, participant_norm, depth DESC, round_date DESC NULLS LAST
 ),
+event_upper_only_losses AS (
+  SELECT season, split, event, participant_norm
+  FROM event_team_rounds
+  WHERE NOT won_round AND rnd LIKE 'U%'
+  EXCEPT
+  SELECT season, split, event, participant_norm
+  FROM event_team_rounds
+  WHERE NOT won_round AND rnd NOT LIKE 'U%'
+),
 event_classified AS (
   SELECT
     etl.*,
     (etl.round_depth = 100 AND etl.won_deepest) AS is_champion,
-    (NOT (etl.round_depth = 100 AND etl.won_deepest) AND NOT etl.won_deepest) AS is_eliminated
+    (NOT (etl.round_depth = 100 AND etl.won_deepest)
+      AND NOT etl.won_deepest
+      AND NOT EXISTS (
+        SELECT 1 FROM event_upper_only_losses eul
+        WHERE eul.season IS NOT DISTINCT FROM etl.season
+          AND eul.split IS NOT DISTINCT FROM etl.split
+          AND eul.event IS NOT DISTINCT FROM etl.event
+          AND eul.participant_norm = etl.participant_norm
+      )
+    ) AS is_eliminated
   FROM event_team_latest etl
 ),
 event_placement_basis AS (

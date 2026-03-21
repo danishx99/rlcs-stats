@@ -380,6 +380,7 @@ export type EventTeam = {
   deepRound: string | null;
   roundDepth: number;
   wonDeepest: boolean;
+  isEliminated: boolean;
   placementStart: number;
   placementEnd: number;
   logoUrl: string | null;

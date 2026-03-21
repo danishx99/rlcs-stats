@@ -119,6 +119,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         deepRound: row.deep_round ?? null,
         roundDepth: Number(row.round_depth ?? 0),
         wonDeepest: row.won_deepest === true,
+        isEliminated: row.is_eliminated === true,
         placementStart: Number(row.placement_start ?? 0),
         placementEnd: Number(row.placement_end ?? 0),
         logoUrl: row.logo_url ?? null,
