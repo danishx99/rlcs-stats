@@ -133,6 +133,9 @@
 ### Admin
 - [ON HOLD] Admin option to update player/team info
 
+### Event Page Bugs
+- [ ] Event selector dropdown: populating and jumping to events is broken (navigation/selection not working correctly)
+
 ### New Pages
 - [ON HOLD] Add a dedicated LAN events page view
 
