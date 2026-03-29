@@ -258,6 +258,8 @@ export type LeaderboardRow = {
   photoUrl?: string | null;
   country?: string | null;
   value: number;
+  avgValue?: number;
+  totalValue?: number;
 };
 
 export type LeaderboardResponse = {

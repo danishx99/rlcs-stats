@@ -1,6 +1,7 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
+import { normalizeMode } from "../utils/filters";
 import { formatSql, loadSql } from "../utils/sql";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 
@@ -23,6 +24,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
   const teamsLimit = Number.isFinite(teamsLimitRaw) && teamsLimitRaw > 0
     ? Math.min(teamsLimitRaw, MAX_TEAMS_LIMIT)
     : DEFAULT_TEAMS_LIMIT;
+  const leaderboardMode = normalizeMode(url.searchParams.get("mode"));
 
   try {
     const detailResult = await pool.query(
@@ -55,11 +57,15 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         AND ($4::text IS NULL OR LOWER(TRIM(s."mode")) = LOWER($4))
         AND ($5::text IS NULL OR LOWER(TRIM(s."scope")) = LOWER($5))
         AND ($6::text IS NULL OR LOWER(TRIM(s."tier")) = LOWER($6))`;
-      const valueExpr = metricExpression(option, "avg", "player_scope");
+      const primaryValueExpr = metricExpression(option, leaderboardMode, "player_scope");
+      const avgValueExpr = metricExpression(option, "avg", "player_scope");
+      const totalValueExpr = metricExpression(option, "total", "player_scope");
       const sql = formatSql(statsTopSql, {
         playerKeyExpr: `NULLIF(TRIM(s."Unique ID"), '')`,
         where,
-        valueExpr,
+        primaryValueExpr,
+        avgValueExpr,
+        totalValueExpr,
         havingClause: "",
         sortDir: "DESC",
         limitParam: "$7"
@@ -74,7 +80,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
     ]);
 
     const leaderboards = leaderboardQueries.map((q, i) => ({
-      mode: "avg" as const,
+      mode: leaderboardMode,
       metric: {
         key: q.option!.key,
         label: q.option!.label,
@@ -86,7 +92,9 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         teams: row.teams ?? [],
         photoUrl: row.photo_url ?? null,
         country: row.country ?? null,
-        value: Number(row.value ?? 0)
+        value: Number(row.value ?? 0),
+        avgValue: Number(row.avg_value ?? 0),
+        totalValue: Number(row.total_value ?? 0)
       }))
     }));
 

@@ -52,7 +52,14 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
       const gameCountExpr = 'COUNT(DISTINCT (team_scope.series_id, team_scope."Game Number"))';
       const teamAvgGameCountExpr =
         mode === "avg" && shouldUseGameDenominatorForTeamAvg(option) ? gameCountExpr : undefined;
-      const valueExpr = metricExpression(option, mode, "team_scope", teamAvgGameCountExpr);
+      const primaryValueExpr = metricExpression(option, mode, "team_scope", teamAvgGameCountExpr);
+      const avgValueExpr = metricExpression(
+        option,
+        "avg",
+        "team_scope",
+        shouldUseGameDenominatorForTeamAvg(option) ? gameCountExpr : undefined
+      );
+      const totalValueExpr = metricExpression(option, "total", "team_scope");
       const teamHavingConds: string[] = [];
       if (minSeriesIndex > 0) {
         teamHavingConds.push(`COUNT(DISTINCT team_scope.series_id) >= $${minSeriesIndex}`);
@@ -63,7 +70,9 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
       const teamHaving = teamHavingConds.length ? `HAVING ${teamHavingConds.join(" AND ")}` : "";
       query = formatSql(statsTopTeamSql, {
         where,
-        valueExpr,
+        primaryValueExpr,
+        avgValueExpr,
+        totalValueExpr,
         havingClause: teamHaving,
         sortDir,
         limitParam: `$${limitIndex}`
@@ -72,10 +81,14 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
         id: row.id,
         label: row.label,
         teams: [],
-        value: Number(row.value ?? 0)
+        value: Number(row.value ?? 0),
+        avgValue: Number(row.avg_value ?? 0),
+        totalValue: Number(row.total_value ?? 0)
       });
     } else {
-      const valueExpr = metricExpression(option, mode, "player_scope");
+      const primaryValueExpr = metricExpression(option, mode, "player_scope");
+      const avgValueExpr = metricExpression(option, "avg", "player_scope");
+      const totalValueExpr = metricExpression(option, "total", "player_scope");
       const playerHavingConds: string[] = [];
       if (minSeriesIndex > 0) {
         playerHavingConds.push(`COUNT(DISTINCT player_scope.series_id) >= $${minSeriesIndex}`);
@@ -87,7 +100,9 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
       query = formatSql(statsTopSql, {
         playerKeyExpr: playerKeyExpr("s"),
         where,
-        valueExpr,
+        primaryValueExpr,
+        avgValueExpr,
+        totalValueExpr,
         havingClause: playerHaving,
         sortDir,
         limitParam: `$${limitIndex}`
@@ -98,7 +113,9 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
         teams: row.teams ?? [],
         photoUrl: row.photo_url,
         country: row.country,
-        value: Number(row.value ?? 0)
+        value: Number(row.value ?? 0),
+        avgValue: Number(row.avg_value ?? 0),
+        totalValue: Number(row.total_value ?? 0)
       });
     }
 

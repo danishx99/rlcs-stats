@@ -3,14 +3,13 @@ import { formatStat } from "../utils/format";
 import PlayerNameWithPhoto from "./PlayerNameWithPhoto";
 import TeamNameWithLogo from "./TeamNameWithLogo";
 
-const TOP_LIMIT = 10;
-
 type LeaderboardProps = {
   data: LeaderboardResponse;
   entityType?: "player" | "team" | "auto";
   showTeamLogos?: boolean;
   showTeams?: boolean;
   playerImageSize?: "default" | "large";
+  showSecondaryValue?: boolean;
 };
 
 export default function Leaderboard({
@@ -18,13 +17,17 @@ export default function Leaderboard({
   entityType = "auto",
   showTeamLogos = true,
   showTeams = true,
-  playerImageSize = "default"
+  playerImageSize = "default",
+  showSecondaryValue = false
 }: LeaderboardProps) {
   const playerClassName = playerImageSize === "large" ? "identity-inline--xl" : "";
 
   return (
     <ol className="rank-list">
-      {data.rows.slice(0, TOP_LIMIT).map((row, index) => (
+      {data.rows.map((row, index) => {
+        const secondaryValue = data.mode === "avg" ? row.totalValue : row.avgValue;
+        const secondaryMode = data.mode === "avg" ? "total" : "avg";
+        return (
         <li key={row.id}>
           <span className="rank">{index + 1}</span>
           <div>
@@ -71,9 +74,17 @@ export default function Leaderboard({
               </>
             )}
           </div>
-          <em>{formatStat(row.value, data.metric.format, data.mode)}</em>
+          <em>
+            {formatStat(row.value, data.metric.format, data.mode)}
+            {showSecondaryValue && secondaryValue != null ? (
+              <span className="leaderboard-secondary-value">
+                {" "}
+                ({formatStat(secondaryValue, data.metric.format, secondaryMode)})
+              </span>
+            ) : null}
+          </em>
         </li>
-      ))}
+      )})}
     </ol>
   );
 }

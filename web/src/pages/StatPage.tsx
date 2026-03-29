@@ -20,6 +20,8 @@ export default function StatPage() {
   const split = searchParams.get("split") ?? "";
   const event = searchParams.get("event") ?? "";
   const gameMode = searchParams.get("gameMode") ?? "3s";
+  const limitRaw = Number.parseInt(searchParams.get("limit") ?? "10", 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 50) : 10;
   const includeLans = searchParams.get("includeLans") === "1";
   const teamsDisabled = gameMode === "1s";
 
@@ -101,7 +103,7 @@ export default function StatPage() {
       season: season || undefined,
       split: split || undefined,
       event: event || undefined,
-      limit: 10
+      limit
     }).then((res) => {
       if (!cancelled) setLeaderboard(res);
     }).catch((err) => {
@@ -111,7 +113,7 @@ export default function StatPage() {
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [event, gameMode, mode, retryKey, scope, season, sort, split, statKey, tier, type]);
+  }, [event, gameMode, limit, mode, retryKey, scope, season, sort, split, statKey, tier, type]);
 
   const updateParam = useCallback((key: string, value: string) => {
     setSearchParams((prev) => {
@@ -162,6 +164,9 @@ export default function StatPage() {
   const typeLabel = type === "team" ? "Teams" : "Players";
   const modeLabel = mode === "total" ? "Total" : "Per Game";
   const sortLabel = sort === "asc" ? "Lowest" : "Top";
+  const showingAll = limit >= 50;
+  const targetLimit = showingAll ? 10 : 50;
+  const limitLabel = showingAll ? "Top 50" : `Top ${limit}`;
 
   return (
     <div className="page page-no-nav">
@@ -172,77 +177,87 @@ export default function StatPage() {
       <div>
         <h1 className="page-heading" style={{ marginBottom: 6 }}>{selectedStatLabel}</h1>
         <div className="page-heading-sub">
-          {sortLabel} 10 {typeLabel} &middot; {modeLabel}
+          {sortLabel} {limitLabel} {typeLabel} &middot; {modeLabel}
         </div>
       </div>
 
       <div className="stat-page-controls">
-        <div className="tabs">
-          <button
-            type="button"
-            className={`tab${type === "player" ? " active" : ""}`}
-            onClick={() => updateParam("type", "")}
-          >
-            Players
-          </button>
-          <button
-            type="button"
-            className={`tab${type === "team" ? " active" : ""}`}
-            onClick={() => updateParam("type", "team")}
-            disabled={teamsDisabled}
-          >
-            Teams
-          </button>
-        </div>
+        <div className="stat-page-toggles">
+          <div className="tabs">
+            <button
+              type="button"
+              className={`tab${type === "player" ? " active" : ""}`}
+              onClick={() => updateParam("type", "")}
+            >
+              Players
+            </button>
+            <button
+              type="button"
+              className={`tab${type === "team" ? " active" : ""}`}
+              onClick={() => updateParam("type", "team")}
+              disabled={teamsDisabled}
+            >
+              Teams
+            </button>
+          </div>
 
-        <div className="tabs">
-          <button
-            type="button"
-            className={`tab${mode === "avg" ? " active" : ""}`}
-            onClick={() => updateParam("mode", "")}
-          >
-            Per Game
-          </button>
-          <button
-            type="button"
-            className={`tab${mode === "total" ? " active" : ""}`}
-            onClick={() => updateParam("mode", "total")}
-          >
-            Total
-          </button>
-        </div>
+          <div className="tabs">
+            <button
+              type="button"
+              className={`tab${mode === "avg" ? " active" : ""}`}
+              onClick={() => updateParam("mode", "")}
+            >
+              Per Game
+            </button>
+            <button
+              type="button"
+              className={`tab${mode === "total" ? " active" : ""}`}
+              onClick={() => updateParam("mode", "total")}
+            >
+              Total
+            </button>
+          </div>
 
-        {columnsLoading ? (
-          <button type="button" className="sort-toggle" disabled aria-busy="true">
-            Loading stats...
-          </button>
-        ) : (
-          <StatPicker
-            categories={categories}
-            selected={statKey ? [statKey] : []}
-            onToggle={handleStatChange}
-            single
-            dropdown
-            triggerLabel={selectedStatLabel}
-          />
-        )}
-
-        <button
-          type="button"
-          className="sort-toggle"
-          title={sort === "desc" ? "Descending (highest first)" : "Ascending (lowest first)"}
-          onClick={() => updateParam("sort", sort === "desc" ? "asc" : "")}
-        >
-          {sort === "desc" ? (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 3v10M5 10l3 3 3-3" />
-            </svg>
+          {columnsLoading ? (
+            <button type="button" className="ghost" disabled aria-busy="true">
+              Loading stats...
+            </button>
           ) : (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 13V3M5 6l3-3 3 3" />
-            </svg>
+            <StatPicker
+              categories={categories}
+              selected={statKey ? [statKey] : []}
+              onToggle={handleStatChange}
+              single
+              dropdown
+              triggerLabel={selectedStatLabel}
+            />
           )}
-        </button>
+
+          <button
+            type="button"
+            className="sort-toggle"
+            title={sort === "desc" ? "Descending (highest first)" : "Ascending (lowest first)"}
+            onClick={() => updateParam("sort", sort === "desc" ? "asc" : "")}
+          >
+            {sort === "desc" ? (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3v10M5 10l3 3 3-3" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 13V3M5 6l3-3 3 3" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => updateParam("limit", String(targetLimit))}
+          >
+            {showingAll ? "Show Top 10" : "See All"}
+          </button>
+        </div>
 
         <div className="stat-page-filters">
           <label className="checkbox-inline">
@@ -337,7 +352,9 @@ export default function StatPage() {
           onRetry={() => setRetryKey((value) => value + 1)}
         />
       ) : null}
-      {!loading && !error && leaderboard ? <Leaderboard data={leaderboard} entityType={type} /> : null}
+      {!loading && !error && leaderboard ? (
+        <Leaderboard data={leaderboard} entityType={type} showSecondaryValue />
+      ) : null}
       {!loading && !error && !leaderboard ? (
         <PanelState state="empty" message="No leaderboard data." />
       ) : null}

@@ -20,7 +20,9 @@ SELECT
   ) sub) AS teams,
   MIN(p."Photo URL") AS photo_url,
   MIN(p."Country") AS country,
-  {{valueExpr}} AS value
+  {{primaryValueExpr}} AS value,
+  {{avgValueExpr}} AS avg_value,
+  {{totalValueExpr}} AS total_value
 FROM player_scope
 LEFT JOIN players p ON p."Unique ID" = player_scope.player_key
 GROUP BY player_scope.player_key

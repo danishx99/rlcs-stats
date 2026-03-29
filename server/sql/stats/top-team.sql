@@ -9,7 +9,9 @@ team_scope AS (
 SELECT
   team_scope.team_key AS id,
   team_scope.team_key AS label,
-  {{valueExpr}} AS value
+  {{primaryValueExpr}} AS value,
+  {{avgValueExpr}} AS avg_value,
+  {{totalValueExpr}} AS total_value
 FROM team_scope
 WHERE team_scope.team_key IS NOT NULL AND team_scope.team_key != ''
 GROUP BY team_scope.team_key

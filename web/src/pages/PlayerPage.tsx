@@ -12,6 +12,7 @@ import { normalizeSocialLink, proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../uti
 import { resolveTeamRosterId } from "../utils/team-routing";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
+import PageBackActions from "../components/PageBackActions";
 
 function ordinal(n: number) {
   const mod100 = n % 100;
@@ -225,9 +226,7 @@ export default function PlayerPage() {
   if (playerProfileLoading) {
     return (
       <div className="page page-no-nav player-page" aria-busy="true">
-        <button className="ghost back-button" onClick={() => navigate("/")}>
-          ← Back to Dashboard
-        </button>
+        <PageBackActions />
         <h1 className="page-heading">Player Profile</h1>
         <div className="player-top-grid">
           <section className="panel player-overview-card">
@@ -287,9 +286,7 @@ export default function PlayerPage() {
   if (playerProfileError || !playerProfile) {
     return (
       <div className="page page-no-nav">
-        <button className="ghost back-button" onClick={() => navigate("/")}>
-          ← Back to Dashboard
-        </button>
+        <PageBackActions />
         <div className="empty-state">{playerProfileError || "Player not found."}</div>
       </div>
     );
@@ -313,9 +310,7 @@ export default function PlayerPage() {
 
   return (
     <div className="page page-no-nav player-page">
-      <button className="ghost back-button" onClick={() => navigate("/")}>
-        ← Back to Dashboard
-      </button>
+      <PageBackActions />
 
       <h1 className="page-heading">Player Profile</h1>
 

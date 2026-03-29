@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { FeaturedResponse } from "../types/api";
 import { formatStat } from "../utils/format";
 import { proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../utils/normalize";
@@ -9,7 +9,6 @@ type FeaturedPanelProps = {
 };
 
 export default function FeaturedPanel({ data }: FeaturedPanelProps) {
-  const navigate = useNavigate();
   const cards = data.rows.slice(0, 6);
 
   return (
@@ -17,11 +16,11 @@ export default function FeaturedPanel({ data }: FeaturedPanelProps) {
       {cards.map((row, index) => {
         const imgSrc = proxyImageUrl(row.photoUrl);
         return (
-          <div
+          <Link
             key={row.id}
             className="featured-card"
             style={{ animationDelay: `${index * 60}ms` }}
-            onClick={() => navigate(`/players/${row.id}`)}
+            to={`/players/${encodeURIComponent(row.id)}`}
           >
             <div className="featured-card-photo">
               <img src={imgSrc ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!} alt={row.label} loading="lazy" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }} />
@@ -37,7 +36,7 @@ export default function FeaturedPanel({ data }: FeaturedPanelProps) {
                 {formatStat(row.value, data.metric.format, data.mode)}
               </span>
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>

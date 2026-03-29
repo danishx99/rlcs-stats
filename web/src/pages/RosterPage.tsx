@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { RosterEventResultRow, RosterProfile } from "../types/api";
 import { proxyImageUrl, normalizeSocialLink, DEFAULT_TEAM_LOGO } from "../utils/normalize";
@@ -9,6 +9,7 @@ import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import SocialIconLink from "../components/SocialIconLink";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
+import PageBackActions from "../components/PageBackActions";
 
 const ROSTER_MODE = "3s" as const;
 
@@ -41,7 +42,6 @@ function rosterEventLabel(split: string | null, event: string | null) {
 
 export default function RosterPage() {
   const { rosterId } = useParams();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const seasonHint = searchParams.get("season") ?? "";
   const [rosterProfile, setRosterProfile] = useState<RosterProfile | null>(null);
@@ -141,9 +141,7 @@ export default function RosterPage() {
   if (rosterProfileLoading) {
     return (
       <div className="page page-no-nav roster-page" aria-busy="true">
-        <button className="ghost back-button" onClick={() => navigate("/")}>
-          ← Back to Dashboard
-        </button>
+        <PageBackActions />
         <h1 className="page-heading">Team Profile</h1>
         <div className="roster-top-grid">
           <div className="panel roster-profile-card roster-profile-card--compact">
@@ -196,9 +194,7 @@ export default function RosterPage() {
   if (!rosterProfile) {
     return (
       <div className="page page-no-nav">
-        <button className="ghost back-button" onClick={() => navigate("/")}>
-          ← Back to Dashboard
-        </button>
+        <PageBackActions />
         <div className="empty-state">{rosterProfileError ?? "Team not found."}</div>
       </div>
     );
@@ -216,9 +212,7 @@ export default function RosterPage() {
 
   return (
     <div className="page page-no-nav roster-page">
-      <button className="ghost back-button" onClick={() => navigate("/")}>
-        ← Back to Dashboard
-      </button>
+      <PageBackActions />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
         <h1 className="page-heading" style={{ margin: 0 }}>Team Profile</h1>
@@ -303,14 +297,13 @@ export default function RosterPage() {
                 <div className="section-title">Starters</div>
                 <div className="tag-list">
                   {(iterations[0]?.starters ?? []).map((starter) => (
-                    <button
+                    <Link
                       key={starter.id}
-                      type="button"
                       className="tag tag-button tag-current"
-                      onClick={() => navigate(`/players/${starter.id}`)}
+                      to={`/players/${encodeURIComponent(starter.id)}`}
                     >
                       {starter.handle ?? starter.id}
-                    </button>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -319,15 +312,14 @@ export default function RosterPage() {
                   <div className="section-title">Alternates</div>
                   <div className="tag-list">
                     {(iterations[0]?.alternates ?? []).map((alt) => (
-                      <button
+                      <Link
                         key={alt.id}
-                        type="button"
                         className="tag tag-button"
-                        onClick={() => navigate(`/players/${alt.id}`)}
+                        to={`/players/${encodeURIComponent(alt.id)}`}
                       >
                         {alt.handle ?? alt.id}
                         {alt.appearances != null ? ` (${alt.appearances})` : ""}
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -349,14 +341,13 @@ export default function RosterPage() {
                       <div className="section-title">Starters</div>
                       <div className="tag-list">
                         {iteration.starters.map((starter) => (
-                          <button
+                          <Link
                             key={starter.id}
-                            type="button"
                             className="tag tag-button tag-current"
-                            onClick={() => navigate(`/players/${starter.id}`)}
+                            to={`/players/${encodeURIComponent(starter.id)}`}
                           >
                             {starter.handle ?? starter.id}
-                          </button>
+                          </Link>
                         ))}
                       </div>
                     </div>
@@ -437,13 +428,9 @@ export default function RosterPage() {
                     >
                       <td>
                         {canNavigateToEvent ? (
-                          <button
-                            type="button"
-                            className="link-button"
-                            onClick={() => navigate(buildEventPath(row.eventId!))}
-                          >
+                          <Link className="link-button" to={buildEventPath(row.eventId!)}>
                             {eventLabel || row.event || "—"}
-                          </button>
+                          </Link>
                         ) : (
                           <span>{eventLabel || row.event || "—"}</span>
                         )}

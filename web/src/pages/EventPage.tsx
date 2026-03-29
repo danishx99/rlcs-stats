@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { EventBracket, EventDetail, EventTeam, LeaderboardResponse, MetaResponse, SearchResponse, StatCategory, StatOption } from "../types/api";
 import { proxyImageUrl } from "../utils/normalize";
@@ -13,6 +13,7 @@ import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 import SkeletonRows from "../components/ui/SkeletonRows";
+import PageBackActions from "../components/PageBackActions";
 
 const CORE_LEADERBOARDS = [
   { key: "rating", title: "Top 10 Players (Rating)" },
@@ -48,11 +49,13 @@ function placementLabel(start: number, end: number) {
 export default function EventPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const [leaderboardMode, setLeaderboardMode] = useState<"avg" | "total">("avg");
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [teams, setTeams] = useState<EventTeam[]>([]);
   const [showAllPlacements, setShowAllPlacements] = useState(false);
   const [bracket, setBracket] = useState<EventBracket | null>(null);
   const [leaderboards, setLeaderboards] = useState<LeaderboardResponse[]>([]);
+  const [leaderboardsLoading, setLeaderboardsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventRetryKey, setEventRetryKey] = useState(0);
@@ -81,13 +84,16 @@ export default function EventPage() {
   // Load event data
   useEffect(() => {
     if (!eventId) return;
+    setLeaderboardMode("avg");
     const targetEventId = decodeURIComponent(eventId);
 
     async function loadEvent() {
       setLoading(true);
       setError(null);
       try {
-        const response = await api.eventDetail(targetEventId, { teamsLimit: FULL_TEAMS_LIMIT });
+        const response = await api.eventDetail(targetEventId, {
+          teamsLimit: FULL_TEAMS_LIMIT,
+        });
         setTeams(response.teams);
         setEvent(response.event);
         setBracket(response.bracket);
@@ -107,6 +113,37 @@ export default function EventPage() {
     }
     loadEvent();
   }, [eventId, eventRetryKey]);
+
+  // Re-fetch core leaderboards when mode changes (without full page reload)
+  useEffect(() => {
+    if (!event) return;
+    let cancelled = false;
+    setLeaderboardsLoading(true);
+
+    Promise.all(
+      CORE_LEADERBOARDS.map(({ key }) =>
+        api.statsTop({
+          metric: key,
+          event: event.name,
+          season: event.season ?? undefined,
+          split: event.split ?? undefined,
+          gameMode: event.mode ?? undefined,
+          scope: event.scope ?? undefined,
+          tier: event.tier ?? undefined,
+          mode: leaderboardMode,
+          limit: 10,
+        })
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      setLeaderboards(results);
+    }).catch(console.error)
+    .finally(() => {
+      if (!cancelled) setLeaderboardsLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [event, leaderboardMode]);
 
   // Pre-fill filters from current event
   useEffect(() => {
@@ -212,7 +249,7 @@ export default function EventPage() {
   useEffect(() => {
     setLeaderboardMap(new Map());
     setStatLoadErrors(new Map());
-  }, [eventId]);
+  }, [eventId, leaderboardMode]);
 
   // Fetch leaderboards for extra selected stats (defaults are already in hardcoded cards)
   useEffect(() => {
@@ -259,7 +296,7 @@ export default function EventPage() {
           gameMode: event.mode ?? undefined,
           scope: event.scope ?? undefined,
           tier: event.tier ?? undefined,
-          mode: "avg",
+          mode: leaderboardMode,
           limit: 10,
         }).then((result) => ({ metric, result }))
       )
@@ -293,14 +330,12 @@ export default function EventPage() {
     });
 
     return () => { cancelled = true; };
-  }, [event, selectedStats, leaderboardMap]);
+  }, [event, leaderboardMap, leaderboardMode, selectedStats]);
 
   if (loading) {
     return (
       <div className="page page-no-nav" aria-busy="true">
-        <button className="ghost back-button" onClick={() => navigate("/")}>
-          ← Back to Dashboard
-        </button>
+        <PageBackActions />
         <div className="event-top-bar">
           <SkeletonBlock height={44} width="100%" />
           <div className="event-nav-filters">
@@ -334,9 +369,7 @@ export default function EventPage() {
   if (error || !event) {
     return (
       <div className="page page-no-nav">
-        <button className="ghost back-button" onClick={() => navigate("/")}>
-          ← Back to Dashboard
-        </button>
+        <PageBackActions />
         <div className="empty-state">{error || "Event not found."}</div>
         {error ? (
           <div style={{ marginTop: 10 }}>
@@ -370,9 +403,7 @@ export default function EventPage() {
   const isOnesEvent = event.mode === "1s";
   return (
     <div className="page page-no-nav">
-      <button className="ghost back-button" onClick={() => navigate("/")}>
-        ← Back to Dashboard
-      </button>
+      <PageBackActions />
 
       {/* Search bar + navigation filters */}
       <div className="event-top-bar">
@@ -407,13 +438,13 @@ export default function EventPage() {
                 <div className="dash-search-group">
                   <div className="dash-search-group-title">Events</div>
                   {searchResults.slice(0, 8).map((ev) => (
-                    <div
+                    <Link
                       key={`${ev.meta?.season}-${ev.meta?.split}-${ev.id}`}
                       className="dash-search-item"
+                      to={buildEventPath(ev.id)}
                       onClick={() => {
                         setSearchQuery("");
                         setSearchResults([]);
-                        navigate(buildEventPath(ev.id));
                       }}
                     >
                       <div className="dash-search-avatar dash-search-avatar--event">
@@ -429,7 +460,7 @@ export default function EventPage() {
                         <span>{[ev.meta?.season, ev.meta?.split].filter(Boolean).join(" / ")}</span>
                       </div>
                       <span className="dash-search-type">Event</span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -619,7 +650,33 @@ export default function EventPage() {
             </div>
           </div>
 
-          {coreLeaderboards.length > 0 && (
+          <div className="tabs" style={{ marginBottom: 16 }}>
+            <button
+              type="button"
+              className={`tab${leaderboardMode === "avg" ? " active" : ""}`}
+              onClick={() => setLeaderboardMode("avg")}
+            >
+              Per Game
+            </button>
+            <button
+              type="button"
+              className={`tab${leaderboardMode === "total" ? " active" : ""}`}
+              onClick={() => setLeaderboardMode("total")}
+            >
+              Total
+            </button>
+          </div>
+
+          {leaderboardsLoading ? (
+            <div className="event-grid event-grid--stats">
+              {CORE_LEADERBOARDS.map((item) => (
+                <div key={item.key} className="event-panel panel">
+                  <h3>{item.title}</h3>
+                  <SkeletonRows rows={10} rowHeight={26} />
+                </div>
+              ))}
+            </div>
+          ) : coreLeaderboards.length > 0 ? (
             <div className="event-grid event-grid--stats">
               {coreLeaderboards.map((item) => (
                 <div key={item.data.metric.key} className="event-panel panel">
@@ -628,7 +685,7 @@ export default function EventPage() {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
 
           {/* Pick a stat — checkboxes only */}
           <div className="event-pick-stat panel">

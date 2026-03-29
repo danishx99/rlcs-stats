@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { LeaderboardResponse, SearchResponse, StatOption, StandingsResponse, TopQueryCategory } from "../types/api";
 import { api } from "../api";
 import { proxyImageUrl, DEFAULT_PLAYER_PHOTO, DEFAULT_TEAM_LOGO } from "../utils/normalize";
@@ -38,7 +38,6 @@ const HOME_TRACK = {
 } as const;
 
 export default function HomePage({ latestSeason, featuredOptions }: HomePageProps) {
-  const navigate = useNavigate();
   const [featuredMetricKey] = useState<string>(() => {
     const index = Math.floor(Math.random() * ROTATING_FEATURED_METRICS.length);
     return ROTATING_FEATURED_METRICS[index];
@@ -298,10 +297,11 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                       const img = proxyImageUrl(p.meta?.photoUrl, { size: HOME_SEARCH_AVATAR_PX })
                         ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                       return (
-                        <div
+                        <Link
                           key={p.id}
                           className="dash-search-item"
-                          onClick={() => { setSearchQuery(""); navigate(`/players/${p.id}`); }}
+                          to={`/players/${encodeURIComponent(p.id)}`}
+                          onClick={() => { setSearchQuery(""); setSearchResults(null); }}
                         >
                           <div className="dash-search-avatar">
                             <img
@@ -317,7 +317,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                             {p.meta?.realName && <span>{p.meta.realName}</span>}
                           </div>
                           <span className="dash-search-type">Player</span>
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
@@ -329,10 +329,11 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                       const img = proxyImageUrl(team.meta?.photoUrl, { size: HOME_SEARCH_AVATAR_PX })
                         ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!;
                       return (
-                        <div
+                        <Link
                           key={team.id}
                           className="dash-search-item"
-                          onClick={() => { setSearchQuery(""); navigate(`/rosters/${encodeURIComponent(team.id)}`); }}
+                          to={`/rosters/${encodeURIComponent(team.id)}`}
+                          onClick={() => { setSearchQuery(""); setSearchResults(null); }}
                         >
                           <div className="dash-search-avatar dash-search-avatar--logo">
                             <img
@@ -348,7 +349,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                             {team.meta?.starters && <span>{team.meta.starters.join(", ")}</span>}
                           </div>
                           <span className="dash-search-type">Team</span>
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
@@ -357,17 +358,18 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                   <div className="dash-search-group">
                     <div className="dash-search-group-title">Stats</div>
                     {stats.slice(0, 4).map((s) => (
-                      <div
+                      <Link
                         key={s.id}
                         className="dash-search-item"
-                        onClick={() => { setSearchQuery(""); navigate(`/stats/${s.id}`); }}
+                        to={`/stats/${encodeURIComponent(s.id)}`}
+                        onClick={() => { setSearchQuery(""); setSearchResults(null); }}
                       >
                         <div className="dash-search-avatar dash-search-avatar--stat">#</div>
                         <div className="dash-search-item-info">
                           <strong>{s.label}</strong>
                         </div>
                         <span className="dash-search-type">Leaderboard</span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -375,12 +377,13 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                   <div className="dash-search-group">
                     <div className="dash-search-group-title">Events</div>
                     {events.slice(0, 5).map((ev) => (
-                      <div
+                      <Link
                         key={`${ev.meta?.season}-${ev.meta?.split}-${ev.id}`}
                         className="dash-search-item"
+                        to={`/events/${encodeURIComponent(ev.id)}`}
                         onClick={() => {
                           setSearchQuery("");
-                          navigate(`/events/${encodeURIComponent(ev.id)}`);
+                          setSearchResults(null);
                         }}
                       >
                         <div className="dash-search-avatar dash-search-avatar--event">
@@ -396,7 +399,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                           <span>{[ev.meta?.season, ev.meta?.split].filter(Boolean).join(" / ")}</span>
                         </div>
                         <span className="dash-search-type">Event</span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -409,7 +412,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
       {/* 3. Nav Row: buttons left, standings right */}
       <div className="dash-nav-row">
         <div className="dash-nav-buttons">
-          <div className="dash-nav-card" onClick={() => navigate("/compare")}>
+          <Link className="dash-nav-card" to="/compare">
             <div className="dash-nav-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M4 4l17 17" />
@@ -420,19 +423,15 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
               <span>Compare player &amp; team stats</span>
             </div>
             <svg className="dash-nav-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>
-          </div>
+          </Link>
 
-          <div
+          <Link
             className="dash-nav-card"
-            onClick={() =>
-              navigate(
-                `/stats/score?${new URLSearchParams({
-                  gameMode: HOME_TRACK.gameMode,
-                  scope: HOME_TRACK.scope,
-                  tier: HOME_TRACK.tier
-                }).toString()}`
-              )
-            }
+            to={`/stats/score?${new URLSearchParams({
+              gameMode: HOME_TRACK.gameMode,
+              scope: HOME_TRACK.scope,
+              tier: HOME_TRACK.tier
+            }).toString()}`}
           >
             <div className="dash-nav-icon dash-nav-icon--blue">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -444,7 +443,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
               <span>Leaderboards &amp; rankings</span>
             </div>
             <svg className="dash-nav-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>
-          </div>
+          </Link>
 
         </div>
 
@@ -482,23 +481,21 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                   const logoSrc = proxyImageUrl(row.logoUrl, { size: HOME_STANDINGS_LOGO_PX });
                   const orgId = toOrgRosterId(row.teamName);
                   return (
-                    <li
-                      key={row.rank}
-                      className="dash-standings-item"
-                      onClick={() => navigate(`/rosters/${encodeURIComponent(orgId)}`)}
-                    >
-                      <span className="dash-standings-rank">{row.rank}</span>
-                      <div className="dash-standings-logo">
-                        {logoSrc ? <img src={logoSrc} alt="" loading="lazy" decoding="async" /> : null}
-                      </div>
-                      <div className="dash-standings-bar-wrap">
-                        <span className="dash-standings-team">{row.teamName}</span>
-                        <div
-                          className="dash-standings-bar"
-                          style={{ "--bar-width": `${barWidth}%` } as React.CSSProperties}
-                        />
-                      </div>
-                      <span className="dash-standings-pts">{row.points}</span>
+                    <li key={row.rank} className="dash-standings-item-wrap">
+                      <Link className="dash-standings-item" to={`/rosters/${encodeURIComponent(orgId)}`}>
+                        <span className="dash-standings-rank">{row.rank}</span>
+                        <div className="dash-standings-logo">
+                          {logoSrc ? <img src={logoSrc} alt="" loading="lazy" decoding="async" /> : null}
+                        </div>
+                        <div className="dash-standings-bar-wrap">
+                          <span className="dash-standings-team">{row.teamName}</span>
+                          <div
+                            className="dash-standings-bar"
+                            style={{ "--bar-width": `${barWidth}%` } as React.CSSProperties}
+                          />
+                        </div>
+                        <span className="dash-standings-pts">{row.points}</span>
+                      </Link>
                     </li>
                   );
                 })
@@ -664,11 +661,11 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                 const imgSrc = proxyImageUrl(row.photoUrl, { size: HOME_FEATURED_PHOTO_PX })
                   ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                 return (
-                  <div
+                  <Link
                     key={row.id}
                     className="featured-card"
                     style={{ animationDelay: `${index * 60}ms` }}
-                    onClick={() => navigate(`/players/${row.id}`)}
+                    to={`/players/${encodeURIComponent(row.id)}`}
                   >
                     <div className="featured-card-photo">
                       <img
@@ -690,7 +687,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                         {formatStat(row.value, featuredLeaderboard.metric.format, featuredLeaderboard.mode)}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -721,10 +718,11 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                     const imgSrc = proxyImageUrl(player.meta?.photoUrl, { size: HOME_PLAYER_SEARCH_AVATAR_PX })
                       ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!;
                     return (
-                      <div
+                      <Link
                         key={player.id}
                         className="dash-player-card"
-                        onClick={() => { setPlayerQuery(""); navigate(`/players/${player.id}`); }}
+                        to={`/players/${encodeURIComponent(player.id)}`}
+                        onClick={() => setPlayerQuery("")}
                       >
                         <div className="dash-search-avatar">
                           <img
@@ -739,7 +737,7 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
                           <strong>{player.label}</strong>
                           <span>{player.meta?.realName ?? ""}</span>
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                 {!playerSearchLoading && !playerSearchError && playerResults.length === 0 && (
