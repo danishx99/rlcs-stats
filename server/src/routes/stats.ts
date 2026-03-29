@@ -2,6 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
+import { normalizeDay, normalizePhase } from "../utils/phases";
 import { metricExpression, resolveStatOptionAsync, shouldUseGameDenominatorForTeamAvg } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr } from "../utils/roster";
@@ -22,6 +23,16 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
   }
 
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const phase = normalizePhase(url.searchParams.get("phase"));
+  if (phase !== "all") {
+    values.push(phase);
+    clauses.push(`LOWER(TRIM(COALESCE(s."Stage", ''))) = LOWER($${values.length})`);
+  }
+  const day = normalizeDay(url.searchParams.get("day"));
+  if (day !== "all") {
+    values.push(day);
+    clauses.push(`LOWER(TRIM(COALESCE(s."Day"::text, ''))) = LOWER($${values.length})`);
+  }
   const ssaOnly = url.searchParams.get("ssaOnly") === "1";
   if (ssaOnly && type === "player") {
     clauses.push(`UPPER(TRIM(s."Unique ID")) LIKE 'SSA-%'`);

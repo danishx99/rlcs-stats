@@ -2,6 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { normalizeMode } from "../utils/filters";
+import { normalizeDay, normalizePhase } from "../utils/phases";
 import { formatSql, loadSql } from "../utils/sql";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 
@@ -9,6 +10,8 @@ const detailSql = loadSql("../../sql/events/detail.sql", import.meta.url);
 const topTeamsSql = loadSql("../../sql/events/top-teams.sql", import.meta.url);
 const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
 const bracketSql = loadSql("../../sql/events/bracket.sql", import.meta.url);
+const phasesSql = loadSql("../../sql/events/phases.sql", import.meta.url);
+const daysSql = loadSql("../../sql/events/days.sql", import.meta.url);
 
 const LEADERBOARD_METRICS = ["rating", "goals", "demos", "saves", "assists"];
 const DEFAULT_TEAMS_LIMIT = 8;
@@ -25,6 +28,8 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
     ? Math.min(teamsLimitRaw, MAX_TEAMS_LIMIT)
     : DEFAULT_TEAMS_LIMIT;
   const leaderboardMode = normalizeMode(url.searchParams.get("mode"));
+  const selectedPhase = normalizePhase(url.searchParams.get("phase"));
+  const selectedDay = normalizeDay(url.searchParams.get("day"));
 
   try {
     const detailResult = await pool.query(
@@ -56,7 +61,9 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         AND ($3::text IS NULL OR LOWER(TRIM(s."Split")) = LOWER($3))
         AND ($4::text IS NULL OR LOWER(TRIM(s."mode")) = LOWER($4))
         AND ($5::text IS NULL OR LOWER(TRIM(s."scope")) = LOWER($5))
-        AND ($6::text IS NULL OR LOWER(TRIM(s."tier")) = LOWER($6))`;
+        AND ($6::text IS NULL OR LOWER(TRIM(s."tier")) = LOWER($6))
+        AND ($7::text = 'all' OR LOWER(TRIM(COALESCE(s."Stage", ''))) = LOWER($7))
+        AND ($8::text = 'all' OR LOWER(TRIM(COALESCE(s."Day"::text, ''))) = LOWER($8))`;
       const primaryValueExpr = metricExpression(option, leaderboardMode, "player_scope");
       const avgValueExpr = metricExpression(option, "avg", "player_scope");
       const totalValueExpr = metricExpression(option, "total", "player_scope");
@@ -68,16 +75,26 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         totalValueExpr,
         havingClause: "",
         sortDir: "DESC",
-        limitParam: "$7"
+        limitParam: "$9"
       });
       return { key, option, sql };
     });
 
     const effectiveTeamsLimit = detail.status === "in_progress" ? MAX_TEAMS_LIMIT : teamsLimit;
-    const [teamsResult, ...leaderboardResults] = await Promise.all([
+    const [teamsResult, phasesResult, daysResult, ...leaderboardResults] = await Promise.all([
       pool.query(topTeamsSql, [eventName, season, split, mode, scope, tier, effectiveTeamsLimit]),
-      ...leaderboardQueries.map((q) => pool.query(q.sql, [eventName, season, split, mode, scope, tier, 10]))
+      pool.query(phasesSql, [eventName, season, split, mode, scope, tier]),
+      pool.query(daysSql, [eventName, season, split, mode, scope, tier]),
+      ...leaderboardQueries.map((q) =>
+        pool.query(q.sql, [eventName, season, split, mode, scope, tier, selectedPhase, selectedDay, 10])
+      )
     ]);
+    const phases = phasesResult.rows
+      .map((row) => (typeof row.phase === "string" ? row.phase : ""))
+      .filter(Boolean);
+    const days = daysResult.rows
+      .map((row) => (typeof row.day === "string" ? row.day : ""))
+      .filter(Boolean);
 
     const leaderboards = leaderboardQueries.map((q, i) => ({
       mode: leaderboardMode,
@@ -140,6 +157,10 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
               liquipediaUrl: bracketRow.liquipedia_url
             }
           : null,
+      phases,
+      days,
+      selectedPhase,
+      selectedDay,
       leaderboards
     });
   } catch (error) {

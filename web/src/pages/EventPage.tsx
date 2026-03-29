@@ -46,6 +46,14 @@ function placementLabel(start: number, end: number) {
   return `${ordinal(start)}-${ordinal(end)}`;
 }
 
+function phaseLabel(phase: string) {
+  return phase;
+}
+
+function dayLabel(day: string) {
+  return day;
+}
+
 export default function EventPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -73,6 +81,10 @@ export default function EventPage() {
   const [metaError, setMetaError] = useState<string | null>(null);
   const [filterSeason, setFilterSeason] = useState("");
   const [filterSplit, setFilterSplit] = useState("");
+  const [phaseOptions, setPhaseOptions] = useState<string[]>([]);
+  const [dayOptions, setDayOptions] = useState<string[]>([]);
+  const [selectedPhase, setSelectedPhase] = useState<string>("all");
+  const [selectedDay, setSelectedDay] = useState<string>("all");
 
   // Pick a stat state
   const [statCategories, setStatCategories] = useState<StatCategory[]>([]);
@@ -85,6 +97,8 @@ export default function EventPage() {
   useEffect(() => {
     if (!eventId) return;
     setLeaderboardMode("avg");
+    setSelectedPhase("all");
+    setSelectedDay("all");
     const targetEventId = decodeURIComponent(eventId);
 
     async function loadEvent() {
@@ -97,6 +111,8 @@ export default function EventPage() {
         setTeams(response.teams);
         setEvent(response.event);
         setBracket(response.bracket);
+        setPhaseOptions(response.phases ?? []);
+        setDayOptions(response.days ?? []);
         setLeaderboards(response.leaderboards);
       } catch (err) {
         const message = err instanceof Error ? err.message.toLowerCase() : "";
@@ -131,6 +147,8 @@ export default function EventPage() {
           scope: event.scope ?? undefined,
           tier: event.tier ?? undefined,
           mode: leaderboardMode,
+          phase: selectedPhase !== "all" ? selectedPhase : undefined,
+          day: selectedDay !== "all" ? selectedDay : undefined,
           limit: 10,
         })
       )
@@ -143,7 +161,7 @@ export default function EventPage() {
     });
 
     return () => { cancelled = true; };
-  }, [event, leaderboardMode]);
+  }, [event, leaderboardMode, selectedDay, selectedPhase]);
 
   // Pre-fill filters from current event
   useEffect(() => {
@@ -249,7 +267,7 @@ export default function EventPage() {
   useEffect(() => {
     setLeaderboardMap(new Map());
     setStatLoadErrors(new Map());
-  }, [eventId, leaderboardMode]);
+  }, [eventId, leaderboardMode, selectedDay, selectedPhase]);
 
   // Fetch leaderboards for extra selected stats (defaults are already in hardcoded cards)
   useEffect(() => {
@@ -297,6 +315,8 @@ export default function EventPage() {
           scope: event.scope ?? undefined,
           tier: event.tier ?? undefined,
           mode: leaderboardMode,
+          phase: selectedPhase !== "all" ? selectedPhase : undefined,
+          day: selectedDay !== "all" ? selectedDay : undefined,
           limit: 10,
         }).then((result) => ({ metric, result }))
       )
@@ -330,7 +350,7 @@ export default function EventPage() {
     });
 
     return () => { cancelled = true; };
-  }, [event, leaderboardMap, leaderboardMode, selectedStats]);
+  }, [event, leaderboardMap, leaderboardMode, selectedDay, selectedPhase, selectedStats]);
 
   if (loading) {
     return (
@@ -650,21 +670,49 @@ export default function EventPage() {
             </div>
           </div>
 
-          <div className="tabs" style={{ marginBottom: 16 }}>
-            <button
-              type="button"
-              className={`tab${leaderboardMode === "avg" ? " active" : ""}`}
-              onClick={() => setLeaderboardMode("avg")}
+          <div
+            style={{
+              marginBottom: 16,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 10
+            }}
+          >
+            <div className="tabs">
+              <button
+                type="button"
+                className={`tab${leaderboardMode === "avg" ? " active" : ""}`}
+                onClick={() => setLeaderboardMode("avg")}
+              >
+                Per Game
+              </button>
+              <button
+                type="button"
+                className={`tab${leaderboardMode === "total" ? " active" : ""}`}
+                onClick={() => setLeaderboardMode("total")}
+              >
+                Total
+              </button>
+            </div>
+            <select
+              value={selectedPhase === "all" ? "" : selectedPhase}
+              onChange={(e) => setSelectedPhase(e.target.value || "all")}
             >
-              Per Game
-            </button>
-            <button
-              type="button"
-              className={`tab${leaderboardMode === "total" ? " active" : ""}`}
-              onClick={() => setLeaderboardMode("total")}
+              <option value="">All Phases</option>
+              {phaseOptions.map((phase) => (
+                <option key={phase} value={phase}>{phaseLabel(phase)}</option>
+              ))}
+            </select>
+            <select
+              value={selectedDay === "all" ? "" : selectedDay}
+              onChange={(e) => setSelectedDay(e.target.value || "all")}
             >
-              Total
-            </button>
+              <option value="">All Days</option>
+              {dayOptions.map((day) => (
+                <option key={day} value={day}>{dayLabel(day)}</option>
+              ))}
+            </select>
           </div>
 
           {leaderboardsLoading ? (

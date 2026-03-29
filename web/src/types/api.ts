@@ -411,6 +411,10 @@ export type EventDetailResponse = {
   event: EventDetail;
   teams: EventTeam[];
   bracket: EventBracket | null;
+  phases?: string[];
+  days?: string[];
+  selectedPhase?: string;
+  selectedDay?: string;
   leaderboards: LeaderboardResponse[];
 };
 
