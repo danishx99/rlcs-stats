@@ -66,6 +66,7 @@ export default function PlayerPage() {
   const [seasonError, setSeasonError] = useState<string | null>(null);
   const [seasonRefreshKey, setSeasonRefreshKey] = useState(0);
   const [seasonGameMode, setSeasonGameMode] = useState<"1s" | "2s" | "3s">("3s");
+  const [seasonStatMode, setSeasonStatMode] = useState<"avg" | "total">("avg");
   const [seasonIncludeLans, setSeasonIncludeLans] = useState(false);
   const [results, setResults] = useState<PlayerResultEvent[]>([]);
   const [resultSeasons, setResultSeasons] = useState<string[]>([]);
@@ -116,7 +117,7 @@ export default function PlayerPage() {
       setSeasonError(null);
       try {
         const response: SeasonResponse = await api.playerSeason(playerId, {
-          mode: "avg",
+          mode: seasonStatMode,
           gameMode: seasonGameMode,
           scope: seasonGameMode === "3s" && !seasonIncludeLans ? "regional" : undefined,
           tier: seasonGameMode === "3s" && !seasonIncludeLans ? "none" : undefined
@@ -132,7 +133,7 @@ export default function PlayerPage() {
     }
 
     loadSeason();
-  }, [seasonGameMode, seasonIncludeLans, seasonRefreshKey, uniqueId]);
+  }, [seasonGameMode, seasonIncludeLans, seasonRefreshKey, seasonStatMode, uniqueId]);
 
   useEffect(() => {
     if (resultSeason || !seasonRows.length) return;
@@ -296,6 +297,12 @@ export default function PlayerPage() {
   const twitchLink = normalizeSocialLink(playerProfile.twitch, "twitch");
   const tiktokLink = normalizeSocialLink(playerProfile.tiktok, "tiktok");
   const currentTeam = playerProfile.teams[0] ?? null;
+  const focusStatLabelMap: Record<"goals" | "assists" | "saves" | "demos", string> = {
+    goals: "Goals",
+    assists: "Assists",
+    saves: "Saves",
+    demos: "Demos"
+  };
   const navigateToTeam = async (teamName: string) => {
     const rosterId = await resolveTeamRosterId(teamName);
     const cache = allTimeCacheRef.current;
@@ -353,6 +360,7 @@ export default function PlayerPage() {
               </strong>
             </div>
             <div><span>Best Result</span><strong>{playerProfile.bestResult ?? "—"}</strong></div>
+            <div><span>Games (W-L)</span><strong>{playerProfile.games} ({playerProfile.gamesWon}-{playerProfile.gamesLost})</strong></div>
           </div>
           <div className="profile-links">
             {twitchLink ? (
@@ -368,6 +376,22 @@ export default function PlayerPage() {
           <div className="section-header player-season-header">
             <h2>Perf by Season</h2>
             <div className="profile-filter-row">
+              <div className="toggle">
+                <button
+                  type="button"
+                  className={seasonStatMode === "avg" ? "active" : ""}
+                  onClick={() => setSeasonStatMode("avg")}
+                >
+                  Per Game
+                </button>
+                <button
+                  type="button"
+                  className={seasonStatMode === "total" ? "active" : ""}
+                  onClick={() => setSeasonStatMode("total")}
+                >
+                  Total
+                </button>
+              </div>
               {playerHasLanEvents && (
                 <label className="checkbox-inline">
                   <input
@@ -414,20 +438,39 @@ export default function PlayerPage() {
                 </div>
               ))}
             </div>
-          ) : null}
-          {seasonError ? (
+          ) : seasonError ? (
             <PanelState
               state="error"
               message={seasonError}
               onRetry={() => setSeasonRefreshKey((value) => value + 1)}
             />
-          ) : seasonRows.length === 0 && !seasonLoading ? (
+          ) : seasonRows.length === 0 ? (
             <PanelState state="empty" message="No season data available for this filter." />
           ) : (
-            <SeasonTable rows={[...seasonRows].reverse()} />
+            <SeasonTable rows={[...seasonRows].reverse()} mode={seasonStatMode} />
           )}
         </section>
       </div>
+
+      <section className="panel player-career-card">
+        <div className="section-header">
+          <h2>Career Spotlight</h2>
+        </div>
+
+        <div className="career-spotlight-grid">
+          {(["goals", "assists", "saves", "demos"] as const).map((stat) => {
+            const totalRank = playerProfile.ranks.total[stat];
+            return (
+              <div key={stat} className="career-spotlight-stat">
+                <span>{focusStatLabelMap[stat]}</span>
+                <strong>{Math.round(playerProfile.totals[stat] ?? 0).toLocaleString("en-US")}</strong>
+                <small>{(playerProfile.averages[stat] ?? 0).toFixed(1)} avg</small>
+                {totalRank ? <small className="career-spotlight-rank">{ordinal(totalRank)} overall</small> : null}
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="panel player-results-card">
         <div className="section-header">

@@ -91,6 +91,8 @@ export async function handlePlayerProfile(
         tiktok: row.tiktok,
         teams: row.teams ?? [],
         games: Number(row.games ?? 0),
+        gamesWon: Number(row.games_won ?? 0),
+        gamesLost: Number(row.games_lost ?? 0),
         seriesPlayed: Number(row.series_played ?? 0),
         totals: {
           goals: Number(row.goals_total ?? 0),
@@ -103,6 +105,20 @@ export async function handlePlayerProfile(
           assists: Number(row.assists_avg ?? 0),
           saves: Number(row.saves_avg ?? 0),
           demos: Number(row.demos_avg ?? 0)
+        },
+        ranks: {
+          avg: {
+            goals: row.goals_rank_avg == null ? null : Number(row.goals_rank_avg),
+            assists: row.assists_rank_avg == null ? null : Number(row.assists_rank_avg),
+            saves: row.saves_rank_avg == null ? null : Number(row.saves_rank_avg),
+            demos: row.demos_rank_avg == null ? null : Number(row.demos_rank_avg)
+          },
+          total: {
+            goals: row.goals_rank_total == null ? null : Number(row.goals_rank_total),
+            assists: row.assists_rank_total == null ? null : Number(row.assists_rank_total),
+            saves: row.saves_rank_total == null ? null : Number(row.saves_rank_total),
+            demos: row.demos_rank_total == null ? null : Number(row.demos_rank_total)
+          }
         }
       }
     });
@@ -185,10 +201,20 @@ export async function handlePlayerSeason(
   const mode = normalizeMode(url.searchParams.get("mode"));
   const playerIndex = values.length + 1;
 
-  const goalsExpr = metricExpression(resolveStatOption("goals"), mode, "player_scope");
-  const assistsExpr = metricExpression(resolveStatOption("assists"), mode, "player_scope");
-  const savesExpr = metricExpression(resolveStatOption("saves"), mode, "player_scope");
-  const demosExpr = metricExpression(resolveStatOption("demos"), mode, "player_scope");
+  const goalsPrimaryExpr = metricExpression(resolveStatOption("goals"), mode, "player_scope");
+  const assistsPrimaryExpr = metricExpression(resolveStatOption("assists"), mode, "player_scope");
+  const savesPrimaryExpr = metricExpression(resolveStatOption("saves"), mode, "player_scope");
+  const demosPrimaryExpr = metricExpression(resolveStatOption("demos"), mode, "player_scope");
+
+  const goalsAvgExpr = metricExpression(resolveStatOption("goals"), "avg", "player_scope");
+  const assistsAvgExpr = metricExpression(resolveStatOption("assists"), "avg", "player_scope");
+  const savesAvgExpr = metricExpression(resolveStatOption("saves"), "avg", "player_scope");
+  const demosAvgExpr = metricExpression(resolveStatOption("demos"), "avg", "player_scope");
+
+  const goalsTotalExpr = metricExpression(resolveStatOption("goals"), "total", "player_scope");
+  const assistsTotalExpr = metricExpression(resolveStatOption("assists"), "total", "player_scope");
+  const savesTotalExpr = metricExpression(resolveStatOption("saves"), "total", "player_scope");
+  const demosTotalExpr = metricExpression(resolveStatOption("demos"), "total", "player_scope");
 
   try {
     const result = await pool.query(
@@ -196,10 +222,18 @@ export async function handlePlayerSeason(
         playerKeyExpr: playerKeyExpr("s"),
         where,
         playerIdParam: `$${playerIndex}`,
-        goalsExpr,
-        assistsExpr,
-        savesExpr,
-        demosExpr
+        goalsPrimaryExpr,
+        goalsAvgExpr,
+        goalsTotalExpr,
+        assistsPrimaryExpr,
+        assistsAvgExpr,
+        assistsTotalExpr,
+        savesPrimaryExpr,
+        savesAvgExpr,
+        savesTotalExpr,
+        demosPrimaryExpr,
+        demosAvgExpr,
+        demosTotalExpr
       }),
       [...values, playerId]
     );
@@ -211,9 +245,17 @@ export async function handlePlayerSeason(
         games: Number(row.games ?? 0),
         seriesPlayed: Number(row.series_played ?? 0),
         goals: Number(row.goals ?? 0),
+        goalsAvg: Number(row.goals_avg ?? 0),
+        goalsTotal: Number(row.goals_total ?? 0),
         assists: Number(row.assists ?? 0),
+        assistsAvg: Number(row.assists_avg ?? 0),
+        assistsTotal: Number(row.assists_total ?? 0),
         saves: Number(row.saves ?? 0),
-        demos: Number(row.demos ?? 0)
+        savesAvg: Number(row.saves_avg ?? 0),
+        savesTotal: Number(row.saves_total ?? 0),
+        demos: Number(row.demos ?? 0),
+        demosAvg: Number(row.demos_avg ?? 0),
+        demosTotal: Number(row.demos_total ?? 0)
       }))
     });
   } catch (error) {

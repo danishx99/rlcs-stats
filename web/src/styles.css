@@ -2004,6 +2004,55 @@ body {
   font-size: 0.9rem;
 }
 
+.season-secondary {
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.player-career-card {
+  margin-top: 18px;
+}
+
+.career-spotlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.career-spotlight-stat {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.career-spotlight-stat--active {
+  border-color: rgba(255, 130, 67, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 130, 67, 0.25);
+}
+
+.career-spotlight-stat span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-muted);
+}
+
+.career-spotlight-stat strong {
+  font-size: 1.1rem;
+}
+
+.career-spotlight-stat small {
+  color: var(--ink-muted);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.career-spotlight-focus {
+  margin: 12px 0 0;
+  color: var(--ink-dim);
+}
+
 .season-row > div:first-child {
   font-family: "Rajdhani", sans-serif;
   font-weight: 600;

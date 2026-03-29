@@ -115,9 +115,15 @@ export type PlayerProfile = {
   tiktok?: string | null;
   teams: string[];
   games: number;
+  gamesWon: number;
+  gamesLost: number;
   seriesPlayed: number;
   totals: Record<string, number>;
   averages: Record<string, number>;
+  ranks: {
+    avg: Record<string, number | null>;
+    total: Record<string, number | null>;
+  };
 };
 
 export type RosterStarter = {
@@ -317,9 +323,17 @@ export type SeasonRow = {
   games: number;
   seriesPlayed: number;
   goals: number;
+  goalsAvg: number;
+  goalsTotal: number;
   assists: number;
+  assistsAvg: number;
+  assistsTotal: number;
   saves: number;
+  savesAvg: number;
+  savesTotal: number;
   demos: number;
+  demosAvg: number;
+  demosTotal: number;
 };
 
 export type SeasonResponse = {

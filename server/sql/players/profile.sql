@@ -309,6 +309,8 @@ stats_summary AS (
       GROUP BY "Team"
     ) sub) AS teams,
     COUNT(*) AS games,
+    SUM(CASE WHEN player_stats."Victory" = true THEN 1 ELSE 0 END) AS games_won,
+    SUM(CASE WHEN COALESCE(player_stats."Victory", false) = false THEN 1 ELSE 0 END) AS games_lost,
     COUNT(DISTINCT series_id) AS series_played,
     SUM(player_stats."Goals_All Zones") AS goals_total,
     AVG(player_stats."Goals_All Zones") AS goals_avg,
@@ -319,6 +321,21 @@ stats_summary AS (
     SUM(player_stats."Kills_All Zones") AS demos_total,
     AVG(player_stats."Kills_All Zones") AS demos_avg
   FROM player_stats
+),
+player_rankings AS (
+  SELECT
+    player_key,
+    RANK() OVER (ORDER BY AVG("Goals_All Zones") DESC NULLS LAST) AS goals_rank_avg,
+    RANK() OVER (ORDER BY SUM("Goals_All Zones") DESC NULLS LAST) AS goals_rank_total,
+    RANK() OVER (ORDER BY AVG("Assists_All Zones") DESC NULLS LAST) AS assists_rank_avg,
+    RANK() OVER (ORDER BY SUM("Assists_All Zones") DESC NULLS LAST) AS assists_rank_total,
+    RANK() OVER (ORDER BY AVG("Saves_All Zones") DESC NULLS LAST) AS saves_rank_avg,
+    RANK() OVER (ORDER BY SUM("Saves_All Zones") DESC NULLS LAST) AS saves_rank_total,
+    RANK() OVER (ORDER BY AVG("Kills_All Zones") DESC NULLS LAST) AS demos_rank_avg,
+    RANK() OVER (ORDER BY SUM("Kills_All Zones") DESC NULLS LAST) AS demos_rank_total
+  FROM stats_base
+  WHERE player_key IS NOT NULL
+  GROUP BY player_key
 )
 SELECT
   {{playerIdParam}} AS player_id,
@@ -337,6 +354,8 @@ SELECT
   ss.best_result,
   ss.teams,
   COALESCE(ss.games, 0) AS games,
+  COALESCE(ss.games_won, 0) AS games_won,
+  COALESCE(ss.games_lost, 0) AS games_lost,
   COALESCE(ss.series_played, 0) AS series_played,
   COALESCE(ss.goals_total, 0) AS goals_total,
   COALESCE(ss.goals_avg, 0) AS goals_avg,
@@ -346,6 +365,14 @@ SELECT
   COALESCE(ss.saves_avg, 0) AS saves_avg,
   COALESCE(ss.demos_total, 0) AS demos_total,
   COALESCE(ss.demos_avg, 0) AS demos_avg,
+  pr.goals_rank_avg,
+  pr.goals_rank_total,
+  pr.assists_rank_avg,
+  pr.assists_rank_total,
+  pr.saves_rank_avg,
+  pr.saves_rank_total,
+  pr.demos_rank_avg,
+  pr.demos_rank_total,
   CASE
     WHEN EXISTS (SELECT 1 FROM player_exists) OR EXISTS (SELECT 1 FROM player_stats) THEN 1
     ELSE 0
@@ -353,10 +380,15 @@ SELECT
 FROM player_base pb
 FULL OUTER JOIN player_stats ps ON pb.player_key = ps.player_key
 LEFT JOIN stats_summary ss ON true
+LEFT JOIN player_rankings pr ON pr.player_key = {{playerIdParam}}
 GROUP BY 
   pb.handle, pb.aliases, pb.real_name, pb.country, pb.photo_url, 
   pb.twitch, pb.tiktok, pb.date_of_birth,
   ss.debut_season, ss.debut_split, ss.debut_event, ss.best_result, ss.teams,
-  ss.games, ss.series_played, ss.goals_total, ss.goals_avg, 
+  ss.games, ss.games_won, ss.games_lost, ss.series_played, ss.goals_total, ss.goals_avg, 
   ss.assists_total, ss.assists_avg, ss.saves_total, ss.saves_avg, 
-  ss.demos_total, ss.demos_avg;
+  ss.demos_total, ss.demos_avg,
+  pr.goals_rank_avg, pr.goals_rank_total,
+  pr.assists_rank_avg, pr.assists_rank_total,
+  pr.saves_rank_avg, pr.saves_rank_total,
+  pr.demos_rank_avg, pr.demos_rank_total;
