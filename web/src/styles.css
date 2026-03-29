@@ -642,6 +642,45 @@ body {
   color: var(--ink-dim);
 }
 
+.event-leaderboard-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.event-filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  padding: 6px 28px 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.event-filter-select:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.event-filter-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 130, 67, 0.3);
+}
+
+.event-filter-select option {
+  background: var(--panel);
+  color: var(--ink);
+}
+
 .topbar-search label {
   display: grid;
   gap: 6px;
@@ -3523,6 +3562,50 @@ th {
   color: var(--ink-muted);
   font-family: "IBM Plex Mono", monospace;
   letter-spacing: 0.02em;
+}
+
+.event-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.event-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.event-share-button {
+  background: var(--accent);
+  border: 1px solid rgba(255, 130, 67, 0.85);
+  color: #0b0f14;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.event-share-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.event-share-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.event-share-message {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
 }
 
 .event-resource-header {

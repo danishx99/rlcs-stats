@@ -67,6 +67,8 @@ export default function EventPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventRetryKey, setEventRetryKey] = useState(0);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
 
   // Event search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -352,6 +354,42 @@ export default function EventPage() {
     return () => { cancelled = true; };
   }, [event, leaderboardMap, leaderboardMode, selectedDay, selectedPhase, selectedStats]);
 
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareTitle = event?.name ? `RLCS Stats · ${event.name}` : "RLCS Stats";
+    const shareText = [event?.season, event?.split, event?.name].filter(Boolean).join(" / ");
+
+    setShareBusy(true);
+    setShareMessage(null);
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl
+        });
+        setShareMessage("Shared.");
+        return;
+      }
+      await navigator.clipboard.writeText(shareUrl);
+      setShareMessage("Link copied.");
+    } catch (shareError) {
+      if (shareError instanceof DOMException && shareError.name === "AbortError") {
+        return;
+      }
+      console.error(shareError);
+      setShareMessage("Could not share. Copy the URL manually.");
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!shareMessage) return;
+    const timer = window.setTimeout(() => setShareMessage(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [shareMessage]);
+
   if (loading) {
     return (
       <div className="page page-no-nav" aria-busy="true">
@@ -421,6 +459,7 @@ export default function EventPage() {
   const isInProgress = event.status === "in_progress";
   const visibleTeams = showAllPlacements || isInProgress ? teams : teams.slice(0, TOP_TEAMS_LIMIT);
   const isOnesEvent = event.mode === "1s";
+
   return (
     <div className="page page-no-nav">
       <PageBackActions />
@@ -552,11 +591,19 @@ export default function EventPage() {
       </div>
 
       {/* Event header */}
-      <div>
-        <h1 className="page-heading" style={{ marginBottom: 6 }}>{event.name}</h1>
-        <div className="page-heading-sub">
-          {[event.season, event.split].filter(Boolean).join(" / ")}
-          {dateRange && <> &middot; {dateRange}</>}
+      <div className="event-heading-row">
+        <div>
+          <h1 className="page-heading" style={{ marginBottom: 6 }}>{event.name}</h1>
+          <div className="page-heading-sub">
+            {[event.season, event.split].filter(Boolean).join(" / ")}
+            {dateRange && <> &middot; {dateRange}</>}
+          </div>
+        </div>
+        <div className="event-heading-actions">
+          <button type="button" className="event-share-button" onClick={() => { void handleShare(); }} disabled={shareBusy}>
+            {shareBusy ? "Sharing..." : "Share"}
+          </button>
+          {shareMessage ? <span className="event-share-message">{shareMessage}</span> : null}
         </div>
       </div>
 
@@ -670,15 +717,7 @@ export default function EventPage() {
             </div>
           </div>
 
-          <div
-            style={{
-              marginBottom: 16,
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 10
-            }}
-          >
+          <div className="event-leaderboard-controls">
             <div className="tabs">
               <button
                 type="button"
@@ -695,24 +734,30 @@ export default function EventPage() {
                 Total
               </button>
             </div>
-            <select
-              value={selectedPhase === "all" ? "" : selectedPhase}
-              onChange={(e) => setSelectedPhase(e.target.value || "all")}
-            >
-              <option value="">All Phases</option>
-              {phaseOptions.map((phase) => (
-                <option key={phase} value={phase}>{phaseLabel(phase)}</option>
-              ))}
-            </select>
-            <select
-              value={selectedDay === "all" ? "" : selectedDay}
-              onChange={(e) => setSelectedDay(e.target.value || "all")}
-            >
-              <option value="">All Days</option>
-              {dayOptions.map((day) => (
-                <option key={day} value={day}>{dayLabel(day)}</option>
-              ))}
-            </select>
+            {phaseOptions.length > 0 && (
+              <select
+                className="event-filter-select"
+                value={selectedPhase === "all" ? "" : selectedPhase}
+                onChange={(e) => setSelectedPhase(e.target.value || "all")}
+              >
+                <option value="">All Phases</option>
+                {phaseOptions.map((phase) => (
+                  <option key={phase} value={phase}>{phaseLabel(phase)}</option>
+                ))}
+              </select>
+            )}
+            {dayOptions.length > 0 && (
+              <select
+                className="event-filter-select"
+                value={selectedDay === "all" ? "" : selectedDay}
+                onChange={(e) => setSelectedDay(e.target.value || "all")}
+              >
+                <option value="">All Days</option>
+                {dayOptions.map((day) => (
+                  <option key={day} value={day}>{dayLabel(day)}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {leaderboardsLoading ? (
