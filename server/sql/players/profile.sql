@@ -36,6 +36,13 @@ player_stats_3s AS (
     AND "Team" IS NOT NULL
     AND TRIM("Team") <> ''
 ),
+stats_base_3s AS (
+  SELECT *
+  FROM stats_base
+  WHERE LOWER(TRIM("mode")) = '3s'
+    AND "Team" IS NOT NULL
+    AND TRIM("Team") <> ''
+),
 first_appearance AS (
   SELECT
     "Season" AS debut_season,
@@ -312,14 +319,14 @@ stats_summary AS (
     SUM(CASE WHEN player_stats."Victory" = true THEN 1 ELSE 0 END) AS games_won,
     SUM(CASE WHEN COALESCE(player_stats."Victory", false) = false THEN 1 ELSE 0 END) AS games_lost,
     COUNT(DISTINCT series_id) AS series_played,
-    SUM(player_stats."Goals_All Zones") AS goals_total,
-    AVG(player_stats."Goals_All Zones") AS goals_avg,
-    SUM(player_stats."Assists_All Zones") AS assists_total,
-    AVG(player_stats."Assists_All Zones") AS assists_avg,
-    SUM(player_stats."Saves_All Zones") AS saves_total,
-    AVG(player_stats."Saves_All Zones") AS saves_avg,
-    SUM(player_stats."Kills_All Zones") AS demos_total,
-    AVG(player_stats."Kills_All Zones") AS demos_avg
+    (SELECT SUM("Goals_All Zones") FROM player_stats_3s) AS goals_total,
+    (SELECT AVG("Goals_All Zones") FROM player_stats_3s) AS goals_avg,
+    (SELECT SUM("Assists_All Zones") FROM player_stats_3s) AS assists_total,
+    (SELECT AVG("Assists_All Zones") FROM player_stats_3s) AS assists_avg,
+    (SELECT SUM("Saves_All Zones") FROM player_stats_3s) AS saves_total,
+    (SELECT AVG("Saves_All Zones") FROM player_stats_3s) AS saves_avg,
+    (SELECT SUM("Kills_All Zones") FROM player_stats_3s) AS demos_total,
+    (SELECT AVG("Kills_All Zones") FROM player_stats_3s) AS demos_avg
   FROM player_stats
 ),
 player_rankings AS (
@@ -333,7 +340,7 @@ player_rankings AS (
     RANK() OVER (ORDER BY SUM("Saves_All Zones") DESC NULLS LAST) AS saves_rank_total,
     RANK() OVER (ORDER BY AVG("Kills_All Zones") DESC NULLS LAST) AS demos_rank_avg,
     RANK() OVER (ORDER BY SUM("Kills_All Zones") DESC NULLS LAST) AS demos_rank_total
-  FROM stats_base
+  FROM stats_base_3s
   WHERE player_key IS NOT NULL
   GROUP BY player_key
 )
