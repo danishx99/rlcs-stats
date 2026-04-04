@@ -51,6 +51,7 @@ const playerHeaderAliases = new Map<string, string>([
   ["twitch", "Twitch"],
   ["twitch", "Twitch"],
   ["tiktok", "TikTok"],
+  ["twitter", "Twitter"],
   ["photourl", "Photo URL"]
 ]);
 

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS players (
   "Country" TEXT,
   "Twitch" TEXT,
   "TikTok" TEXT,
+  "Twitter" TEXT,
   "Photo URL" TEXT
 );
 `;
@@ -27,6 +28,7 @@ ALTER TABLE players
   ADD COLUMN IF NOT EXISTS "Country" TEXT,
   ADD COLUMN IF NOT EXISTS "Twitch" TEXT,
   ADD COLUMN IF NOT EXISTS "TikTok" TEXT,
+  ADD COLUMN IF NOT EXISTS "Twitter" TEXT,
   ADD COLUMN IF NOT EXISTS "Photo URL" TEXT;
 `;
 
@@ -42,5 +44,6 @@ COMMENT ON COLUMN players."Date of Birth" IS 'Player''s date of birth.';
 COMMENT ON COLUMN players."Country" IS 'Player''s country.';
 COMMENT ON COLUMN players."Twitch" IS 'Player''s Twitch handle or URL.';
 COMMENT ON COLUMN players."TikTok" IS 'Player''s TikTok handle or URL.';
+COMMENT ON COLUMN players."Twitter" IS 'Player''s Twitter handle or URL.';
 COMMENT ON COLUMN players."Photo URL" IS 'Player headshot URL.';
 `;
