@@ -35,7 +35,7 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
   }
   const ssaOnly = url.searchParams.get("ssaOnly") === "1";
   if (ssaOnly && type === "player") {
-    clauses.push(`UPPER(TRIM(s."Unique ID")) LIKE 'SSA-%'`);
+    clauses.push(`s."Unique ID" LIKE 'SSA-%'`);
   }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 

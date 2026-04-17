@@ -10,6 +10,16 @@ const playerSeasonSql = loadSql("../../sql/players/season.sql", import.meta.url)
 const playerProfileSql = loadSql("../../sql/players/profile.sql", import.meta.url);
 const playerResultsSql = loadSql("../../sql/players/results.sql", import.meta.url);
 
+function normalizePlayerId(rawId: string) {
+  let decoded = rawId;
+  try {
+    decoded = decodeURIComponent(rawId);
+  } catch {
+    decoded = rawId;
+  }
+  return decoded.trim().toUpperCase();
+}
+
 export async function handlePlayers(_req: IncomingMessage, res: ServerResponse, url: URL) {
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -52,6 +62,7 @@ export async function handlePlayerProfile(
   url: URL,
   playerId: string
 ) {
+  const normalizedPlayerId = normalizePlayerId(playerId);
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const playerIndex = values.length + 1;
@@ -63,7 +74,7 @@ export async function handlePlayerProfile(
         where,
         playerIdParam: `$${playerIndex}`
       }),
-      [...values, playerId]
+      [...values, normalizedPlayerId]
     );
 
     if (!result.rows.length || !result.rows[0].player_found) {
@@ -134,6 +145,7 @@ export async function handlePlayerResults(
   url: URL,
   playerId: string
 ) {
+  const normalizedPlayerId = normalizePlayerId(playerId);
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const playerIndex = values.length + 1;
@@ -144,7 +156,7 @@ export async function handlePlayerResults(
         where,
         playerIdParam: `$${playerIndex}`
       }),
-      [...values, playerId]
+      [...values, normalizedPlayerId]
     );
 
     const seasons: string[] = result.rows.length
@@ -196,6 +208,7 @@ export async function handlePlayerSeason(
   url: URL,
   playerId: string
 ) {
+  const normalizedPlayerId = normalizePlayerId(playerId);
   const { clauses, values } = buildFilterClauses(url.searchParams, "s");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const mode = normalizeMode(url.searchParams.get("mode"));
@@ -235,7 +248,7 @@ export async function handlePlayerSeason(
         demosAvgExpr,
         demosTotalExpr
       }),
-      [...values, playerId]
+      [...values, normalizedPlayerId]
     );
 
     json(res, 200, {

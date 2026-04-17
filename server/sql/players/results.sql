@@ -3,7 +3,7 @@
 WITH available_seasons AS (
   SELECT DISTINCT "Season" AS season
   FROM stats
-  WHERE UPPER(TRIM("Unique ID")) = UPPER(TRIM({{playerIdParam}}))
+  WHERE "Unique ID" = {{playerIdParam}}
     AND series_id IS NOT NULL
   ORDER BY season DESC
 ),
@@ -15,7 +15,7 @@ stats_base AS (
 player_stats AS (
   SELECT *
   FROM stats_base
-  WHERE UPPER(TRIM("Unique ID")) = UPPER(TRIM({{playerIdParam}}))
+  WHERE "Unique ID" = {{playerIdParam}}
     AND series_id IS NOT NULL
 ),
 series_summary AS (

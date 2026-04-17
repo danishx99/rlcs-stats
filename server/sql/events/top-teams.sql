@@ -1,12 +1,12 @@
 WITH base_scope AS (
   SELECT *
   FROM stats
-  WHERE LOWER(TRIM("Event")) = LOWER($1)
-    AND ($2::text IS NULL OR LOWER(TRIM("Season")) = LOWER($2))
-    AND ($3::text IS NULL OR LOWER(TRIM("Split")) = LOWER($3))
-    AND ($4::text IS NULL OR LOWER(TRIM("mode")) = LOWER($4))
-    AND ($5::text IS NULL OR LOWER(TRIM("scope")) = LOWER($5))
-    AND ($6::text IS NULL OR LOWER(TRIM("tier")) = LOWER($6))
+  WHERE "Event" = $1
+    AND ($2::text IS NULL OR "Season" = $2)
+    AND ($3::text IS NULL OR "Split" = $3)
+    AND ($4::text IS NULL OR "mode" = $4)
+    AND ($5::text IS NULL OR "scope" = $5)
+    AND ($6::text IS NULL OR "tier" = $6)
     AND "Team" IS NOT NULL
     AND TRIM("Team") <> ''
 ),

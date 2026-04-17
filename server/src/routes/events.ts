@@ -56,19 +56,19 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
 
     const leaderboardQueries = LEADERBOARD_METRICS.map((key) => {
       const option = resolveStatOption(key);
-      const where = `WHERE LOWER(TRIM(s."Event")) = LOWER($1)
-        AND ($2::text IS NULL OR LOWER(TRIM(s."Season")) = LOWER($2))
-        AND ($3::text IS NULL OR LOWER(TRIM(s."Split")) = LOWER($3))
-        AND ($4::text IS NULL OR LOWER(TRIM(s."mode")) = LOWER($4))
-        AND ($5::text IS NULL OR LOWER(TRIM(s."scope")) = LOWER($5))
-        AND ($6::text IS NULL OR LOWER(TRIM(s."tier")) = LOWER($6))
+      const where = `WHERE s."Event" = $1
+        AND ($2::text IS NULL OR s."Season" = $2)
+        AND ($3::text IS NULL OR s."Split" = $3)
+        AND ($4::text IS NULL OR s."mode" = $4)
+        AND ($5::text IS NULL OR s."scope" = $5)
+        AND ($6::text IS NULL OR s."tier" = $6)
         AND ($7::text = 'all' OR LOWER(TRIM(COALESCE(s."Stage", ''))) = LOWER($7))
         AND ($8::text = 'all' OR LOWER(TRIM(COALESCE(s."Day"::text, ''))) = LOWER($8))`;
       const primaryValueExpr = metricExpression(option, leaderboardMode, "player_scope");
       const avgValueExpr = metricExpression(option, "avg", "player_scope");
       const totalValueExpr = metricExpression(option, "total", "player_scope");
       const sql = formatSql(statsTopSql, {
-        playerKeyExpr: `NULLIF(TRIM(s."Unique ID"), '')`,
+        playerKeyExpr: `s."Unique ID"`,
         where,
         primaryValueExpr,
         avgValueExpr,

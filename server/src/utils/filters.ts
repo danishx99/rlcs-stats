@@ -28,6 +28,8 @@ const FILTER_COLUMNS: Record<FilterKey, string> = {
   tier: "tier"
 };
 
+const LOWERCASE_FILTER_KEYS = new Set<FilterKey>(["gameMode", "scope", "tier"]);
+
 function columnRef(alias: string, column: string) {
   return alias ? `${alias}."${column}"` : `"${column}"`;
 }
@@ -43,8 +45,8 @@ export function buildFilterClauses(
   for (const key of keys) {
     const value = normalizeFilter(params.get(key));
     if (!value) continue;
-    clauses.push(`LOWER(TRIM(${columnRef(alias, FILTER_COLUMNS[key])})) = LOWER($${values.length + 1})`);
-    values.push(value);
+    clauses.push(`${columnRef(alias, FILTER_COLUMNS[key])} = $${values.length + 1}`);
+    values.push(LOWERCASE_FILTER_KEYS.has(key) ? value.toLowerCase() : value);
   }
 
   return { clauses, values };
