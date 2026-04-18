@@ -682,6 +682,15 @@ event_latest_dates AS (
   FROM series_summary
   GROUP BY season, split, event
 ),
+event_completion AS (
+  SELECT
+    season,
+    split,
+    event,
+    BOOL_OR(placement_start = 1 AND placement_end = 1) AS is_completed
+  FROM event_final_placements
+  GROUP BY season, split, event
+),
 available_seasons_json AS (
   SELECT JSON_AGG(a.season) AS available_seasons
   FROM available_seasons a
@@ -706,13 +715,7 @@ SELECT
   ep.placement_end,
   ep.placement,
   CASE
-    WHEN EXISTS (
-      SELECT 1 FROM stats_base sb
-      WHERE LOWER(TRIM(sb."Season")) = LOWER(TRIM(ep.season))
-        AND LOWER(TRIM(sb."Split")) = LOWER(TRIM(ep.split))
-        AND LOWER(TRIM(sb."Event")) = LOWER(TRIM(ep.event))
-        AND UPPER(TRIM(sb."Round")) IN ('GF','GF 1','GF1','GF 2','GF2')
-    ) THEN 'completed'
+    WHEN COALESCE(ec.is_completed, false) THEN 'completed'
     ELSE 'in_progress'
   END AS status,
   sbe.series,
@@ -730,5 +733,9 @@ LEFT JOIN event_meta em
   ON em.season IS NOT DISTINCT FROM ep.season
  AND em.split IS NOT DISTINCT FROM ep.split
  AND em.event IS NOT DISTINCT FROM ep.event
+LEFT JOIN event_completion ec
+  ON ec.season IS NOT DISTINCT FROM ep.season
+ AND ec.split IS NOT DISTINCT FROM ep.split
+ AND ec.event IS NOT DISTINCT FROM ep.event
 CROSS JOIN available_seasons_json asj
 ORDER BY ed.latest_date DESC NULLS LAST;

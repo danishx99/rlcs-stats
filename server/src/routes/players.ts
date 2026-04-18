@@ -85,6 +85,23 @@ export async function handlePlayerProfile(
     const row = result.rows[0];
     const debutParts = [row.debut_season, row.debut_split, row.debut_event].filter(Boolean);
     const debut = debutParts.length ? debutParts.join(" / ") : null;
+    const resultsForBest = await pool.query(
+      formatSql(playerResultsSql, {
+        where,
+        playerIdParam: `$${playerIndex}`
+      }),
+      [...values, normalizedPlayerId]
+    );
+
+    const completedPlacementEnds = resultsForBest.rows
+      .filter((eventRow) => (eventRow.status ?? "completed") === "completed")
+      .map((eventRow) => Number(eventRow.placement_end))
+      .filter((placementEnd) => Number.isFinite(placementEnd) && placementEnd > 0 && placementEnd < 999);
+
+    const bestResult =
+      completedPlacementEnds.length > 0
+        ? `Top ${Math.min(...completedPlacementEnds)}`
+        : row.best_result ?? null;
 
     json(res, 200, {
       player: {
@@ -97,7 +114,7 @@ export async function handlePlayerProfile(
         photoUrl: row.photo_url,
         dateOfBirth: row.date_of_birth,
         debut,
-        bestResult: row.best_result,
+        bestResult,
         twitch: row.twitch,
         tiktok: row.tiktok,
         teams: row.teams ?? [],

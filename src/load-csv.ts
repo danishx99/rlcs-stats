@@ -133,6 +133,7 @@ export type LoadOptions = {
   limit?: number;
   progressEvery?: number;
   allowNewColumns?: boolean;
+  ignoreUnknownColumns?: boolean;
   tableName: string;
   schemaFile?: string;
   sourceFile?: string;
@@ -440,19 +441,35 @@ export async function loadCsvFile(
         }
         const extra = headers.filter((col) => !typeMap.has(col));
         if (extra.length > 0) {
-          if (!options.allowNewColumns) {
+          if (options.ignoreUnknownColumns) {
+            const filteredHeaders: string[] = [];
+            const filteredIndices: number[] = [];
+            headers.forEach((header, index) => {
+              if (!typeMap.has(header)) {
+                return;
+              }
+              filteredHeaders.push(header);
+              filteredIndices.push(includedIndices[index]);
+            });
+            headers = filteredHeaders;
+            includedIndices = filteredIndices;
+            console.log(
+              `${fileName}: ignoring ${extra.length} undefined columns for ${options.tableName}: ${extra.join(", ")}`
+            );
+          } else if (!options.allowNewColumns) {
             const schemaHint = options.schemaFile ?? `the schema for ${options.tableName}`;
             throw new Error(
               `CSV has ${extra.length} undefined columns in ${fileName}. Add them to ${schemaHint} or pass --allow-new-columns.`
             );
+          } else {
+            if (!options.dryRun) {
+              await client.query(buildAddColumnsSql(options.tableName, extra));
+            }
+            for (const col of extra) {
+              typeMap.set(col, "TEXT");
+            }
+            console.log(`${fileName}: added ${extra.length} new columns to ${options.tableName}`);
           }
-          if (!options.dryRun) {
-            await client.query(buildAddColumnsSql(options.tableName, extra));
-          }
-          for (const col of extra) {
-            typeMap.set(col, "TEXT");
-          }
-          console.log(`${fileName}: added ${extra.length} new columns to ${options.tableName}`);
         }
         // Inject synthetic Forfeit column if Victory exists and Forfeit is not in the CSV
         victoryIndex = headers.indexOf("Victory");

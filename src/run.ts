@@ -643,6 +643,7 @@ async function main(): Promise<void> {
             dryRun: options.dryRun,
             limit: options.limit,
             allowNewColumns: options.allowNewColumns,
+            ignoreUnknownColumns: dataset.ignoreUnknownColumns,
             tableName: dataset.tableName,
             schemaFile: dataset.schemaFile,
             sourceFile: sourceFileName,

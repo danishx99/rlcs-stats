@@ -296,13 +296,34 @@ player_event_placements AS (
    AND etp.event IS NOT DISTINCT FROM pet.event
    AND etp.team_norm = UPPER(TRIM(pet.team))
 ),
+completed_events AS (
+  SELECT DISTINCT
+    LOWER(TRIM(sb."Season")) AS season_key,
+    LOWER(TRIM(sb."Split")) AS split_key,
+    LOWER(TRIM(sb."Event")) AS event_key
+  FROM stats_base sb
+  WHERE UPPER(TRIM(sb."Round")) IN ('GF', 'GF 1', 'GF1', 'GF 2', 'GF2')
+),
 best_result AS (
   SELECT
     CASE
-      WHEN MIN(placement_end) FILTER (WHERE placement_end < 999) IS NULL THEN NULL
-      ELSE CONCAT('Top ', MIN(placement_end) FILTER (WHERE placement_end < 999)::text)
+      WHEN MIN(pep.placement_end) FILTER (
+        WHERE pep.placement_end < 999
+          AND ce.season_key IS NOT NULL
+      ) IS NULL THEN NULL
+      ELSE CONCAT(
+        'Top ',
+        MIN(pep.placement_end) FILTER (
+          WHERE pep.placement_end < 999
+            AND ce.season_key IS NOT NULL
+        )::text
+      )
     END AS placement
-  FROM player_event_placements
+  FROM player_event_placements pep
+  LEFT JOIN completed_events ce
+    ON ce.season_key = LOWER(TRIM(pep.season))
+   AND ce.split_key = LOWER(TRIM(pep.split))
+   AND ce.event_key = LOWER(TRIM(pep.event))
 ),
 stats_summary AS (
   SELECT

@@ -31,6 +31,7 @@ export type DatasetConfig = {
   addColumnsSql?: string;
   addCommentsSql?: string;
   headerNormalizer?: (header: string) => string;
+  ignoreUnknownColumns?: boolean;
   ignoreCoercionErrors?: boolean;
   stopAfterHeader?: string;
   denormalize?: boolean;
@@ -79,6 +80,7 @@ export const DATASETS: DatasetConfig[] = [
     addColumnsSql: addStatsColumnsSql,
     addCommentsSql: addStatsTableCommentsSql,
     headerNormalizer: normalizeMatchesHeader,
+    ignoreUnknownColumns: true,
     denormalize: true
   },
   {
