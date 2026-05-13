@@ -19,12 +19,12 @@ export function formatValue(value: number | null | undefined, format?: StatOptio
     return "—";
   }
   if (format === "pct") {
-    return `${percentFormatter.format(value)}%`;
+    return `${percentFormatter.format(value).replace(/,/g, " ")}%`;
   }
   if (format === "float") {
-    return decimalFormatter.format(value);
+    return decimalFormatter.format(value).replace(/,/g, " ");
   }
-  return numberFormatter.format(value);
+  return numberFormatter.format(value).replace(/,/g, " ");
 }
 
 export function formatStat(
@@ -41,5 +41,5 @@ export function formatStat(
   if (mode === "avg") {
     return formatValue(value, "float");
   }
-  return formatValue(value, format);
+  return formatValue(value, "int");
 }
