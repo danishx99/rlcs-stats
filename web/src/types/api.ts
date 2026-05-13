@@ -17,6 +17,7 @@ export type MetaResponse = {
   splits: string[];
   events: string[];
   internationalEvents?: string[];
+  arenas: string[];
   statOptions: StatOption[];
   featuredOptions?: StatOption[];
 };

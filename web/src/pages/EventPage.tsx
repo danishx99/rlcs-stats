@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { EventBracket, EventDetail, EventTeam, LeaderboardResponse, MetaResponse, SearchResponse, StatCategory, StatOption } from "../types/api";
 import { proxyImageUrl } from "../utils/normalize";
@@ -9,6 +9,7 @@ import { sortEventsLanLast } from "../utils/events";
 import Leaderboard from "../components/Leaderboard";
 import PlayerNameWithPhoto from "../components/PlayerNameWithPhoto";
 import StatPicker from "../components/StatPicker";
+import ArenaFilter from "../components/ArenaFilter";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
@@ -58,6 +59,8 @@ function dayLabel(day: string) {
 export default function EventPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const arenaParam = searchParams.get("arena") ?? "";
   const [leaderboardMode, setLeaderboardMode] = useState<"avg" | "total">("avg");
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [teams, setTeams] = useState<EventTeam[]>([]);
@@ -109,6 +112,7 @@ export default function EventPage() {
       try {
         const response = await api.eventDetail(targetEventId, {
           teamsLimit: FULL_TEAMS_LIMIT,
+          arena: arenaParam || undefined,
         });
         setTeams(response.teams);
         setEvent(response.event);
@@ -130,7 +134,7 @@ export default function EventPage() {
       }
     }
     loadEvent();
-  }, [eventId, eventRetryKey]);
+  }, [eventId, eventRetryKey, arenaParam]);
 
   // Re-fetch core leaderboards when mode changes (without full page reload)
   useEffect(() => {
@@ -151,6 +155,7 @@ export default function EventPage() {
           mode: leaderboardMode,
           phase: selectedPhase !== "all" ? selectedPhase : undefined,
           day: selectedDay !== "all" ? selectedDay : undefined,
+          arena: arenaParam || undefined,
           limit: 10,
         })
       )
@@ -163,7 +168,7 @@ export default function EventPage() {
     });
 
     return () => { cancelled = true; };
-  }, [event, leaderboardMode, selectedDay, selectedPhase]);
+  }, [event, leaderboardMode, selectedDay, selectedPhase, arenaParam]);
 
   // Pre-fill filters from current event
   useEffect(() => {
@@ -220,6 +225,30 @@ export default function EventPage() {
     [meta?.events, meta?.internationalEvents]
   );
 
+  const arenas = meta?.arenas ?? [];
+  const effectiveArena = arenaParam && arenas.includes(arenaParam) ? arenaParam : "";
+
+  // Silently drop invalid arena from the URL once meta is loaded.
+  useEffect(() => {
+    if (!meta) return;
+    if (arenaParam === "") return;
+    if (arenas.includes(arenaParam)) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("arena");
+      return next;
+    }, { replace: true });
+  }, [meta, arenaParam, arenas, setSearchParams]);
+
+  const updateArena = (next: string) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next) params.set("arena", next);
+      else params.delete("arena");
+      return params;
+    });
+  };
+
   const toggleStat = (key: string) => {
     setSelectedStats((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
@@ -269,7 +298,7 @@ export default function EventPage() {
   useEffect(() => {
     setLeaderboardMap(new Map());
     setStatLoadErrors(new Map());
-  }, [eventId, leaderboardMode, selectedDay, selectedPhase]);
+  }, [eventId, leaderboardMode, selectedDay, selectedPhase, arenaParam]);
 
   // Fetch leaderboards for extra selected stats (defaults are already in hardcoded cards)
   useEffect(() => {
@@ -319,6 +348,7 @@ export default function EventPage() {
           mode: leaderboardMode,
           phase: selectedPhase !== "all" ? selectedPhase : undefined,
           day: selectedDay !== "all" ? selectedDay : undefined,
+          arena: arenaParam || undefined,
           limit: 10,
         }).then((result) => ({ metric, result }))
       )
@@ -352,7 +382,7 @@ export default function EventPage() {
     });
 
     return () => { cancelled = true; };
-  }, [event, leaderboardMap, leaderboardMode, selectedDay, selectedPhase, selectedStats]);
+  }, [event, leaderboardMap, leaderboardMode, selectedDay, selectedPhase, selectedStats, arenaParam]);
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
@@ -730,6 +760,11 @@ export default function EventPage() {
                 ))}
               </select>
             )}
+            <ArenaFilter
+              arenas={arenas}
+              value={effectiveArena}
+              onChange={updateArena}
+            />
           </div>
 
           {leaderboardsLoading ? (

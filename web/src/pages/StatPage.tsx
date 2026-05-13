@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { MetaColumnsResponse, MetaResponse } from "../types/api";
 import StatPicker from "../components/StatPicker";
+import ArenaFilter from "../components/ArenaFilter";
 import StatCardGrid from "../components/StatCardGrid";
 import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
 import PanelState from "../components/ui/PanelState";
@@ -10,6 +11,7 @@ import SkeletonBlock from "../components/ui/SkeletonBlock";
 import { useStatSelection } from "../hooks/useStatSelection";
 import { useStatLeaderboards } from "../hooks/useStatLeaderboards";
 import { useShare } from "../hooks/useShare";
+import { MILESTONE_STAT_KEYS } from "../utils/stats";
 
 export default function StatPage() {
   const { statKey } = useParams();
@@ -26,6 +28,7 @@ export default function StatPage() {
   const limitRaw = Number.parseInt(searchParams.get("limit") ?? "10", 10);
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 50) : 10;
   const includeLans = searchParams.get("includeLans") === "1";
+  const arenaParam = searchParams.get("arena") ?? "";
   const teamsDisabled = gameMode === "1s";
 
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -100,9 +103,32 @@ export default function StatPage() {
     return { statLabels: labels, validKeys: keys };
   }, [categories]);
 
+  // In team mode, milestone stats have no clean team-level definition. Drop
+  // them from validKeys so useStatSelection silently filters them out of the
+  // URL the same way it handles bogus keys.
+  const effectiveValidKeys = useMemo(() => {
+    if (type !== "team") return validKeys;
+    const next = new Set<string>();
+    validKeys.forEach((key) => {
+      if (!MILESTONE_STAT_KEYS.has(key)) next.add(key);
+    });
+    return next;
+  }, [validKeys, type]);
+
   // Until categories load, treat validKeys as unknown (null) so we don't
   // erroneously strip stats from the URL on initial mount.
-  const validKeysOrNull = !columnsLoading && categories.length > 0 ? validKeys : null;
+  const validKeysOrNull = !columnsLoading && categories.length > 0 ? effectiveValidKeys : null;
+
+  // If the URL anchor is a milestone stat while in Teams mode, re-anchor to
+  // the default ("score") so the page renders cleanly. Preserve all other
+  // query params.
+  useEffect(() => {
+    if (type !== "team") return;
+    if (!statKey) return;
+    if (!MILESTONE_STAT_KEYS.has(statKey)) return;
+    const search = searchParams.toString();
+    navigate(`/stats/score${search ? `?${search}` : ""}`, { replace: true });
+  }, [type, statKey, searchParams, navigate]);
 
   const { orderedStats, toggleStat, removeStat, isAtCap } = useStatSelection({
     statKey,
@@ -111,6 +137,22 @@ export default function StatPage() {
     navigate,
     validKeys: validKeysOrNull,
   });
+
+  // Validate arena against meta.arenas; silently drop invalid values from the URL.
+  const arenas = meta?.arenas ?? [];
+  const arenaIsValid = arenaParam === "" || arenas.includes(arenaParam);
+  const effectiveArena = arenaIsValid ? arenaParam : "";
+
+  useEffect(() => {
+    if (!meta) return;
+    if (arenaParam === "") return;
+    if (arenas.includes(arenaParam)) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("arena");
+      return next;
+    }, { replace: true });
+  }, [meta, arenaParam, arenas, setSearchParams]);
 
   const { dataByKey, loadingByKey, errorByKey } = useStatLeaderboards(orderedStats, {
     type,
@@ -123,6 +165,7 @@ export default function StatPage() {
     season,
     split,
     event,
+    arena: effectiveArena,
   });
 
   const updateParam = useCallback((key: string, value: string) => {
@@ -176,6 +219,7 @@ export default function StatPage() {
     event || null,
     gameMode,
     gameMode === "3s" ? (effectiveIncludeLans ? "All events" : "Regional only") : null,
+    effectiveArena || null,
   ].filter((part): part is string => Boolean(part));
 
   const { share: shareView, busy: shareBusy, message: shareMessage } = useShare();
@@ -260,6 +304,7 @@ export default function StatPage() {
               onToggle={toggleStat}
               dropdown
               disabledKeys={disabledKeys}
+              hiddenKeys={type === "team" ? (MILESTONE_STAT_KEYS as Set<string>) : undefined}
             />
           )}
 
@@ -360,6 +405,11 @@ export default function StatPage() {
               <option key={e} value={e}>{e}</option>
             ))}
           </select>
+          <ArenaFilter
+            arenas={arenas}
+            value={effectiveArena}
+            onChange={(next) => updateParam("arena", next)}
+          />
         </div>
       </div>
 

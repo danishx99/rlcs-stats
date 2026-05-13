@@ -9,9 +9,10 @@ type StatPickerProps = {
   triggerLabel?: string;
   dropdown?: boolean;
   disabledKeys?: Set<string>;
+  hiddenKeys?: Set<string>;
 };
 
-export default function StatPicker({ categories, selected, onToggle, single, triggerLabel, dropdown, disabledKeys }: StatPickerProps) {
+export default function StatPicker({ categories, selected, onToggle, single, triggerLabel, dropdown, disabledKeys, hiddenKeys }: StatPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -40,9 +41,10 @@ export default function StatPicker({ categories, selected, onToggle, single, tri
   const filtered = categories
     .map((cat) => ({
       ...cat,
-      stats: cat.stats.filter((stat) =>
-        query ? stat.label.toLowerCase().includes(query) : true
-      )
+      stats: cat.stats.filter((stat) => {
+        if (hiddenKeys?.has(stat.key)) return false;
+        return query ? stat.label.toLowerCase().includes(query) : true;
+      })
     }))
     .filter((cat) => cat.stats.length > 0);
 

@@ -13,6 +13,7 @@ export type StatLeaderboardQuery = {
   season?: string;
   split?: string;
   event?: string;
+  arena?: string;
 };
 
 type UseStatLeaderboardsResult = {
@@ -33,6 +34,7 @@ function serializeQuery(q: StatLeaderboardQuery): string {
     q.season ?? "",
     q.split ?? "",
     q.event ?? "",
+    q.arena ?? "",
   ].join("|");
 }
 
@@ -110,6 +112,7 @@ export function useStatLeaderboards(
             season: query.season || undefined,
             split: query.split || undefined,
             event: query.event || undefined,
+            arena: query.arena || undefined,
             limit: query.limit,
           })
           .then((result) => ({ metric, result }))

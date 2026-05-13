@@ -12,6 +12,7 @@ import PlayerNameWithPhoto from "../components/PlayerNameWithPhoto";
 import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
+import { MILESTONE_STAT_KEYS } from "../utils/stats";
 
 const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
 const SEARCH_DEBOUNCE_MS = 200;
@@ -296,6 +297,7 @@ export default function ComparePage() {
             categories={statCategories}
             selected={compareMetrics}
             onToggle={toggleCompareMetric}
+            hiddenKeys={compareMode === "rosters" ? (MILESTONE_STAT_KEYS as Set<string>) : undefined}
           />
         </div>
         {statCategoriesLoading && compareStatsList.length === 0 ? (

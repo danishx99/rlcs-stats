@@ -37,6 +37,11 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
   if (ssaOnly && type === "player") {
     clauses.push(`s."Unique ID" LIKE 'SSA-%'`);
   }
+  const arena = url.searchParams.get("arena")?.trim();
+  if (arena) {
+    values.push(arena);
+    clauses.push(`s."Arena" = $${values.length}`);
+  }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
   const minSeries = Number.parseInt(url.searchParams.get("minSeries") ?? "0", 10);

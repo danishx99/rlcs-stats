@@ -23,8 +23,23 @@ export const STAT_OPTIONS: StatOption[] = [
   { key: "on_ground", label: "On Ground %", column: "On Ground_All Zones", format: "pct" },
   { key: "in_air", label: "In Air", column: "In Air_All Zones", format: "float" },
   { key: "series_played", label: "Series Played", kind: "series_played", format: "int" },
-  { key: "rating", label: "Rating", kind: "rating", format: "float" }
+  { key: "rating", label: "Rating", kind: "rating", format: "float" },
+  { key: "games_played", label: "Games Played", kind: "games_played", format: "int" },
+  { key: "hat_tricks", label: "Hat-tricks", kind: "hat_tricks", format: "int" },
+  { key: "saviours", label: "Saviours", kind: "saviours", format: "int" },
+  { key: "exterminations", label: "Exterminations", kind: "exterminations", format: "int" },
+  { key: "ot_games", label: "OT Games", kind: "ot_games", format: "int" },
+  { key: "mvps", label: "MVPs", kind: "mvps", format: "int" }
 ];
+
+export const MILESTONE_STAT_KEYS = new Set<string>([
+  "games_played",
+  "hat_tricks",
+  "saviours",
+  "exterminations",
+  "ot_games",
+  "mvps"
+]);
 
 export const DEFAULT_COMPARE_STATS = ["goals", "assists", "saves", "demos"];
 
@@ -247,6 +262,30 @@ export function metricExpression(option: StatOption | null, mode: "avg" | "total
   if (option.kind === "rating") {
     return ratingExpression(alias);
   }
+  if (option.kind === "games_played") {
+    return `COUNT(*)`;
+  }
+  if (option.kind === "hat_tricks") {
+    return `COUNT(*) FILTER (WHERE ${alias}."Goals_All Zones" >= 3)`;
+  }
+  if (option.kind === "saviours") {
+    return `COUNT(*) FILTER (WHERE ${alias}."Saves_All Zones" >= 3)`;
+  }
+  if (option.kind === "exterminations") {
+    return `COUNT(*) FILTER (WHERE ${alias}."Kills_All Zones" >= 7)`;
+  }
+  if (option.kind === "ot_games") {
+    return `COUNT(*) FILTER (WHERE ${alias}."OT" = true)`;
+  }
+  if (option.kind === "mvps") {
+    return `COUNT(*) FILTER (WHERE ${alias}."Victory" = true AND ${alias}."Score_All Zones" = (
+      SELECT MAX(s2."Score_All Zones")
+      FROM stats s2
+      WHERE s2."Match ID" = ${alias}."Match ID"
+        AND s2."Game Number" = ${alias}."Game Number"
+        AND s2."Team" = ${alias}."Team"
+    ))`;
+  }
   if (!option.column) return "NULL";
   const column = `${alias}."${option.column}"`;
   if (mode === "total") {
@@ -316,9 +355,14 @@ export function categorizeStatOptions(options: StatOption[]): StatCategory[] {
   );
 
   const categorized = new Set<string>();
+  const coreStats = STAT_OPTIONS.filter((o) => !MILESTONE_STAT_KEYS.has(o.key));
+  const milestoneStats = STAT_OPTIONS.filter((o) => MILESTONE_STAT_KEYS.has(o.key));
   const categories: StatCategory[] = [
-    { name: "Core", stats: [...STAT_OPTIONS] }
+    { name: "Core", stats: coreStats }
   ];
+  if (milestoneStats.length) {
+    categories.push({ name: "Milestones", stats: milestoneStats });
+  }
 
   for (const rule of STAT_CATEGORY_RULES) {
     const stats: StatOption[] = [];

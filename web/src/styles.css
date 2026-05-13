@@ -648,6 +648,8 @@ body {
   align-items: center;
   gap: 10px;
   margin-bottom: 16px;
+  position: relative;
+  z-index: 20;
 }
 
 .event-filter-select {

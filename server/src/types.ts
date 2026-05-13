@@ -3,7 +3,15 @@ export type StatOption = {
   label: string;
   column?: string;
   format?: "int" | "float" | "pct";
-  kind?: "series_played" | "rating";
+  kind?:
+    | "series_played"
+    | "rating"
+    | "games_played"
+    | "hat_tricks"
+    | "saviours"
+    | "exterminations"
+    | "ot_games"
+    | "mvps";
 };
 
 export type FeaturedColumn = {

@@ -30,6 +30,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
   const leaderboardMode = normalizeMode(url.searchParams.get("mode"));
   const selectedPhase = normalizePhase(url.searchParams.get("phase"));
   const selectedDay = normalizeDay(url.searchParams.get("day"));
+  const arenaParam = url.searchParams.get("arena")?.trim() || null;
 
   try {
     const detailResult = await pool.query(
@@ -63,7 +64,8 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         AND ($5::text IS NULL OR s."scope" = $5)
         AND ($6::text IS NULL OR s."tier" = $6)
         AND ($7::text = 'all' OR LOWER(TRIM(COALESCE(s."Stage", ''))) = LOWER($7))
-        AND ($8::text = 'all' OR LOWER(TRIM(COALESCE(s."Day"::text, ''))) = LOWER($8))`;
+        AND ($8::text = 'all' OR LOWER(TRIM(COALESCE(s."Day"::text, ''))) = LOWER($8))
+        AND ($9::text IS NULL OR s."Arena" = $9)`;
       const primaryValueExpr = metricExpression(option, leaderboardMode, "player_scope");
       const avgValueExpr = metricExpression(option, "avg", "player_scope");
       const totalValueExpr = metricExpression(option, "total", "player_scope");
@@ -75,7 +77,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         totalValueExpr,
         havingClause: "",
         sortDir: "DESC",
-        limitParam: "$9"
+        limitParam: "$10"
       });
       return { key, option, sql };
     });
@@ -86,7 +88,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
       pool.query(phasesSql, [eventName, season, split, mode, scope, tier]),
       pool.query(daysSql, [eventName, season, split, mode, scope, tier]),
       ...leaderboardQueries.map((q) =>
-        pool.query(q.sql, [eventName, season, split, mode, scope, tier, selectedPhase, selectedDay, 10])
+        pool.query(q.sql, [eventName, season, split, mode, scope, tier, selectedPhase, selectedDay, arenaParam, 10])
       )
     ]);
     const phases = phasesResult.rows
