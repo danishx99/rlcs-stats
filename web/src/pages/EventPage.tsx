@@ -14,6 +14,7 @@ import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 import SkeletonRows from "../components/ui/SkeletonRows";
 import PageBackActions from "../components/PageBackActions";
+import { useShare } from "../hooks/useShare";
 
 const CORE_LEADERBOARDS = [
   { key: "rating", title: "Top 10 Players (Rating)" },
@@ -67,8 +68,7 @@ export default function EventPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventRetryKey, setEventRetryKey] = useState(0);
-  const [shareBusy, setShareBusy] = useState(false);
-  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const { share, busy: shareBusy, message: shareMessage } = useShare();
 
   // Event search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -358,37 +358,8 @@ export default function EventPage() {
     const shareUrl = window.location.href;
     const shareTitle = event?.name ? `RLCS Stats · ${event.name}` : "RLCS Stats";
     const shareText = [event?.season, event?.split, event?.name].filter(Boolean).join(" / ");
-
-    setShareBusy(true);
-    setShareMessage(null);
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          url: shareUrl
-        });
-        setShareMessage("Shared.");
-        return;
-      }
-      await navigator.clipboard.writeText(shareUrl);
-      setShareMessage("Link copied.");
-    } catch (shareError) {
-      if (shareError instanceof DOMException && shareError.name === "AbortError") {
-        return;
-      }
-      console.error(shareError);
-      setShareMessage("Could not share. Copy the URL manually.");
-    } finally {
-      setShareBusy(false);
-    }
+    await share({ title: shareTitle, text: shareText, url: shareUrl });
   };
-
-  useEffect(() => {
-    if (!shareMessage) return;
-    const timer = window.setTimeout(() => setShareMessage(null), 2200);
-    return () => window.clearTimeout(timer);
-  }, [shareMessage]);
 
   if (loading) {
     return (

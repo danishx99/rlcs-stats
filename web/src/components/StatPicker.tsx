@@ -8,9 +8,10 @@ type StatPickerProps = {
   single?: boolean;
   triggerLabel?: string;
   dropdown?: boolean;
+  disabledKeys?: Set<string>;
 };
 
-export default function StatPicker({ categories, selected, onToggle, single, triggerLabel, dropdown }: StatPickerProps) {
+export default function StatPicker({ categories, selected, onToggle, single, triggerLabel, dropdown, disabledKeys }: StatPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -47,7 +48,11 @@ export default function StatPicker({ categories, selected, onToggle, single, tri
 
   const triggerText = single
     ? triggerLabel || "Select Stat"
-    : "+ Add Stat";
+    : triggerLabel
+      ? triggerLabel
+      : selected.length > 1
+        ? `${selected.length} stats selected`
+        : "+ Add Stat";
 
   const triggerClass = single
     ? "ghost stat-picker-trigger stat-picker-trigger--select"
@@ -83,20 +88,30 @@ export default function StatPicker({ categories, selected, onToggle, single, tri
               <div key={cat.name} className="stat-picker-group">
                 <div className="stat-picker-group-title">{cat.name}</div>
                 <div className="stat-picker-group-grid">
-                  {cat.stats.map((stat) => (
-                    <label key={stat.key} className="stat-toggle">
-                      <input
-                        type={single ? "radio" : "checkbox"}
-                        name={single ? "stat-picker-single" : undefined}
-                        checked={selected.includes(stat.key)}
-                        onChange={() => {
-                          onToggle(stat.key);
-                          if (single) setOpen(false);
-                        }}
-                      />
-                      {stat.label}
-                    </label>
-                  ))}
+                  {cat.stats.map((stat) => {
+                    const isSelected = selected.includes(stat.key);
+                    const isDisabled = !isSelected && Boolean(disabledKeys?.has(stat.key));
+                    return (
+                      <label
+                        key={stat.key}
+                        className={`stat-toggle${isDisabled ? " stat-toggle--disabled" : ""}`}
+                        title={isDisabled ? "Stat selection cap reached" : undefined}
+                      >
+                        <input
+                          type={single ? "radio" : "checkbox"}
+                          name={single ? "stat-picker-single" : undefined}
+                          checked={isSelected}
+                          disabled={isDisabled}
+                          onChange={() => {
+                            if (isDisabled) return;
+                            onToggle(stat.key);
+                            if (single) setOpen(false);
+                          }}
+                        />
+                        {stat.label}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             ))}

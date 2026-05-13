@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import type { LeaderboardResponse, MetaColumnsResponse, MetaResponse } from "../types/api";
-import Leaderboard from "../components/Leaderboard";
+import type { MetaColumnsResponse, MetaResponse } from "../types/api";
 import StatPicker from "../components/StatPicker";
+import StatCardGrid from "../components/StatCardGrid";
 import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
+import { useStatSelection } from "../hooks/useStatSelection";
+import { useStatLeaderboards } from "../hooks/useStatLeaderboards";
+import { useShare } from "../hooks/useShare";
 
 export default function StatPage() {
   const { statKey } = useParams();
@@ -14,7 +17,7 @@ export default function StatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const type = searchParams.get("type") === "team" ? "team" : "player";
-  const mode = searchParams.get("mode") === "total" ? "total" : "avg";
+  const mode = searchParams.get("mode") === "avg" ? "avg" : "total";
   const sort = searchParams.get("sort") === "asc" ? "asc" : "desc";
   const season = searchParams.get("season") ?? "";
   const split = searchParams.get("split") ?? "";
@@ -31,10 +34,7 @@ export default function StatPage() {
   const [columns, setColumns] = useState<MetaColumnsResponse | null>(null);
   const [columnsLoading, setColumnsLoading] = useState(false);
   const [columnsError, setColumnsError] = useState<string | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
+
   const internationalEvents = meta?.internationalEvents ?? [];
   const forceIncludeLansForEvent = gameMode === "3s" && Boolean(event) && isInternationalEvent(event, internationalEvents);
   const effectiveIncludeLans = includeLans || forceIncludeLansForEvent;
@@ -85,35 +85,45 @@ export default function StatPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Load leaderboard
-  useEffect(() => {
-    if (!statKey) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    api.statsTop({
-      metric: statKey,
-      mode,
-      type,
-      sort: sort === "asc" ? "asc" : undefined,
-      ssaOnly: type === "player" ? "1" : undefined,
-      gameMode: gameMode || undefined,
-      scope: scope || undefined,
-      tier: tier || undefined,
-      season: season || undefined,
-      split: split || undefined,
-      event: event || undefined,
-      limit
-    }).then((res) => {
-      if (!cancelled) setLeaderboard(res);
-    }).catch((err) => {
-      console.error(err);
-      if (!cancelled) setError("Failed to load leaderboard");
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [event, gameMode, limit, mode, retryKey, scope, season, sort, split, statKey, tier, type]);
+  const categories = columns?.categories ?? [];
+
+  // Build label lookup and valid-key set from categories.
+  const { statLabels, validKeys } = useMemo(() => {
+    const labels = new Map<string, string>();
+    const keys = new Set<string>();
+    for (const cat of categories) {
+      for (const s of cat.stats) {
+        labels.set(s.key, s.label);
+        keys.add(s.key);
+      }
+    }
+    return { statLabels: labels, validKeys: keys };
+  }, [categories]);
+
+  // Until categories load, treat validKeys as unknown (null) so we don't
+  // erroneously strip stats from the URL on initial mount.
+  const validKeysOrNull = !columnsLoading && categories.length > 0 ? validKeys : null;
+
+  const { orderedStats, toggleStat, removeStat, isAtCap } = useStatSelection({
+    statKey,
+    searchParams,
+    setSearchParams,
+    navigate,
+    validKeys: validKeysOrNull,
+  });
+
+  const { dataByKey, loadingByKey, errorByKey } = useStatLeaderboards(orderedStats, {
+    type,
+    mode,
+    sort,
+    limit,
+    gameMode,
+    scope,
+    tier,
+    season,
+    split,
+    event,
+  });
 
   const updateParam = useCallback((key: string, value: string) => {
     setSearchParams((prev) => {
@@ -139,25 +149,14 @@ export default function StatPage() {
     });
   }, [setSearchParams]);
 
-  const handleStatChange = useCallback((key: string) => {
-    const params = new URLSearchParams(searchParams);
-    navigate(`/stats/${encodeURIComponent(key)}?${params.toString()}`);
-  }, [navigate, searchParams]);
-
-  const categories = columns?.categories ?? [];
   const eventOptions = useMemo(
     () => sortEventsLanLast(meta?.events ?? [], internationalEvents),
     [internationalEvents, meta?.events]
   );
-  const selectedStatLabel = useMemo(() => {
-    for (const cat of categories) {
-      const found = cat.stats.find((s) => s.key === statKey);
-      if (found) return found.label;
-    }
-    return leaderboard?.metric?.label ?? statKey ?? "Stat";
-  }, [categories, statKey, leaderboard]);
+
   const statExists = useMemo(() => {
     if (!statKey) return false;
+    if (categories.length === 0) return true; // unknown until loaded
     return categories.some((category) => category.stats.some((stat) => stat.key === statKey));
   }, [categories, statKey]);
 
@@ -168,6 +167,38 @@ export default function StatPage() {
   const targetLimit = showingAll ? 10 : 50;
   const limitLabel = showingAll ? "Top 50" : `Top ${limit}`;
 
+  // Subheading describes active filter scope.
+  const subheadingParts = [
+    `${sortLabel} ${limitLabel} ${typeLabel}`,
+    modeLabel,
+    season || null,
+    split || null,
+    event || null,
+    gameMode,
+    gameMode === "3s" ? (effectiveIncludeLans ? "All events" : "Regional only") : null,
+  ].filter((part): part is string => Boolean(part));
+
+  const { share: shareView, busy: shareBusy, message: shareMessage } = useShare();
+  const subheadingText = subheadingParts.join(" · ");
+  const handleShare = () => {
+    void shareView({
+      title: "RLCS Stats · Leaderboards",
+      text: subheadingText,
+      url: window.location.href,
+    });
+  };
+
+  const disabledKeys = useMemo(() => {
+    if (!isAtCap) return undefined;
+    const disabled = new Set<string>();
+    for (const cat of categories) {
+      for (const s of cat.stats) {
+        if (!orderedStats.includes(s.key)) disabled.add(s.key);
+      }
+    }
+    return disabled;
+  }, [categories, isAtCap, orderedStats]);
+
   return (
     <div className="page page-no-nav">
       <button className="ghost back-button" onClick={() => navigate("/")}>
@@ -175,9 +206,9 @@ export default function StatPage() {
       </button>
 
       <div>
-        <h1 className="page-heading" style={{ marginBottom: 6 }}>{selectedStatLabel}</h1>
-        <div className="page-heading-sub">
-          {sortLabel} {limitLabel} {typeLabel} &middot; {modeLabel}
+        <h1 className="page-heading" style={{ marginBottom: 10 }}>Leaderboards</h1>
+        <div className="page-heading-sub" style={{ marginTop: 8 }}>
+          {subheadingParts.join(" · ")}
         </div>
       </div>
 
@@ -205,14 +236,14 @@ export default function StatPage() {
             <button
               type="button"
               className={`tab${mode === "avg" ? " active" : ""}`}
-              onClick={() => updateParam("mode", "")}
+              onClick={() => updateParam("mode", "avg")}
             >
               Per Game
             </button>
             <button
               type="button"
               className={`tab${mode === "total" ? " active" : ""}`}
-              onClick={() => updateParam("mode", "total")}
+              onClick={() => updateParam("mode", "")}
             >
               Total
             </button>
@@ -225,11 +256,10 @@ export default function StatPage() {
           ) : (
             <StatPicker
               categories={categories}
-              selected={statKey ? [statKey] : []}
-              onToggle={handleStatChange}
-              single
+              selected={orderedStats}
+              onToggle={toggleStat}
               dropdown
-              triggerLabel={selectedStatLabel}
+              disabledKeys={disabledKeys}
             />
           )}
 
@@ -257,6 +287,16 @@ export default function StatPage() {
           >
             {showingAll ? "Show Top 10" : "See All"}
           </button>
+
+          <button
+            type="button"
+            className="event-share-button"
+            onClick={handleShare}
+            disabled={shareBusy}
+          >
+            {shareBusy ? "Sharing..." : "Share"}
+          </button>
+          {shareMessage ? <span className="event-share-message">{shareMessage}</span> : null}
         </div>
 
         <div className="stat-page-filters">
@@ -331,9 +371,10 @@ export default function StatPage() {
       {!columnsLoading && categories.length > 0 && !statExists ? (
         <PanelState state="empty" message="That stat does not exist. Pick a valid stat from the picker." />
       ) : null}
-      {loading ? (
+
+      {columnsLoading && orderedStats.length === 0 ? (
         <div role="status" aria-busy="true">
-          {Array.from({ length: 10 }).map((_, i) => (
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={`lb-skel-${i}`} className="skel-leaderboard-row">
               <SkeletonBlock width={24} height={24} rounded="pill" />
               <SkeletonBlock width={36} height={36} rounded="pill" />
@@ -345,18 +386,17 @@ export default function StatPage() {
           ))}
         </div>
       ) : null}
-      {!loading && error ? (
-        <PanelState
-          state="error"
-          message={error}
-          onRetry={() => setRetryKey((value) => value + 1)}
+
+      {statExists && orderedStats.length > 0 ? (
+        <StatCardGrid
+          orderedStats={orderedStats}
+          dataByKey={dataByKey}
+          loadingByKey={loadingByKey}
+          errorByKey={errorByKey}
+          statLabels={statLabels}
+          entityType={type}
+          onRemove={removeStat}
         />
-      ) : null}
-      {!loading && !error && leaderboard ? (
-        <Leaderboard data={leaderboard} entityType={type} showSecondaryValue />
-      ) : null}
-      {!loading && !error && !leaderboard ? (
-        <PanelState state="empty" message="No leaderboard data." />
       ) : null}
     </div>
   );
