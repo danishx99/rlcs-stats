@@ -561,9 +561,10 @@ export default function EventPage() {
             <select
               value={event.name}
               onChange={(e) => {
-                if (e.target.value) {
+                const selectedName = e.target.value;
+                if (selectedName) {
                   void api.search({
-                    q: e.target.value,
+                    q: selectedName,
                     season: filterSeason || undefined,
                     split: filterSplit || undefined,
                     gameMode: event.mode || undefined,
@@ -571,7 +572,7 @@ export default function EventPage() {
                     tier: event.tier || undefined,
                     limit: 20
                   }).then((response) => {
-                    const match = (response.events ?? []).find((item) => item.label === e.target.value);
+                    const match = (response.events ?? []).find((item) => item.label === selectedName);
                     if (match) {
                       navigate(buildEventPath(match.id));
                     }
