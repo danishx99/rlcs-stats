@@ -176,8 +176,19 @@ export const api = {
   players(params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<{ players: SearchResponse["players"] }>("/api/players", params);
   },
-  playerProfile(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
-    return fetchJson<{ player: PlayerProfile }>(`/api/players/${id}`, params);
+  playerProfile(
+    id: string,
+    params?: Record<string, string | number | boolean | null | undefined>,
+    options?: { spotlight?: string[] }
+  ) {
+    const merged: Record<string, string | number | boolean | null | undefined> = {
+      ...(params ?? {})
+    };
+    const spotlight = options?.spotlight?.filter((key) => key && key.trim().length) ?? [];
+    if (spotlight.length) {
+      merged.spotlight = spotlight.join(",");
+    }
+    return fetchJson<{ player: PlayerProfile }>(`/api/players/${id}`, merged);
   },
   playerSeason(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
     return fetchJson<SeasonResponse>(`/api/players/${id}/season`, params);

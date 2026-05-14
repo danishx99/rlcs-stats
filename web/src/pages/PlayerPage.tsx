@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import type { PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow } from "../types/api";
+import type { PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow, StatCategory, StatOption } from "../types/api";
 import SeasonTable from "../components/SeasonTable";
 import SocialIconLink from "../components/SocialIconLink";
+import SpotlightTile from "../components/SpotlightTile";
+import StatPicker from "../components/StatPicker";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
+import { useMeta } from "../hooks/useMeta";
 import { formatAliases } from "../utils/aliases";
 import { computeAge, formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
@@ -55,10 +58,100 @@ function formatPlacement(
   return `${ordinal(start)}-${ordinal(top)}`;
 }
 
+const DEFAULT_SPOTLIGHT_KEYS = ["goals", "assists", "saves", "demos"] as const;
+type DefaultSpotlightKey = (typeof DEFAULT_SPOTLIGHT_KEYS)[number];
+
 export default function PlayerPage() {
   const { uniqueId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { meta } = useMeta({
+    mode: "3s",
+    scope: "regional",
+    tier: "none",
+    season: "",
+    split: "",
+    event: ""
+  });
+  const spotlightParam = searchParams.get("spotlight") ?? "";
+  const rawSpotlightKeys = useMemo(() => {
+    if (!spotlightParam) return [] as string[];
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const entry of spotlightParam.split(",")) {
+      const key = entry.trim();
+      if (!key) continue;
+      if ((DEFAULT_SPOTLIGHT_KEYS as readonly string[]).includes(key)) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(key);
+    }
+    return result;
+  }, [spotlightParam]);
+  const [statCategories, setStatCategories] = useState<StatCategory[]>([]);
+  const statOptionMap = useMemo(() => {
+    const map = new Map<string, StatOption>();
+    for (const option of meta?.statOptions ?? []) {
+      map.set(option.key, option);
+    }
+    for (const cat of statCategories) {
+      for (const option of cat.stats) {
+        if (!map.has(option.key)) map.set(option.key, option);
+      }
+    }
+    return map;
+  }, [meta, statCategories]);
+  const spotlightKeys = useMemo(() => rawSpotlightKeys.filter((key) => statOptionMap.has(key)), [rawSpotlightKeys, statOptionMap]);
+  const spotlightKey = spotlightKeys.join(",");
+  useEffect(() => {
+    let cancelled = false;
+    api.metaColumns().then((res) => {
+      if (!cancelled) setStatCategories(res.categories ?? []);
+    }).catch((err) => {
+      console.error(err);
+      if (!cancelled) setStatCategories([]);
+    });
+    return () => { cancelled = true; };
+  }, []);
+  const DEFAULT_KEYS_SET = useMemo(() => new Set<string>(DEFAULT_SPOTLIGHT_KEYS), []);
+  const toggleSpotlight = (key: string) => {
+    if (DEFAULT_KEYS_SET.has(key)) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      const current = (next.get("spotlight") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s && !DEFAULT_KEYS_SET.has(s));
+      const existing = current.indexOf(key);
+      let updated: string[];
+      if (existing >= 0) {
+        updated = current.filter((k) => k !== key);
+      } else {
+        if (current.length >= 8) return prev;
+        updated = [...current, key];
+      }
+      if (updated.length === 0) {
+        next.delete("spotlight");
+      } else {
+        next.set("spotlight", updated.join(","));
+      }
+      return next;
+    });
+  };
+  const spotlightDisabledKeys = useMemo(() => {
+    if (spotlightKeys.length < 8) return undefined;
+    const disabled = new Set<string>();
+    for (const cat of statCategories) {
+      for (const s of cat.stats) {
+        if (!spotlightKeys.includes(s.key)) disabled.add(s.key);
+      }
+    }
+    return disabled;
+  }, [statCategories, spotlightKeys]);
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
+  const playerProfileRef = useRef<PlayerProfile | null>(null);
+  const playerProfileRequestRef = useRef(0);
+  useEffect(() => { playerProfileRef.current = playerProfile; }, [playerProfile]);
   const [playerProfileLoading, setPlayerProfileLoading] = useState(false);
   const [playerProfileError, setPlayerProfileError] = useState<string | null>(null);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
@@ -82,13 +175,26 @@ export default function PlayerPage() {
   useEffect(() => {
     if (!uniqueId) return;
     const playerId = uniqueId;
+    const requestId = ++playerProfileRequestRef.current;
+    const keys = spotlightKey ? spotlightKey.split(",") : [];
+    const existing = playerProfileRef.current;
+    const samePlayerInBackground = existing !== null && existing.id === playerId;
     async function loadProfile() {
-      setPlayerProfileLoading(true);
+      if (!samePlayerInBackground) {
+        setPlayerProfile(null);
+        setPlayerProfileLoading(true);
+      }
       setPlayerProfileError(null);
       try {
-        const response = await api.playerProfile(playerId);
+        const response = await api.playerProfile(
+          playerId,
+          undefined,
+          keys.length ? { spotlight: keys } : undefined
+        );
+        if (playerProfileRequestRef.current !== requestId) return;
         setPlayerProfile(response.player);
       } catch (error) {
+        if (playerProfileRequestRef.current !== requestId) return;
         console.error(error);
         setPlayerProfile(null);
         const message = error instanceof Error ? error.message.toLowerCase() : "";
@@ -98,12 +204,13 @@ export default function PlayerPage() {
           setPlayerProfileError("Failed to load player profile");
         }
       } finally {
+        if (playerProfileRequestRef.current !== requestId) return;
         setPlayerProfileLoading(false);
       }
     }
 
     loadProfile();
-  }, [uniqueId]);
+  }, [uniqueId, spotlightKey]);
 
   useEffect(() => {
     setSeasonIncludeLans(false);
@@ -297,7 +404,7 @@ export default function PlayerPage() {
   const twitchLink = normalizeSocialLink(playerProfile.twitch, "twitch");
   const tiktokLink = normalizeSocialLink(playerProfile.tiktok, "tiktok");
   const currentTeam = playerProfile.teams[0] ?? null;
-  const focusStatLabelMap: Record<"goals" | "assists" | "saves" | "demos", string> = {
+  const focusStatLabelMap: Record<DefaultSpotlightKey, string> = {
     goals: "Goals",
     assists: "Assists",
     saves: "Saves",
@@ -455,18 +562,58 @@ export default function PlayerPage() {
       <section className="panel player-career-card">
         <div className="section-header">
           <h2>Career Spotlight</h2>
+          <div className="section-controls">
+            <StatPicker
+              categories={statCategories}
+              selected={spotlightKeys}
+              onToggle={toggleSpotlight}
+              dropdown
+              triggerLabel="+ Add Stat"
+              hiddenKeys={DEFAULT_KEYS_SET}
+              disabledKeys={spotlightDisabledKeys}
+            />
+          </div>
         </div>
 
         <div className="career-spotlight-grid">
-          {(["goals", "assists", "saves", "demos"] as const).map((stat) => {
-            const totalRank = playerProfile.ranks.total[stat];
+          {(["goals", "assists", "saves", "demos"] as const).map((stat) => (
+            <SpotlightTile
+              key={stat}
+              label={focusStatLabelMap[stat]}
+              format="int"
+              total={playerProfile.totals[stat] ?? 0}
+              avg={playerProfile.averages[stat] ?? 0}
+              rank={playerProfile.ranks.total[stat] ?? null}
+            />
+          ))}
+          {spotlightKeys.map((key) => {
+            const option = statOptionMap.get(key);
+            if (!option) return null;
+            const fmt = option.format ?? "int";
+            const pending = !(key in playerProfile.totals);
+            if (pending) {
+              return (
+                <div key={key} className="career-spotlight-stat career-spotlight-stat--pending" aria-busy="true">
+                  <span>{option.label}</span>
+                  <SkeletonBlock height={22} width="50%" />
+                  <SkeletonBlock height={10} width="55%" />
+                </div>
+              );
+            }
+            const rank = fmt === "int"
+              ? playerProfile.ranks.total[key] ?? null
+              : playerProfile.ranks.avg[key] ?? null;
             return (
-              <div key={stat} className="career-spotlight-stat">
-                <span>{focusStatLabelMap[stat]}</span>
-                <strong>{Math.round(playerProfile.totals[stat] ?? 0).toLocaleString("en-US")}</strong>
-                <small>{(playerProfile.averages[stat] ?? 0).toFixed(1)} avg</small>
-                {totalRank ? <small className="career-spotlight-rank">{ordinal(totalRank)} overall</small> : null}
-              </div>
+              <SpotlightTile
+                key={key}
+                label={option.label}
+                format={fmt}
+                total={playerProfile.totals[key] ?? null}
+                avg={playerProfile.averages[key] ?? null}
+                rank={rank}
+                removable
+                onRemove={() => toggleSpotlight(key)}
+              />
             );
           })}
         </div>

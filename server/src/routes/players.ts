@@ -5,6 +5,7 @@ import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr } from "../utils/roster";
+import { parseSpotlightParam, resolveSpotlightStats } from "../spotlight";
 const playersListSql = loadSql("../../sql/players/list.sql", import.meta.url);
 const playerSeasonSql = loadSql("../../sql/players/season.sql", import.meta.url);
 const playerProfileSql = loadSql("../../sql/players/profile.sql", import.meta.url);
@@ -103,6 +104,43 @@ export async function handlePlayerProfile(
         ? `Top ${Math.min(...completedPlacementEnds)}`
         : row.best_result ?? null;
 
+    const spotlightKeys = parseSpotlightParam(url.searchParams.get("spotlight"));
+    const customSpotlight = spotlightKeys.length
+      ? await resolveSpotlightStats(normalizedPlayerId, spotlightKeys)
+      : [];
+
+    const totals: Record<string, number | null> = {
+      goals: Number(row.goals_total ?? 0),
+      assists: Number(row.assists_total ?? 0),
+      saves: Number(row.saves_total ?? 0),
+      demos: Number(row.demos_total ?? 0)
+    };
+    const averages: Record<string, number | null> = {
+      goals: Number(row.goals_avg ?? 0),
+      assists: Number(row.assists_avg ?? 0),
+      saves: Number(row.saves_avg ?? 0),
+      demos: Number(row.demos_avg ?? 0)
+    };
+    const ranksAvg: Record<string, number | null> = {
+      goals: row.goals_rank_avg == null ? null : Number(row.goals_rank_avg),
+      assists: row.assists_rank_avg == null ? null : Number(row.assists_rank_avg),
+      saves: row.saves_rank_avg == null ? null : Number(row.saves_rank_avg),
+      demos: row.demos_rank_avg == null ? null : Number(row.demos_rank_avg)
+    };
+    const ranksTotal: Record<string, number | null> = {
+      goals: row.goals_rank_total == null ? null : Number(row.goals_rank_total),
+      assists: row.assists_rank_total == null ? null : Number(row.assists_rank_total),
+      saves: row.saves_rank_total == null ? null : Number(row.saves_rank_total),
+      demos: row.demos_rank_total == null ? null : Number(row.demos_rank_total)
+    };
+
+    for (const stat of customSpotlight) {
+      totals[stat.key] = stat.total;
+      averages[stat.key] = stat.avg;
+      ranksTotal[stat.key] = stat.rankTotal;
+      ranksAvg[stat.key] = stat.rankAvg;
+    }
+
     json(res, 200, {
       player: {
         id: row.player_id,
@@ -122,31 +160,11 @@ export async function handlePlayerProfile(
         gamesWon: Number(row.games_won ?? 0),
         gamesLost: Number(row.games_lost ?? 0),
         seriesPlayed: Number(row.series_played ?? 0),
-        totals: {
-          goals: Number(row.goals_total ?? 0),
-          assists: Number(row.assists_total ?? 0),
-          saves: Number(row.saves_total ?? 0),
-          demos: Number(row.demos_total ?? 0)
-        },
-        averages: {
-          goals: Number(row.goals_avg ?? 0),
-          assists: Number(row.assists_avg ?? 0),
-          saves: Number(row.saves_avg ?? 0),
-          demos: Number(row.demos_avg ?? 0)
-        },
+        totals,
+        averages,
         ranks: {
-          avg: {
-            goals: row.goals_rank_avg == null ? null : Number(row.goals_rank_avg),
-            assists: row.assists_rank_avg == null ? null : Number(row.assists_rank_avg),
-            saves: row.saves_rank_avg == null ? null : Number(row.saves_rank_avg),
-            demos: row.demos_rank_avg == null ? null : Number(row.demos_rank_avg)
-          },
-          total: {
-            goals: row.goals_rank_total == null ? null : Number(row.goals_rank_total),
-            assists: row.assists_rank_total == null ? null : Number(row.assists_rank_total),
-            saves: row.saves_rank_total == null ? null : Number(row.saves_rank_total),
-            demos: row.demos_rank_total == null ? null : Number(row.demos_rank_total)
-          }
+          avg: ranksAvg,
+          total: ranksTotal
         }
       }
     });

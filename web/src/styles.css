@@ -1761,9 +1761,15 @@ body {
   margin-top: 6px;
 }
 
+.player-career-card {
+  position: relative;
+  z-index: 5;
+}
+
 .player-results-card {
   margin-top: 18px;
 }
+
 
 .profile-subtitle {
   font-size: 1rem;
@@ -2056,16 +2062,77 @@ body {
 
 .career-spotlight-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
 
+@media (max-width: 900px) {
+  .career-spotlight-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .career-spotlight-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 380px) {
+  .career-spotlight-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .career-spotlight-stat {
+  position: relative;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.02);
   padding: 10px 12px;
   display: grid;
   gap: 4px;
+}
+
+.career-spotlight-stat-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.career-spotlight-stat-remove:hover,
+.career-spotlight-stat-remove:focus-visible {
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.35);
+  outline: none;
+}
+
+.career-spotlight-stat:hover .career-spotlight-stat-remove,
+.career-spotlight-stat:focus-within .career-spotlight-stat-remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .career-spotlight-stat-remove {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .career-spotlight-stat--active {

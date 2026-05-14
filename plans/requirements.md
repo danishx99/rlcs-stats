@@ -38,6 +38,7 @@
 - ✅ Stat page display mode rules:
   - Player leaderboard rows: show player photo only (no team text/logo inline)
   - Team leaderboard rows: show team logo only
+- [ ] Add a "minimum games" control to the leaderboards page when viewing per-game (avg) mode; UI-controlled threshold that filters results via the API
 
 ### Compare
 - ✅ Compare supports up to **6** players/teams across one or more stats

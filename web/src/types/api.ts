@@ -119,8 +119,8 @@ export type PlayerProfile = {
   gamesWon: number;
   gamesLost: number;
   seriesPlayed: number;
-  totals: Record<string, number>;
-  averages: Record<string, number>;
+  totals: Record<string, number | null>;
+  averages: Record<string, number | null>;
   ranks: {
     avg: Record<string, number | null>;
     total: Record<string, number | null>;
