@@ -4921,6 +4921,19 @@ th {
   margin-top: 8px;
 }
 
+.min-games-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.min-games-label {
+  color: var(--ink-dim);
+  font-family: "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
 /* Sort toggle */
 .sort-toggle {
   display: inline-flex;

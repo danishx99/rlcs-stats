@@ -31,6 +31,14 @@ export default function StatPage() {
   const arenaParam = searchParams.get("arena") ?? "";
   const teamsDisabled = gameMode === "1s";
 
+  // Minimum games threshold for Per Game mode. Absent param → default 25.
+  // Explicit `minGames=0` means "All" (no threshold).
+  const minGamesRaw = searchParams.get("minGames");
+  const minGames = minGamesRaw === null
+    ? 25
+    : Math.max(0, Number.parseInt(minGamesRaw, 10) || 0);
+  const minGamesActive = mode === "avg" ? minGames : 0;
+
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaError, setMetaError] = useState<string | null>(null);
@@ -166,6 +174,7 @@ export default function StatPage() {
     split,
     event,
     arena: effectiveArena,
+    minGames: minGamesActive,
   });
 
   const updateParam = useCallback((key: string, value: string) => {
@@ -220,6 +229,7 @@ export default function StatPage() {
     gameMode,
     gameMode === "3s" ? (effectiveIncludeLans ? "All events" : "Regional only") : null,
     effectiveArena || null,
+    mode === "avg" ? (minGamesActive > 0 ? `${minGamesActive}+ games` : "All games") : null,
   ].filter((part): part is string => Boolean(part));
 
   const { share: shareView, busy: shareBusy, message: shareMessage } = useShare();
@@ -292,6 +302,23 @@ export default function StatPage() {
               Total
             </button>
           </div>
+
+          {mode === "avg" ? (
+            <MinGamesControl
+              value={minGames}
+              onChange={(next) => {
+                // Default is 25 when param is absent. Encode the URL accordingly:
+                // - 25 → delete param (default)
+                // - 0  → set to "0" (explicit "All", distinguishable from absent)
+                // - N  → set to N
+                if (next === 25) {
+                  updateParam("minGames", "");
+                } else {
+                  updateParam("minGames", String(next));
+                }
+              }}
+            />
+          ) : null}
 
           {columnsLoading ? (
             <button type="button" className="ghost" disabled aria-busy="true">
@@ -448,6 +475,34 @@ export default function StatPage() {
           onRemove={removeStat}
         />
       ) : null}
+    </div>
+  );
+}
+
+const MIN_GAMES_PRESETS = [
+  { label: "All", value: 0 },
+  { label: "10+", value: 10 },
+  { label: "25+", value: 25 },
+  { label: "50+", value: 50 },
+  { label: "100+", value: 100 },
+];
+
+function MinGamesControl({ value, onChange }: { value: number; onChange: (next: number) => void }) {
+  return (
+    <div className="min-games-control" role="group" aria-label="Minimum games">
+      <span className="min-games-label">Min games</span>
+      <div className="tabs">
+        {MIN_GAMES_PRESETS.map((preset) => (
+          <button
+            key={preset.value}
+            type="button"
+            className={`tab${value === preset.value ? " active" : ""}`}
+            onClick={() => onChange(preset.value)}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

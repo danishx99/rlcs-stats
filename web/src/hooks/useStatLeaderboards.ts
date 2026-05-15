@@ -14,6 +14,7 @@ export type StatLeaderboardQuery = {
   split?: string;
   event?: string;
   arena?: string;
+  minGames?: number;
 };
 
 type UseStatLeaderboardsResult = {
@@ -35,6 +36,7 @@ function serializeQuery(q: StatLeaderboardQuery): string {
     q.split ?? "",
     q.event ?? "",
     q.arena ?? "",
+    q.minGames ?? 0,
   ].join("|");
 }
 
@@ -113,6 +115,7 @@ export function useStatLeaderboards(
             split: query.split || undefined,
             event: query.event || undefined,
             arena: query.arena || undefined,
+            minGames: query.minGames && query.minGames > 0 ? query.minGames : undefined,
             limit: query.limit,
           })
           .then((result) => ({ metric, result }))
