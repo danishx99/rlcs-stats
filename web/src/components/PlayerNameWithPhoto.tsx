@@ -17,12 +17,12 @@ export default function PlayerNameWithPhoto({
   link = true
 }: PlayerNameWithPhotoProps) {
   const label = name?.trim() || "—";
-  const image = proxyImageUrl(photoUrl ?? null);
+  const image = proxyImageUrl(photoUrl ?? null, { size: 128 });
   const canLink = link && Boolean(playerId);
   const content = (
     <span className={`identity-inline ${className}`.trim()}>
       <span className="identity-avatar identity-avatar--player">
-        <img src={image ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO)!} alt={label} loading="lazy" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO)!; }} />
+        <img src={image ?? proxyImageUrl(DEFAULT_PLAYER_PHOTO, { size: 128 })!} alt={label} loading="lazy" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_PLAYER_PHOTO, { size: 128 })!; }} />
       </span>
       <span>{label}</span>
     </span>

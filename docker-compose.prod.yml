@@ -5,9 +5,13 @@ services:
       dockerfile: Dockerfile.api
     env_file:
       - ./env/.env.api
+    environment:
+      IMAGE_CACHE_DIR: /app/cache/images
     restart: unless-stopped
     ports:
       - "8787:8787"
+    volumes:
+      - image-cache:/app/cache
 
   web:
     build:
@@ -36,3 +40,4 @@ services:
 
 volumes:
   pgdata:
+  image-cache:

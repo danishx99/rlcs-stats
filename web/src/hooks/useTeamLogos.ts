@@ -27,7 +27,7 @@ async function resolveTeamLogo(team: string): Promise<string | null> {
       const options = [...(response.teams ?? []), ...(response.rosters ?? [])];
       const exact = options.find((entry) => normalizeTeamKey(entry.label) === key);
       const best = exact ?? options[0];
-      const image = proxyImageUrl(best?.meta?.photoUrl ?? null);
+      const image = proxyImageUrl(best?.meta?.photoUrl ?? null, { size: 128 });
       logoCache.set(key, image);
       return image;
     } catch (error) {

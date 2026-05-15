@@ -23,14 +23,14 @@ export default function TeamNameWithLogo({
   const logos = useTeamLogos([team ?? ""]);
   const key = useMemo(() => (team ? team.trim().toUpperCase() : ""), [team]);
   const resolved = key ? logos.get(key) ?? null : null;
-  const direct = proxyImageUrl(logoUrl ?? null);
+  const direct = proxyImageUrl(logoUrl ?? null, { size: 128 });
   const image = direct ?? resolved;
   const canLink = link && label !== "—";
   const targetRosterId = rosterId?.trim() || toOrgRosterId(label);
   const content = (
     <span className={`identity-inline ${className}`.trim()}>
       <span className="identity-avatar identity-avatar--team">
-        <img src={image ?? proxyImageUrl(DEFAULT_TEAM_LOGO)!} alt={label} loading="lazy" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_TEAM_LOGO)!; }} />
+        <img src={image ?? proxyImageUrl(DEFAULT_TEAM_LOGO, { size: 128 })!} alt={label} loading="lazy" onError={(e) => { e.currentTarget.src = proxyImageUrl(DEFAULT_TEAM_LOGO, { size: 128 })!; }} />
       </span>
       <span>{label}</span>
     </span>

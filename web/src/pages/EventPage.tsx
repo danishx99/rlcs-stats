@@ -699,7 +699,7 @@ export default function EventPage() {
                   </a>
                 )}
               </div>
-              {bracket && proxyImageUrl(bracket.imageUrl) ? (
+              {bracket && proxyImageUrl(bracket.imageUrl, { size: 1024 }) ? (
                 <a
                   className="event-bracket-image-link"
                   href={bracket.imageUrl}
@@ -708,7 +708,7 @@ export default function EventPage() {
                 >
                   <img
                     className="event-bracket-image"
-                    src={proxyImageUrl(bracket.imageUrl)!}
+                    src={proxyImageUrl(bracket.imageUrl, { size: 1024 })!}
                     alt={`${event.name} bracket`}
                     loading="lazy"
                   />
