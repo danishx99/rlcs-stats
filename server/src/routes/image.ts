@@ -15,7 +15,12 @@ const CACHE_DIR = path.resolve(process.env.IMAGE_CACHE_DIR ?? "cache/images");
 let cacheDirReady: Promise<void> | null = null;
 function ensureCacheDir() {
   if (!cacheDirReady) {
-    cacheDirReady = mkdir(CACHE_DIR, { recursive: true }).then(() => undefined);
+    cacheDirReady = mkdir(CACHE_DIR, { recursive: true })
+      .then(() => undefined)
+      .catch((error) => {
+        cacheDirReady = null;
+        throw error;
+      });
   }
   return cacheDirReady;
 }
