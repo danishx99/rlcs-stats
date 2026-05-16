@@ -1348,17 +1348,12 @@ body {
 .profile-meta div {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-left: 3px solid var(--accent-2);
   padding: 8px 10px;
   transition: background 0.2s ease;
 }
 
 .profile-meta div:hover {
   background: rgba(122, 180, 245, 0.06);
-}
-
-.profile-meta div.meta-accent {
-  border-left-color: var(--accent);
 }
 
 .profile-meta div.meta-accent:hover {
@@ -1975,8 +1970,6 @@ body {
 .page-no-nav > .stat-strip div {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(122, 180, 245, 0.04) 100%);
   border: 1px solid rgba(122, 180, 245, 0.1);
-  border-left: 3px solid var(--accent-2);
-  border-radius: 6px;
   transition: all 0.2s ease;
 }
 
@@ -2000,9 +1993,6 @@ body {
   width: 100%;
   min-width: 560px;
   border: 1px solid var(--panel-border);
-  border-left: 3px solid var(--accent-2);
-  border-radius: 8px;
-  overflow: hidden;
   background: var(--panel);
   animation: card-in 0.5s ease both;
   animation-delay: 0.2s;
@@ -3441,7 +3431,6 @@ th {
 .compare-metrics-card {
   background: linear-gradient(135deg, var(--panel) 0%, var(--panel-strong) 100%);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-left: 3px solid var(--accent-2);
   padding: 20px;
   animation: card-in 0.5s ease both;
   animation-delay: 0.1s;
@@ -4218,9 +4207,6 @@ th {
 .results-table {
   width: 100%;
   border: 1px solid var(--panel-border);
-  border-left: 3px solid var(--accent-2);
-  border-radius: 8px;
-  overflow: hidden;
   background: var(--panel);
   border-collapse: separate;
   border-spacing: 0;
