@@ -12,6 +12,35 @@ const seriesMetaTeamsSql = loadSql("../../sql/series/meta_teams.sql", import.met
 const seriesListSql = loadSql("../../sql/series/list.sql", import.meta.url);
 const seriesDetailSql = loadSql("../../sql/series/detail.sql", import.meta.url);
 
+type SeriesGame = {
+  gameNumber: number;
+  matchId: string | null;
+  teamAGoals: number | null;
+  teamBGoals: number | null;
+  winnerTeam: string | null;
+};
+
+type SeriesListRow = {
+  seriesId: string;
+  eventId: string | null;
+  date: string | null;
+  season: string | null;
+  mode: string | null;
+  scope: string | null;
+  tier: string | null;
+  split: string | null;
+  event: string | null;
+  stage: string | null;
+  round: string | null;
+  day: number | null;
+  bestOf: number | null;
+  teamA: string | null;
+  teamB: string | null;
+  teamAWins: number;
+  teamBWins: number;
+  gamesRecorded: number;
+};
+
 type SeriesFilters = {
   mode: string | null;
   scope: string | null;
@@ -158,17 +187,11 @@ function mapDate(value: unknown): string | null {
   return null;
 }
 
-function parseGames(value: unknown) {
-  if (!Array.isArray(value)) return [] as Array<{
-    gameNumber: number;
-    matchId: string | null;
-    teamAGoals: number | null;
-    teamBGoals: number | null;
-    winnerTeam: string | null;
-  }>;
+function parseGames(value: unknown): SeriesGame[] {
+  if (!Array.isArray(value)) return [];
 
   return value
-    .map((entry) => {
+    .map((entry): SeriesGame | null => {
       const row = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {};
       const gameNumber = mapNullableNumber(row.gameNumber);
       if (gameNumber === null) return null;
@@ -181,13 +204,7 @@ function parseGames(value: unknown) {
         winnerTeam: mapNullableString(row.winnerTeam)
       };
     })
-    .filter((row): row is {
-      gameNumber: number;
-      matchId: string | null;
-      teamAGoals: number | null;
-      teamBGoals: number | null;
-      winnerTeam: string | null;
-    } => row !== null);
+    .filter((row): row is SeriesGame => row !== null);
 }
 
 export async function handleSeriesMeta(_req: IncomingMessage, res: ServerResponse, url: URL) {
@@ -292,7 +309,7 @@ export async function handleSeriesList(_req: IncomingMessage, res: ServerRespons
     );
 
     const rows = result.rows
-      .map((row) => {
+      .map((row): SeriesListRow | null => {
         const seriesId = mapNullableString(row.series_id);
         if (!seriesId) return null;
 
@@ -317,26 +334,7 @@ export async function handleSeriesList(_req: IncomingMessage, res: ServerRespons
           gamesRecorded: mapNumber(row.games_recorded)
         };
       })
-      .filter((row): row is {
-        seriesId: string;
-        eventId: string | null;
-        date: string | null;
-        season: string | null;
-        mode: string | null;
-        scope: string | null;
-        tier: string | null;
-        split: string | null;
-        event: string | null;
-        stage: string | null;
-        round: string | null;
-        day: number | null;
-        bestOf: number | null;
-        teamA: string | null;
-        teamB: string | null;
-        teamAWins: number;
-        teamBWins: number;
-        gamesRecorded: number;
-      } => row !== null);
+      .filter((row): row is SeriesListRow => row !== null);
 
     json(res, 200, { rows });
   } catch (routeError) {

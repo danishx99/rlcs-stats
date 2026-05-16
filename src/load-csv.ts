@@ -167,7 +167,12 @@ const DENORM_COLUMNS = new Set(
 const STATS_TRIM_COLUMNS = new Set(["Split", "Event", "Stage", "Round"]);
 const STATS_UPPERCASE_COLUMNS = new Set(["Team"]);
 
-function normalizeStatsTextValue(column: string, value: unknown): unknown {
+// Union of every value type the loader may produce for a single column. Used
+// across coerceValue, batch arrays, and the row-hash normalizer so that the pg
+// query parameter list has a precise contract end-to-end.
+type CellValue = string | number | boolean | Date | null;
+
+function normalizeStatsTextValue(column: string, value: CellValue): CellValue {
   if (typeof value !== "string") {
     return value;
   }
@@ -190,7 +195,7 @@ function normalizeStatsTextValue(column: string, value: unknown): unknown {
 
 function denormalizeRow(
   headers: string[],
-  values: any[]
+  values: CellValue[]
 ): void {
   const otIndex = headers.indexOf("OT");
   const extraTimeIndex = headers.indexOf("Extra Time");
@@ -202,8 +207,9 @@ function denormalizeRow(
 
   const gameDuration = 300 + extraTime;
   for (let i = 0; i < headers.length; i++) {
-    if (DENORM_COLUMNS.has(headers[i]) && typeof values[i] === "number") {
-      values[i] = Math.round(values[i] * gameDuration / 300);
+    const current = values[i];
+    if (DENORM_COLUMNS.has(headers[i]) && typeof current === "number") {
+      values[i] = Math.round((current * gameDuration) / 300);
     }
   }
 }
@@ -248,7 +254,7 @@ function parseDateString(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function coerceValue(raw: string, type: ColumnType): { value: any; error?: string } {
+function coerceValue(raw: string, type: ColumnType): { value: CellValue; error?: string } {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {
     return { value: null };
@@ -298,7 +304,7 @@ function coerceValue(raw: string, type: ColumnType): { value: any; error?: strin
   }
 }
 
-function normalizeForHash(value: any): string {
+function normalizeForHash(value: CellValue): string {
   if (value === null || value === undefined) {
     return NULL_TOKEN;
   }
@@ -360,7 +366,7 @@ export async function loadCsvFile(
   let includedIndices: number[] = [];
   let headers: string[] = [];
   let columnTypes: ColumnType[] = [];
-  let batchValues: any[] = [];
+  let batchValues: CellValue[] = [];
   let batchRows = 0;
   let batchLimit = 100;
   let victoryIndex = -1;
@@ -478,7 +484,7 @@ export async function loadCsvFile(
         return false;
       }
 
-      const coercedValues: any[] = [];
+      const coercedValues: CellValue[] = [];
       const hashParts: string[] = [];
       let rowHasError = false;
 

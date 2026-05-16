@@ -123,82 +123,199 @@ export function patchJson<TResponse>(path: string, body: unknown, options?: { si
   return request<TResponse>(path, { method: "PATCH", body, signal: options?.signal });
 }
 
+// --- Shared param shapes ----------------------------------------------------
+
+// Every server route that uses buildFilterClauses accepts this same set of
+// optional filter keys. Server-side names live in
+// server/src/utils/filters.ts::FILTER_COLUMNS — keep these in sync.
+// Nullable strings collapse to "drop the param" inside `request()` (alongside
+// undefined and empty string). Keeping `null` in the union lets call sites
+// pass through `someState ?? null` without extra coalescing dance.
+type Nullable<T> = T | null | undefined;
+
+export type StatsFilterParams = {
+  season?: Nullable<string>;
+  split?: Nullable<string>;
+  event?: Nullable<string>;
+  gameMode?: Nullable<string>;
+  scope?: Nullable<string>;
+  tier?: Nullable<string>;
+};
+
+export type StatsMode = "avg" | "total";
+
+// --- Per-endpoint param interfaces ------------------------------------------
+
+export type MetaParams = StatsFilterParams;
+
+export type SeriesMetaParams = StatsFilterParams & {
+  includeLans?: string;
+  stage?: string;
+};
+
+export type SeriesListParams = SeriesMetaParams & {
+  team?: string;
+  team2?: string;
+};
+
+export type SearchParams = StatsFilterParams & {
+  q: string;
+  limit?: number;
+};
+
+export type PlayersListParams = StatsFilterParams & {
+  limit?: number;
+  offset?: number;
+};
+
+export type PlayerProfileParams = StatsFilterParams;
+
+export type PlayerSeasonParams = StatsFilterParams & {
+  mode?: StatsMode;
+};
+
+export type PlayerResultsParams = StatsFilterParams & {
+  season?: string;
+};
+
+export type RosterProfileParams = StatsFilterParams;
+
+export type RosterSeasonParams = StatsFilterParams & {
+  mode?: StatsMode;
+};
+
+export type RosterResultsParams = StatsFilterParams & {
+  season: string;
+};
+
+export type CompareParams = StatsFilterParams & {
+  type?: "players" | "rosters" | "teams";
+  ids: string;
+  metrics?: string;
+  mode?: StatsMode;
+};
+
+export type CompareHistoryParams = StatsFilterParams & {
+  type?: "players" | "rosters";
+  ids: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type StatsTopParams = StatsFilterParams & {
+  metric: string;
+  mode?: StatsMode;
+  type?: "player" | "team";
+  sort?: "asc" | "desc";
+  limit?: number;
+  phase?: string;
+  day?: string;
+  ssaOnly?: string;
+  arena?: string;
+  minSeries?: number;
+  minGames?: number;
+};
+
+export type FeaturedParams = StatsFilterParams & {
+  metric?: string;
+  limit?: number;
+};
+
+export type InsightsParams = StatsFilterParams & {
+  limit?: number;
+};
+
+export type StandingsParams = {
+  season?: Nullable<string>;
+};
+
+export type EventDetailParams = {
+  teamsLimit?: number;
+  mode?: StatsMode;
+  phase?: string;
+  day?: string;
+  arena?: string;
+};
+
+export type FeedbackListParams = {
+  type?: "bug" | "idea" | "question";
+  resolved?: "resolved" | "unresolved" | "all";
+};
+
 export const api = {
-  meta(params?: Record<string, string | number | boolean | null | undefined>) {
+  meta(params?: MetaParams) {
     return fetchJson<MetaResponse>("/api/meta", params);
   },
-  seriesMeta(params?: Record<string, string | number | boolean | null | undefined>) {
+  seriesMeta(params?: SeriesMetaParams) {
     return fetchJson<SeriesMetaResponse>("/api/series/meta", params);
   },
-  seriesList(params?: Record<string, string | number | boolean | null | undefined>) {
+  seriesList(params?: SeriesListParams) {
     return fetchJson<SeriesListResponse>("/api/series", params);
   },
   seriesDetail(seriesId: string) {
     return fetchJson<SeriesDetailResponse>(`/api/series/${encodeURIComponent(seriesId)}`);
   },
-  search(params?: Record<string, string | number | boolean | null | undefined>, options?: { signal?: AbortSignal }) {
+  search(params: SearchParams, options?: { signal?: AbortSignal }) {
     return fetchJson<SearchResponse>("/api/search", params, options);
   },
-  players(params?: Record<string, string | number | boolean | null | undefined>) {
+  players(params?: PlayersListParams) {
     return fetchJson<{ players: SearchResponse["players"] }>("/api/players", params);
   },
   playerProfile(
     id: string,
-    params?: Record<string, string | number | boolean | null | undefined>,
+    params?: PlayerProfileParams,
     options?: { spotlight?: string[] }
   ) {
-    const merged: Record<string, string | number | boolean | null | undefined> = {
-      ...(params ?? {})
-    };
+    const merged: QueryParams = { ...(params ?? {}) };
     const spotlight = options?.spotlight?.filter((key) => key && key.trim().length) ?? [];
     if (spotlight.length) {
       merged.spotlight = spotlight.join(",");
     }
     return fetchJson<{ player: PlayerProfile }>(`/api/players/${id}`, merged);
   },
-  playerSeason(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
+  playerSeason(id: string, params?: PlayerSeasonParams) {
     return fetchJson<SeasonResponse>(`/api/players/${id}/season`, params);
   },
-  playerResults(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
+  playerResults(id: string, params?: PlayerResultsParams) {
     return fetchJson<PlayerResultsResponse>(`/api/players/${id}/results`, params);
   },
-  rosterProfile(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
+  rosterProfile(id: string, params?: RosterProfileParams) {
     return fetchJson<{ roster: RosterProfile }>(`/api/rosters/${id}`, params);
   },
-  rosterSeason(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
+  rosterSeason(id: string, params?: RosterSeasonParams) {
     return fetchJson<SeasonResponse>(`/api/rosters/${id}/season`, params);
   },
-  rosterResults(id: string, params?: Record<string, string | number | boolean | null | undefined>) {
+  rosterResults(id: string, params: RosterResultsParams) {
     return fetchJson<RosterResultsResponse>(`/api/rosters/${id}/results`, params);
   },
-  compare(params?: Record<string, string | number | boolean | null | undefined>) {
+  compare(params: CompareParams) {
     return fetchJson<CompareResponse>("/api/compare", params);
   },
-  compareHistory(params?: Record<string, string | number | boolean | null | undefined>) {
+  compareHistory(params: CompareHistoryParams) {
     return fetchJson<CompareHistoryResponse>("/api/compare/history", params);
   },
-  statsTop(params?: Record<string, string | number | boolean | null | undefined>) {
+  statsTop(params: StatsTopParams) {
     return fetchJson<LeaderboardResponse>("/api/stats/top", params);
   },
-  featured(params?: Record<string, string | number | boolean | null | undefined>) {
+  featured(params?: FeaturedParams) {
     return fetchJson<FeaturedResponse>("/api/featured", params);
   },
   metaColumns() {
     return fetchJson<MetaColumnsResponse>("/api/meta/columns");
   },
-  standings(params?: Record<string, string | number | boolean | null | undefined>) {
+  standings(params?: StandingsParams) {
     return fetchJson<StandingsResponse>("/api/standings", params);
   },
-  eventDetail(eventId: string, params?: Record<string, string | number | boolean | null | undefined>) {
+  eventDetail(eventId: string, params?: EventDetailParams) {
     return fetchJson<EventDetailResponse>(`/api/events/${encodeURIComponent(eventId)}`, params);
   },
-  insights(params?: Record<string, string | number | boolean | null | undefined>) {
+  insights(params?: InsightsParams) {
     return fetchJson<InsightsResponse>("/api/insights", params);
   },
   submitFeedback(payload: FeedbackSubmitRequest) {
     return postJson<FeedbackSubmitResponse>("/api/feedback", payload);
   },
-  feedback(params?: Record<string, string | number | boolean | null | undefined>) {
+  feedback(params?: FeedbackListParams) {
     return fetchJson<FeedbackListResponse>("/api/feedback", params);
   },
   updateFeedback(id: number, payload: { resolved: boolean }) {
