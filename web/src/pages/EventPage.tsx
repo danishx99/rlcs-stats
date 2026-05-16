@@ -1,22 +1,17 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import type { EventBracket, EventDetail, EventTeam, LeaderboardResponse, MetaResponse, SearchResponse, StatCategory, StatOption } from "../types/api";
-import { proxyImageUrl } from "../utils/normalize";
+import type { EventBracket, EventDetail, EventTeam, LeaderboardResponse, MetaResponse, StatCategory, StatOption } from "../types/api";
 import { formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
 import { sortEventsLanLast } from "../utils/events";
-import Leaderboard from "../components/Leaderboard";
-import PlayerNameWithPhoto from "../components/PlayerNameWithPhoto";
-import StatPicker from "../components/StatPicker";
-import ArenaFilter from "../components/ArenaFilter";
-import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
-import SkeletonRows from "../components/ui/SkeletonRows";
 import PageBackActions from "../components/PageBackActions";
 import { useShare } from "../hooks/useShare";
-import { placementLabel } from "../utils/format";
+import EventBracketPanel from "../components/event/EventBracketPanel";
+import EventLeaderboardsPanel from "../components/event/EventLeaderboardsPanel";
+import EventSearchWidget from "../components/event/EventSearchWidget";
 
 const CORE_LEADERBOARDS = [
   { key: "rating", title: "Top 10 Players (Rating)" },
@@ -28,7 +23,6 @@ const CORE_LEADERBOARDS = [
 const CORE_LEADERBOARD_KEYS = new Set<string>(CORE_LEADERBOARDS.map((item) => item.key));
 const DEFAULT_STATS: string[] = [];
 const SUGGESTED_STATS = ["shots", "score", "avg_speed", "on_ground", "in_air"];
-const SEARCH_DEBOUNCE_MS = 500;
 const TOP_TEAMS_LIMIT = 8;
 const FULL_TEAMS_LIMIT = 256;
 
@@ -48,13 +42,6 @@ export default function EventPage() {
   const [error, setError] = useState<string | null>(null);
   const [eventRetryKey, setEventRetryKey] = useState(0);
   const { share, busy: shareBusy, message: shareMessage } = useShare();
-
-  // Event search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResponse["events"]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
 
   // Navigation filter state
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -231,45 +218,6 @@ export default function EventPage() {
     );
   };
 
-  // Event search (debounced)
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setSearchError(null);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      setSearchLoading(true);
-      setSearchError(null);
-      try {
-        const response = await api.search({ q: searchQuery });
-        const events = (response.events ?? []).filter(
-          (ev) => ev.meta?.scope !== "international"
-        );
-        setSearchResults(events);
-      } catch (err) {
-        console.error(err);
-        setSearchResults([]);
-        setSearchError("Failed to search events.");
-      } finally {
-        setSearchLoading(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timeout);
-  }, [searchQuery]);
-
-  // Click outside to close search
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchResults([]);
-        setSearchQuery("");
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   // Reset leaderboard map when event context changes
   useEffect(() => {
     setLeaderboardMap(new Map());
@@ -423,7 +371,6 @@ export default function EventPage() {
     .join(" – ");
   const isLanEvent = event.scope === "international" && (event.tier === "major" || event.tier === "worlds");
 
-  const hasSearchResults = searchResults.length > 0;
   const coreLeaderboardMap = new Map(leaderboards.map((lb) => [lb.metric.key, lb]));
   const coreLeaderboards = CORE_LEADERBOARDS.reduce<Array<{ title: string; data: LeaderboardResponse }>>((acc, item) => {
     const data = coreLeaderboardMap.get(item.key);
@@ -433,9 +380,6 @@ export default function EventPage() {
     return acc;
   }, []);
   const selectedExtraStats = selectedStats.filter((k) => !CORE_LEADERBOARD_KEYS.has(k));
-  const isInProgress = event.status === "in_progress";
-  const visibleTeams = showAllPlacements || isInProgress ? teams : teams.slice(0, TOP_TEAMS_LIMIT);
-  const isOnesEvent = event.mode === "1s";
 
   return (
     <div className="page page-no-nav">
@@ -443,66 +387,7 @@ export default function EventPage() {
 
       {/* Search bar + navigation filters */}
       <div className="event-top-bar">
-        <div className="event-page-search" ref={searchRef}>
-          <div className="dash-search-bar">
-          <svg className="dash-search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="8.5" cy="8.5" r="5.5" />
-            <path d="M13 13l4 4" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search events..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              className="dash-search-clear"
-              onClick={() => { setSearchQuery(""); setSearchResults([]); }}
-            >
-              &times;
-            </button>
-          )}
-        </div>
-          {searchQuery.trim() && (
-            <div className="dash-search-dropdown">
-              {searchLoading && <p className="dash-search-status">Searching...</p>}
-              {!searchLoading && searchError && <PanelState state="error" message={searchError} />}
-              {!searchLoading && !searchError && !hasSearchResults && <p className="dash-search-status">No events found</p>}
-              {!searchLoading && hasSearchResults && (
-                <div className="dash-search-group">
-                  <div className="dash-search-group-title">Events</div>
-                  {searchResults.slice(0, 8).map((ev) => (
-                    <Link
-                      key={`${ev.meta?.season}-${ev.meta?.split}-${ev.id}`}
-                      className="dash-search-item"
-                      to={buildEventPath(ev.id)}
-                      onClick={() => {
-                        setSearchQuery("");
-                        setSearchResults([]);
-                      }}
-                    >
-                      <div className="dash-search-avatar dash-search-avatar--event">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                          <line x1="16" y1="2" x2="16" y2="6" />
-                          <line x1="8" y1="2" x2="8" y2="6" />
-                          <line x1="3" y1="10" x2="21" y2="10" />
-                        </svg>
-                      </div>
-                      <div className="dash-search-item-info">
-                        <strong>{ev.label}</strong>
-                        <span>{[ev.meta?.season, ev.meta?.split].filter(Boolean).join(" / ")}</span>
-                      </div>
-                      <span className="dash-search-type">Event</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <EventSearchWidget />
 
         {metaLoading && !meta ? (
           <div className="event-nav-filters" aria-hidden="true">
@@ -600,222 +485,40 @@ export default function EventPage() {
       ) : (
         <>
           {/* Top row: Teams + Bracket */}
-          <div className="event-grid">
-            <div className="event-panel event-panel--bracket panel">
-              <div className="event-resource-header">
-                <h3>
-                  {event.status === "in_progress"
-                    ? "Current Standings"
-                    : showAllPlacements ? "All Placements" : "Top Teams"}
-                </h3>
-                {event.status === "in_progress" ? (
-                  <span className="badge badge--in-progress">In Progress</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => setShowAllPlacements((prev) => !prev)}
-                  >
-                    {showAllPlacements ? "Show Top 8" : "Show All"}
-                  </button>
-                )}
-              </div>
-              {visibleTeams.length > 0 ? (
-                <ol className={`event-teams-list${isOnesEvent ? " event-teams-list--ones" : ""}`}>
-                  {visibleTeams.map((t, i) => {
-                    const prev = i > 0 ? visibleTeams[i - 1] : null;
-                    const isEliminated = t.isEliminated;
-                    const prevEliminated = prev ? prev.isEliminated : false;
-                    const showGroupHeader = isInProgress
-                      ? (isEliminated
-                          ? (!prevEliminated || prev!.placementStart !== t.placementStart || prev!.placementEnd !== t.placementEnd)
-                          : i === 0 || prevEliminated)
-                      : (!prev || prev.placementStart !== t.placementStart || prev.placementEnd !== t.placementEnd);
-                    const groupLabel = isInProgress && !isEliminated
-                      ? "TBD"
-                      : placementLabel(t.placementStart, t.placementEnd);
-                    return (
-                      <Fragment key={t.team}>
-                        {showGroupHeader && (
-                          <li className="event-team-group-label">
-                            {groupLabel}
-                          </li>
-                        )}
-                        <li>
-                          <span className="event-team-rank">{isInProgress && !isEliminated ? "–" : i + 1}</span>
-                          {isOnesEvent ? (
-                            <strong>
-                              <PlayerNameWithPhoto
-                                name={t.team}
-                                playerId={t.uniqueId ?? null}
-                                photoUrl={t.photoUrl ?? null}
-                                className="identity-inline--xl"
-                              />
-                            </strong>
-                          ) : (
-                            <strong>
-                              <TeamNameWithLogo team={t.team} logoUrl={t.logoUrl} />
-                            </strong>
-                          )}
-                        </li>
-                      </Fragment>
-                    );
-                  })}
-                </ol>
-              ) : (
-                <p className="dash-search-status">No placement data for this event.</p>
-              )}
-            </div>
-            <div className="event-panel panel">
-              <div className="event-resource-header">
-                <h3>Bracket</h3>
-                {bracket?.liquipediaUrl && (
-                  <a href={bracket.liquipediaUrl} target="_blank" rel="noreferrer noopener">
-                    View on Liquipedia
-                  </a>
-                )}
-              </div>
-              {bracket && proxyImageUrl(bracket.imageUrl, { size: 1024 }) ? (
-                <a
-                  className="event-bracket-image-link"
-                  href={bracket.imageUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  <img
-                    className="event-bracket-image"
-                    src={proxyImageUrl(bracket.imageUrl, { size: 1024 })!}
-                    alt={`${event.name} bracket`}
-                    loading="lazy"
-                  />
-                </a>
-              ) : (
-                <p className="dash-search-status">No bracket resources for this event.</p>
-              )}
-            </div>
-          </div>
+          <EventBracketPanel
+            event={event}
+            teams={teams}
+            bracket={bracket}
+            showAllPlacements={showAllPlacements}
+            onToggleShowAllPlacements={() => setShowAllPlacements((prev) => !prev)}
+            topTeamsLimit={TOP_TEAMS_LIMIT}
+          />
 
-          <div className="event-leaderboard-controls">
-            <div className="tabs">
-              <button
-                type="button"
-                className={`tab${leaderboardMode === "avg" ? " active" : ""}`}
-                onClick={() => setLeaderboardMode("avg")}
-              >
-                Per Game
-              </button>
-              <button
-                type="button"
-                className={`tab${leaderboardMode === "total" ? " active" : ""}`}
-                onClick={() => setLeaderboardMode("total")}
-              >
-                Total
-              </button>
-            </div>
-            {phaseOptions.length > 0 && (
-              <select
-                className="event-filter-select"
-                value={selectedPhase === "all" ? "" : selectedPhase}
-                onChange={(e) => setSelectedPhase(e.target.value || "all")}
-              >
-                <option value="">All Phases</option>
-                {phaseOptions.map((phase) => (
-                  <option key={phase} value={phase}>{phase}</option>
-                ))}
-              </select>
-            )}
-            {dayOptions.length > 0 && (
-              <select
-                className="event-filter-select"
-                value={selectedDay === "all" ? "" : selectedDay}
-                onChange={(e) => setSelectedDay(e.target.value || "all")}
-              >
-                <option value="">All Days</option>
-                {dayOptions.map((day) => (
-                  <option key={day} value={day}>{day}</option>
-                ))}
-              </select>
-            )}
-            <ArenaFilter
-              arenas={arenas}
-              value={effectiveArena}
-              onChange={updateArena}
-            />
-          </div>
-
-          {leaderboardsLoading ? (
-            <div className="event-grid event-grid--stats">
-              {CORE_LEADERBOARDS.map((item) => (
-                <div key={item.key} className="event-panel panel">
-                  <h3>{item.title}</h3>
-                  <SkeletonRows rows={10} rowHeight={26} />
-                </div>
-              ))}
-            </div>
-          ) : coreLeaderboards.length > 0 ? (
-            <div className="event-grid event-grid--stats">
-              {coreLeaderboards.map((item) => (
-                <div key={item.data.metric.key} className="event-panel panel">
-                  <h3>{item.title}</h3>
-                  <Leaderboard data={item.data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {/* Pick a stat — checkboxes only */}
-          <div className="event-pick-stat panel">
-            <div className="event-pick-stat-header">
-              <h3>Pick a Stat</h3>
-              {statCategories.length > 0 && (
-                <StatPicker
-                  categories={statCategories}
-                  selected={selectedStats}
-                  onToggle={toggleStat}
-                />
-              )}
-            </div>
-            {visibleStatOptions.length > 0 && (
-              <div className="event-pick-stat-toggles">
-                {visibleStatOptions.map((opt) => (
-                  <label key={opt.key} className="stat-toggle">
-                    <input
-                      type="checkbox"
-                      checked={selectedStats.includes(opt.key)}
-                      onChange={() => toggleStat(opt.key)}
-                    />
-                    <span className="stat-toggle-label">{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Extra leaderboards for stats beyond the defaults */}
-          {selectedExtraStats.length > 0 && (
-            <div className="event-pick-stat-grid">
-              {selectedExtraStats.map((key) => {
-                const data = leaderboardMap.get(key);
-                const isLoading = loadingStats.has(key);
-                const label = allCategoryStats.find((s) => s.key === key)?.label ?? key;
-                return (
-                  <div key={key} className="event-pick-stat-card panel">
-                    <h4>{label}</h4>
-                    {isLoading && !data ? <SkeletonRows rows={6} rowHeight={26} /> : null}
-                    {!isLoading && statLoadErrors.get(key) ? (
-                      <PanelState state="error" message={`Failed to load ${label}.`} />
-                    ) : null}
-                    {!isLoading && data && data.rows.length > 0 && (
-                      <Leaderboard data={data} showTeamLogos={false} showTeams={false} playerImageSize="large" />
-                    )}
-                    {!isLoading && data && data.rows.length === 0 && (
-                      <p className="dash-search-status">No data for this stat.</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <EventLeaderboardsPanel
+            leaderboardMode={leaderboardMode}
+            onLeaderboardModeChange={setLeaderboardMode}
+            phaseOptions={phaseOptions}
+            selectedPhase={selectedPhase}
+            onSelectedPhaseChange={setSelectedPhase}
+            dayOptions={dayOptions}
+            selectedDay={selectedDay}
+            onSelectedDayChange={setSelectedDay}
+            arenas={arenas}
+            effectiveArena={effectiveArena}
+            onArenaChange={updateArena}
+            coreLeaderboardItems={CORE_LEADERBOARDS.map((item) => ({ key: item.key, title: item.title }))}
+            coreLeaderboards={coreLeaderboards}
+            leaderboardsLoading={leaderboardsLoading}
+            statCategories={statCategories}
+            selectedStats={selectedStats}
+            onToggleStat={toggleStat}
+            visibleStatOptions={visibleStatOptions}
+            selectedExtraStats={selectedExtraStats}
+            leaderboardMap={leaderboardMap}
+            loadingStats={loadingStats}
+            statLoadErrors={statLoadErrors}
+            allCategoryStats={allCategoryStats}
+          />
         </>
       )}
     </div>

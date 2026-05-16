@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { LeaderboardResponse, SearchResponse, StatOption, StandingsResponse, TopQueryCategory } from "../types/api";
+import type { SearchResponse, StatOption } from "../types/api";
 import { api } from "../api";
+import { useAsyncResource } from "../hooks/useAsyncResource";
 import { proxyImageUrl, DEFAULT_PLAYER_PHOTO, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import { formatStat } from "../utils/format";
 import { toOrgRosterId } from "../utils/roster";
@@ -32,12 +33,6 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
     const index = Math.floor(Math.random() * ROTATING_FEATURED_METRICS.length);
     return ROTATING_FEATURED_METRICS[index];
   });
-  const [featuredLeaderboard, setFeaturedLeaderboard] = useState<LeaderboardResponse | null>(null);
-  const [featuredLoading, setFeaturedLoading] = useState(false);
-  const [featuredError, setFeaturedError] = useState<string | null>(null);
-  const [topQueries, setTopQueries] = useState<TopQueryCategory[]>([]);
-  const [topQueriesLoading, setTopQueriesLoading] = useState(false);
-  const [topQueriesError, setTopQueriesError] = useState<string | null>(null);
   const [expandedTopQueryKey, setExpandedTopQueryKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
@@ -47,97 +42,70 @@ export default function HomePage({ latestSeason, featuredOptions }: HomePageProp
   const [playerResults, setPlayerResults] = useState<SearchResponse["players"]>([]);
   const [playerSearchLoading, setPlayerSearchLoading] = useState(false);
   const [playerSearchError, setPlayerSearchError] = useState<string | null>(null);
-  const [standings, setStandings] = useState<StandingsResponse | null>(null);
-  const [standingsLoading, setStandingsLoading] = useState(false);
-  const [standingsError, setStandingsError] = useState<string | null>(null);
   const [standingsSeason, setStandingsSeason] = useState<string>("");
   const searchRef = useRef<HTMLDivElement>(null);
 
   // Load rotating featured leaderboard for the latest season
-  useEffect(() => {
-    const featuredSeason = latestSeason;
-    if (!featuredSeason) return;
-    async function loadFeaturedLeaderboard() {
-      setFeaturedLoading(true);
-      setFeaturedError(null);
-      try {
-        const response = await api.statsTop({
-          metric: featuredMetricKey,
-          type: "player",
-          mode: "avg",
-          season: featuredSeason,
-          gameMode: HOME_TRACK.gameMode,
-          scope: HOME_TRACK.scope,
-          tier: HOME_TRACK.tier,
-          limit: 6
-        });
-        setFeaturedLeaderboard(response);
-      } catch (error) {
-        console.error(error);
-        setFeaturedLeaderboard(null);
-        setFeaturedError("Failed to load featured profiles.");
-      } finally {
-        setFeaturedLoading(false);
-      }
-    }
-    loadFeaturedLeaderboard();
-  }, [featuredMetricKey, latestSeason]);
+  const {
+    data: featuredLeaderboard,
+    loading: featuredLoading,
+    error: featuredErrorRaw
+  } = useAsyncResource(
+    async () => {
+      if (!latestSeason) return null;
+      return api.statsTop({
+        metric: featuredMetricKey,
+        type: "player",
+        mode: "avg",
+        season: latestSeason,
+        gameMode: HOME_TRACK.gameMode,
+        scope: HOME_TRACK.scope,
+        tier: HOME_TRACK.tier,
+        limit: 6
+      });
+    },
+    [featuredMetricKey, latestSeason]
+  );
+  const featuredError = featuredErrorRaw ? "Failed to load featured profiles." : null;
 
   // Load standings
+  const standingsSeasonParam = standingsSeason || latestSeason || "";
+  const {
+    data: standings,
+    loading: standingsLoading,
+    error: standingsErrorRaw
+  } = useAsyncResource(
+    async () => {
+      if (!standingsSeasonParam) return null;
+      return api.standings({ season: standingsSeasonParam });
+    },
+    [standingsSeasonParam]
+  );
+  const standingsError = standingsErrorRaw ? "Failed to load standings." : null;
+  // Mirror the original "default standingsSeason from server response" behavior.
   useEffect(() => {
-    const season = standingsSeason || latestSeason;
-    if (!season) return;
-    async function loadStandings() {
-      setStandingsLoading(true);
-      setStandingsError(null);
-      try {
-        const response = await api.standings({ season });
-        setStandings(response);
-        if (!standingsSeason && response.season) {
-          setStandingsSeason(response.season);
-        }
-      } catch (error) {
-        console.error(error);
-        setStandings(null);
-        setStandingsError("Failed to load standings.");
-      } finally {
-        setStandingsLoading(false);
-      }
+    if (!standings) return;
+    if (!standingsSeason && standings.season) {
+      setStandingsSeason(standings.season);
     }
-    loadStandings();
-  }, [latestSeason, standingsSeason]);
+  }, [standings, standingsSeason]);
 
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadTopQueries() {
-      setTopQueriesLoading(true);
-      setTopQueriesError(null);
-      try {
-        const response = await api.insights({
-          limit: 6,
-          gameMode: HOME_TRACK.gameMode,
-          scope: HOME_TRACK.scope,
-          tier: HOME_TRACK.tier
-        });
-        if (!isActive) return;
-        setTopQueries(response.categories ?? []);
-      } catch (error) {
-        if (!isActive) return;
-        console.error(error);
-        setTopQueries([]);
-        setTopQueriesError("Failed to load insights.");
-      } finally {
-        if (!isActive) return;
-        setTopQueriesLoading(false);
-      }
-    }
-    loadTopQueries();
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
+  const {
+    data: topQueriesResponse,
+    loading: topQueriesLoading,
+    error: topQueriesErrorRaw
+  } = useAsyncResource(
+    () =>
+      api.insights({
+        limit: 6,
+        gameMode: HOME_TRACK.gameMode,
+        scope: HOME_TRACK.scope,
+        tier: HOME_TRACK.tier
+      }),
+    []
+  );
+  const topQueries = topQueriesResponse?.categories ?? [];
+  const topQueriesError = topQueriesErrorRaw ? "Failed to load insights." : null;
 
   // Global search (search bar under hero)
   useEffect(() => {

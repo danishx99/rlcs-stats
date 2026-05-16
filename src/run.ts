@@ -463,6 +463,227 @@ function getStatsTrack(datasetDir: string, filePath: string): StatsTrack {
   return { mode: "3s", scope: "international", tier };
 }
 
+type DatasetResolved = ReturnType<typeof resolveDatasets>[number];
+
+type IngestLoopResult = {
+  reports: FileReport[];
+  statsMutated: boolean;
+  changedStatsMatchIds: Set<string>;
+};
+
+/**
+ * Create base tables, add ingestion/row-hash columns, install comments, and
+ * (for the `stats` dataset) ensure the series-id columns, indexes, and the
+ * `series_roster` companion table exist. Idempotent and safe to re-run.
+ */
+async function ensureSchema(client: Client, datasets: DatasetResolved[]): Promise<void> {
+  await client.query(createFileIngestTableSql);
+  for (const dataset of datasets) {
+    await client.query(dataset.createTableSql);
+    if (dataset.addColumnsSql) {
+      await client.query(dataset.addColumnsSql);
+    }
+    if (dataset.customLoader) continue;
+    await client.query(addIngestionColumnsSql(dataset.tableName));
+    await client.query(addRowHashColumnSql(dataset.tableName));
+    if (dataset.addCommentsSql) {
+      await client.query(dataset.addCommentsSql);
+    }
+    await client.query(createRowHashIndexSql(dataset.tableName));
+    if (dataset.tableName === "stats") {
+      await client.query(`ALTER TABLE stats ADD COLUMN IF NOT EXISTS series_id TEXT`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_series_id ON stats (series_id)`);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_stats_pending_series_match
+        ON stats ("Match ID")
+        WHERE series_id IS NULL
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_track ON stats ("mode", "scope", "tier")`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_track_event ON stats ("mode", "scope", "tier", "Season", "Split", "Event")`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_match_team ON stats ("Match ID", "Team")`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_unique_id ON stats ("Unique ID")`);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_stats_series_team_game
+        ON stats (series_id, "Team", "Game Number")
+        WHERE series_id IS NOT NULL
+      `);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS series_roster (
+          series_id TEXT NOT NULL,
+          team TEXT NOT NULL,
+          roster_id TEXT NOT NULL,
+          starters TEXT[] NOT NULL
+        )
+      `);
+      await client.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS series_roster_series_team_uq
+        ON series_roster (series_id, team)
+      `);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_series_roster_roster_series_team
+        ON series_roster (roster_id, series_id, team)
+      `);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_series_roster_series_team
+        ON series_roster (series_id, team)
+      `);
+    }
+  }
+}
+
+/**
+ * Walk every selected dataset, optionally sync stale source files, then stream
+ * each matched CSV through `loadCsvFile`. Returns per-file reports plus the set
+ * of stats-table match IDs that were touched (used to scope the series-id
+ * backfill in `main`).
+ */
+async function runDatasetIngestLoop(
+  client: Client,
+  datasets: DatasetResolved[],
+  options: CliOptions,
+  ingestVersion: string
+): Promise<IngestLoopResult> {
+  const reports: FileReport[] = [];
+  let statsMutated = false;
+  const changedStatsMatchIds = new Set<string>();
+
+  for (const dataset of datasets) {
+    const datasetDir = join(options.dir, dataset.dataSubdir);
+    const files = await listFiles(datasetDir, options.pattern);
+    const canonicalSourceFiles = Array.from(
+      new Set(files.map((filePath) => getSourceFileName(datasetDir, filePath)))
+    );
+    console.log(`[${dataset.label}] scanning ${datasetDir}: ${files.length} files matched`);
+
+    if (!dataset.customLoader && options.sync && !options.dryRun && !options.limit) {
+      console.log(`[${dataset.label}] sync mode: removing stale source-file rows`);
+      if (dataset.tableName === "stats") {
+        const staleMatchIds = await getStaleStatsMatchIds(client, canonicalSourceFiles);
+        for (const matchId of staleMatchIds) {
+          changedStatsMatchIds.add(matchId);
+        }
+      }
+      const deletedRows = await syncDatasetSources(client, dataset.tableName, canonicalSourceFiles);
+      if (dataset.tableName === "stats" && deletedRows > 0) {
+        statsMutated = true;
+      }
+    }
+
+    if (files.length === 0) {
+      console.log(`${dataset.label}: no files matched`);
+      continue;
+    }
+
+    if (dataset.customLoader) {
+      console.log(`[${dataset.label}] using custom loader for ${files.length} file(s)`);
+      await dataset.customLoader(client, files, options.dryRun);
+      continue;
+    }
+
+    for (const filePath of files) {
+      const fileStats = await stat(filePath);
+      const fileHash = await computeFileHash(filePath);
+      const fileName = basename(filePath);
+      const sourceFileName = getSourceFileName(datasetDir, filePath);
+      const statsTrack = dataset.tableName === "stats"
+        ? getStatsTrack(datasetDir, filePath)
+        : undefined;
+
+      if (!options.limit && (await isFileIngested(client, dataset.tableName, sourceFileName, fileHash, ingestVersion))) {
+        const skippedReport: FileReport = {
+          fileName,
+          status: "skipped",
+          skipReason: `already ingested (${ingestVersion})`,
+          fileHash,
+          totalRows: 0,
+          inserted: 0,
+          skipped: 0,
+          errored: 0,
+          errors: [],
+          dataset: dataset.key
+        };
+        reports.push(skippedReport);
+        console.log(`[${dataset.label}] skipping file ${filePath} (already ingested)`);
+        continue;
+      }
+
+      const specs = await getColumnSpecsFromDb(client, dataset.tableName);
+      const shouldReplaceExisting = !options.dryRun && !options.limit;
+      console.log(`[${dataset.label}] processing file ${filePath}`);
+      if (shouldReplaceExisting) {
+        await client.query("BEGIN");
+      }
+      try {
+        if (shouldReplaceExisting) {
+          if (dataset.tableName === "stats") {
+            const existingMatchIds = await getMatchIdsBySourceFile(client, sourceFileName);
+            for (const matchId of existingMatchIds) {
+              changedStatsMatchIds.add(matchId);
+            }
+          }
+          const deleteResult = await client.query(
+            `DELETE FROM ${quoteIdent(dataset.tableName)}
+             WHERE regexp_replace(source_file, ' \\([0-9]+\\)(\\.[^.]+)$', '\\1') = $1;`,
+            [sourceFileName]
+          );
+          if (dataset.tableName === "stats" && (deleteResult.rowCount ?? 0) > 0) {
+            statsMutated = true;
+          }
+        }
+
+        const report = await loadCsvFile(client, filePath, specs, {
+          strict: options.strict,
+          dryRun: options.dryRun,
+          limit: options.limit,
+          allowNewColumns: options.allowNewColumns,
+          ignoreUnknownColumns: dataset.ignoreUnknownColumns,
+          tableName: dataset.tableName,
+          schemaFile: dataset.schemaFile,
+          sourceFile: sourceFileName,
+          headerNormalizer: dataset.headerNormalizer,
+          ignoreCoercionErrors: dataset.ignoreCoercionErrors,
+          stopAfterHeader: dataset.stopAfterHeader,
+          denormalize: dataset.denormalize,
+          statsTrack
+        });
+        report.fileHash = fileHash;
+        report.dataset = dataset.key;
+        reports.push(report);
+        console.log(
+          `[${dataset.label}] ${report.fileName}: rows ${report.totalRows}, inserted ${report.inserted}, skipped ${report.skipped}, errored ${report.errored}`
+        );
+
+        if (shouldReplaceExisting) {
+          await recordFileIngest(
+            client,
+            dataset.tableName,
+            sourceFileName,
+            report,
+            fileHash,
+            fileStats.size,
+            ingestVersion
+          );
+          if (dataset.tableName === "stats") {
+            statsMutated = true;
+            const reloadedMatchIds = await getMatchIdsBySourceFile(client, sourceFileName);
+            for (const matchId of reloadedMatchIds) {
+              changedStatsMatchIds.add(matchId);
+            }
+          }
+          await client.query("COMMIT");
+        }
+      } catch (error) {
+        if (shouldReplaceExisting) {
+          await client.query("ROLLBACK");
+        }
+        throw error;
+      }
+    }
+  }
+
+  return { reports, statsMutated, changedStatsMatchIds };
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const datasets = resolveDatasets(options.dataset);
@@ -477,58 +698,7 @@ async function main(): Promise<void> {
     );
     console.log(`Ingest version: ${ingestVersion}`);
     console.log("Ensuring schema...");
-    await client.query(createFileIngestTableSql);
-    for (const dataset of datasets) {
-      await client.query(dataset.createTableSql);
-      if (dataset.addColumnsSql) {
-        await client.query(dataset.addColumnsSql);
-      }
-      if (dataset.customLoader) continue;
-      await client.query(addIngestionColumnsSql(dataset.tableName));
-      await client.query(addRowHashColumnSql(dataset.tableName));
-      if (dataset.addCommentsSql) {
-        await client.query(dataset.addCommentsSql);
-      }
-      await client.query(createRowHashIndexSql(dataset.tableName));
-      if (dataset.tableName === "stats") {
-        await client.query(`ALTER TABLE stats ADD COLUMN IF NOT EXISTS series_id TEXT`);
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_series_id ON stats (series_id)`);
-        await client.query(`
-          CREATE INDEX IF NOT EXISTS idx_stats_pending_series_match
-          ON stats ("Match ID")
-          WHERE series_id IS NULL
-        `);
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_track ON stats ("mode", "scope", "tier")`);
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_track_event ON stats ("mode", "scope", "tier", "Season", "Split", "Event")`);
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_match_team ON stats ("Match ID", "Team")`);
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_stats_unique_id ON stats ("Unique ID")`);
-        await client.query(`
-          CREATE INDEX IF NOT EXISTS idx_stats_series_team_game
-          ON stats (series_id, "Team", "Game Number")
-          WHERE series_id IS NOT NULL
-        `);
-        await client.query(`
-          CREATE TABLE IF NOT EXISTS series_roster (
-            series_id TEXT NOT NULL,
-            team TEXT NOT NULL,
-            roster_id TEXT NOT NULL,
-            starters TEXT[] NOT NULL
-          )
-        `);
-        await client.query(`
-          CREATE UNIQUE INDEX IF NOT EXISTS series_roster_series_team_uq
-          ON series_roster (series_id, team)
-        `);
-        await client.query(`
-          CREATE INDEX IF NOT EXISTS idx_series_roster_roster_series_team
-          ON series_roster (roster_id, series_id, team)
-        `);
-        await client.query(`
-          CREATE INDEX IF NOT EXISTS idx_series_roster_series_team
-          ON series_roster (series_id, team)
-        `);
-      }
-    }
+    await ensureSchema(client, datasets);
     console.log("Schema ensured");
 
     if (options.truncate && !options.dryRun) {
@@ -548,142 +718,12 @@ async function main(): Promise<void> {
       console.log("Data truncated");
     }
 
-    const reports: FileReport[] = [];
-    let statsMutated = false;
-    const changedStatsMatchIds = new Set<string>();
-    for (const dataset of datasets) {
-      const datasetDir = join(options.dir, dataset.dataSubdir);
-      const files = await listFiles(datasetDir, options.pattern);
-      const canonicalSourceFiles = Array.from(
-        new Set(files.map((filePath) => getSourceFileName(datasetDir, filePath)))
-      );
-      console.log(`[${dataset.label}] scanning ${datasetDir}: ${files.length} files matched`);
-
-      if (!dataset.customLoader && options.sync && !options.dryRun && !options.limit) {
-        console.log(`[${dataset.label}] sync mode: removing stale source-file rows`);
-        if (dataset.tableName === "stats") {
-          const staleMatchIds = await getStaleStatsMatchIds(client, canonicalSourceFiles);
-          for (const matchId of staleMatchIds) {
-            changedStatsMatchIds.add(matchId);
-          }
-        }
-        const deletedRows = await syncDatasetSources(client, dataset.tableName, canonicalSourceFiles);
-        if (dataset.tableName === "stats" && deletedRows > 0) {
-          statsMutated = true;
-        }
-      }
-
-      if (files.length === 0) {
-        console.log(`${dataset.label}: no files matched`);
-        continue;
-      }
-
-      if (dataset.customLoader) {
-        console.log(`[${dataset.label}] using custom loader for ${files.length} file(s)`);
-        await dataset.customLoader(client, files, options.dryRun);
-        continue;
-      }
-
-      for (const filePath of files) {
-        const fileStats = await stat(filePath);
-        const fileHash = await computeFileHash(filePath);
-        const fileName = basename(filePath);
-        const sourceFileName = getSourceFileName(datasetDir, filePath);
-        const statsTrack = dataset.tableName === "stats"
-          ? getStatsTrack(datasetDir, filePath)
-          : undefined;
-
-        if (!options.limit && (await isFileIngested(client, dataset.tableName, sourceFileName, fileHash, ingestVersion))) {
-          const skippedReport: FileReport = {
-            fileName,
-            status: "skipped",
-            skipReason: `already ingested (${ingestVersion})`,
-            fileHash,
-            totalRows: 0,
-            inserted: 0,
-            skipped: 0,
-            errored: 0,
-            errors: [],
-            dataset: dataset.key
-          };
-          reports.push(skippedReport);
-          console.log(`[${dataset.label}] skipping file ${filePath} (already ingested)`);
-          continue;
-        }
-
-        const specs = await getColumnSpecsFromDb(client, dataset.tableName);
-        const shouldReplaceExisting = !options.dryRun && !options.limit;
-        console.log(`[${dataset.label}] processing file ${filePath}`);
-        if (shouldReplaceExisting) {
-          await client.query("BEGIN");
-        }
-        try {
-          if (shouldReplaceExisting) {
-            if (dataset.tableName === "stats") {
-              const existingMatchIds = await getMatchIdsBySourceFile(client, sourceFileName);
-              for (const matchId of existingMatchIds) {
-                changedStatsMatchIds.add(matchId);
-              }
-            }
-            const deleteResult = await client.query(
-              `DELETE FROM ${quoteIdent(dataset.tableName)}
-               WHERE regexp_replace(source_file, ' \\([0-9]+\\)(\\.[^.]+)$', '\\1') = $1;`,
-              [sourceFileName]
-            );
-            if (dataset.tableName === "stats" && (deleteResult.rowCount ?? 0) > 0) {
-              statsMutated = true;
-            }
-          }
-
-          const report = await loadCsvFile(client, filePath, specs, {
-            strict: options.strict,
-            dryRun: options.dryRun,
-            limit: options.limit,
-            allowNewColumns: options.allowNewColumns,
-            ignoreUnknownColumns: dataset.ignoreUnknownColumns,
-            tableName: dataset.tableName,
-            schemaFile: dataset.schemaFile,
-            sourceFile: sourceFileName,
-            headerNormalizer: dataset.headerNormalizer,
-            ignoreCoercionErrors: dataset.ignoreCoercionErrors,
-            stopAfterHeader: dataset.stopAfterHeader,
-            denormalize: dataset.denormalize,
-            statsTrack
-          });
-          report.fileHash = fileHash;
-          report.dataset = dataset.key;
-          reports.push(report);
-          console.log(
-            `[${dataset.label}] ${report.fileName}: rows ${report.totalRows}, inserted ${report.inserted}, skipped ${report.skipped}, errored ${report.errored}`
-          );
-
-          if (shouldReplaceExisting) {
-            await recordFileIngest(
-              client,
-              dataset.tableName,
-              sourceFileName,
-              report,
-              fileHash,
-              fileStats.size,
-              ingestVersion
-            );
-            if (dataset.tableName === "stats") {
-              statsMutated = true;
-              const reloadedMatchIds = await getMatchIdsBySourceFile(client, sourceFileName);
-              for (const matchId of reloadedMatchIds) {
-                changedStatsMatchIds.add(matchId);
-              }
-            }
-            await client.query("COMMIT");
-          }
-        } catch (error) {
-          if (shouldReplaceExisting) {
-            await client.query("ROLLBACK");
-          }
-          throw error;
-        }
-      }
-    }
+    const { reports, statsMutated, changedStatsMatchIds } = await runDatasetIngestLoop(
+      client,
+      datasets,
+      options,
+      ingestVersion
+    );
 
     const shouldBackfillSeriesIds =
       !options.dryRun &&

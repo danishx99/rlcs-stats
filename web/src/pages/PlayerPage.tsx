@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow, StatCategory, StatOption } from "../types/api";
-import SeasonTable from "../components/SeasonTable";
 import SocialIconLink from "../components/SocialIconLink";
 import SpotlightTile from "../components/SpotlightTile";
 import StatPicker from "../components/StatPicker";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
+import PlayerResultsPanel from "../components/player/PlayerResultsPanel";
+import PlayerSeasonPanel from "../components/player/PlayerSeasonPanel";
 import { useMeta } from "../hooks/useMeta";
 import { formatAliases } from "../utils/aliases";
 import { computeAge, formatDate } from "../utils/date";
-import { buildEventPath } from "../utils/event-routing";
 import { normalizeSocialLink, proxyImageUrl, DEFAULT_PLAYER_PHOTO } from "../utils/normalize";
 import { resolveTeamRosterId } from "../utils/team-routing";
-import { formatPlacement } from "../utils/format";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 import PageBackActions from "../components/PageBackActions";
@@ -439,84 +438,19 @@ export default function PlayerPage() {
           </div>
         </section>
 
-        <section className="panel player-season-card">
-          <div className="section-header player-season-header">
-            <h2>Perf by Season</h2>
-            <div className="profile-filter-row">
-              <div className="toggle">
-                <button
-                  type="button"
-                  className={seasonStatMode === "avg" ? "active" : ""}
-                  onClick={() => setSeasonStatMode("avg")}
-                >
-                  Per Game
-                </button>
-                <button
-                  type="button"
-                  className={seasonStatMode === "total" ? "active" : ""}
-                  onClick={() => setSeasonStatMode("total")}
-                >
-                  Total
-                </button>
-              </div>
-              {playerHasLanEvents && (
-                <label className="checkbox-inline">
-                  <input
-                    type="checkbox"
-                    checked={seasonIncludeLans}
-                    onChange={(e) => setSeasonIncludeLans(e.target.checked)}
-                    disabled={seasonGameMode !== "3s"}
-                  />
-                  Include LAN Events
-                </label>
-              )}
-              <select
-                value={seasonGameMode}
-                onChange={(e) => {
-                  const mode = e.target.value as "1s" | "2s" | "3s";
-                  setSeasonGameMode(mode);
-                  if (mode !== "3s") {
-                    setSeasonIncludeLans(false);
-                  }
-                }}
-              >
-                <option value="1s">1s</option>
-                <option value="2s">2s</option>
-                <option value="3s">3s</option>
-              </select>
-            </div>
-          </div>
-          {seasonLoading ? (
-            <div className="skel-table" role="status" aria-busy="true">
-              <div className="skel-table-row skel-season-row">
-                <SkeletonBlock height={14} width="60%" />
-                <SkeletonBlock height={14} />
-                <SkeletonBlock height={14} />
-                <SkeletonBlock height={14} />
-                <SkeletonBlock height={14} />
-              </div>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={`season-skel-${i}`} className="skel-table-row skel-season-row">
-                  <SkeletonBlock height={14} width="50%" />
-                  <SkeletonBlock height={14} />
-                  <SkeletonBlock height={14} />
-                  <SkeletonBlock height={14} />
-                  <SkeletonBlock height={14} />
-                </div>
-              ))}
-            </div>
-          ) : seasonError ? (
-            <PanelState
-              state="error"
-              message={seasonError}
-              onRetry={() => setSeasonRefreshKey((value) => value + 1)}
-            />
-          ) : seasonRows.length === 0 ? (
-            <PanelState state="empty" message="No season data available for this filter." />
-          ) : (
-            <SeasonTable rows={[...seasonRows].reverse()} mode={seasonStatMode} />
-          )}
-        </section>
+        <PlayerSeasonPanel
+          rows={seasonRows}
+          loading={seasonLoading}
+          error={seasonError}
+          onRetry={() => setSeasonRefreshKey((value) => value + 1)}
+          statMode={seasonStatMode}
+          onStatModeChange={setSeasonStatMode}
+          gameMode={seasonGameMode}
+          onGameModeChange={setSeasonGameMode}
+          includeLans={seasonIncludeLans}
+          onIncludeLansChange={setSeasonIncludeLans}
+          showLanToggle={playerHasLanEvents}
+        />
       </div>
 
       <section className="panel player-career-card">
@@ -579,143 +513,17 @@ export default function PlayerPage() {
         </div>
       </section>
 
-      <section className="panel player-results-card">
-        <div className="section-header">
-          <h2>Results</h2>
-          <div className="section-controls">
-            <div className="toggle">
-              <button
-                type="button"
-                className={resultsViewMode === "season" ? "active" : ""}
-                onClick={() => setResultsViewMode("season")}
-              >
-                Season
-              </button>
-              <button
-                type="button"
-                className={resultsViewMode === "all" ? "active" : ""}
-                onClick={() => setResultsViewMode("all")}
-              >
-                All-Time
-              </button>
-            </div>
-            {resultsViewMode === "season" && resultSeasons.length > 0 && (
-              <select
-                className="results-season-select"
-                value={resultSeason}
-                onChange={(e) => setResultSeason(e.target.value)}
-              >
-                {resultSeasons.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-
-        {resultsLoading ? (
-          <div className="skel-table" role="status" aria-busy="true">
-            <div className="skel-table-header skel-results-row">
-              <SkeletonBlock height={12} width="40%" />
-              <SkeletonBlock height={12} width="60%" />
-              <SkeletonBlock height={12} width="50%" />
-              <SkeletonBlock height={12} width="40%" />
-            </div>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={`results-skel-${i}`} className="skel-table-row skel-results-row">
-                <SkeletonBlock height={14} width={`${70 - i * 6}%`} />
-                <SkeletonBlock height={14} width="50%" />
-                <SkeletonBlock height={14} width={`${60 - i * 5}%`} />
-                <SkeletonBlock height={14} width="55%" />
-              </div>
-            ))}
-          </div>
-        ) : resultsError ? (
-          <PanelState
-            state="error"
-            message={resultsError}
-            onRetry={() => setResultsRefreshKey((value) => value + 1)}
-          />
-        ) : results.length === 0 ? (
-          <PanelState
-            state="empty"
-            message={resultsViewMode === "season" ? "No event results found for this season." : "No event results found."}
-          />
-        ) : (
-          <div className="results-table-wrap">
-            <table className="results-table">
-              <thead>
-                <tr>
-                  <th>Event</th>
-                  <th>Placement</th>
-                  <th>Opponent</th>
-                  <th>Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((event) => {
-                  const s = event.series[0];
-                  const won = s?.wonSeries ?? false;
-                  const isLanResult = event.scope === "international";
-                  const eventLabel = [event.split, event.event].filter(Boolean).join(" / ");
-                  const eventHref = event.eventId
-                    ? buildEventPath(event.eventId)
-                    : null;
-                  const placement = isLanResult
-                    ? "—"
-                    : event.status === "in_progress"
-                      ? "In Progress"
-                      : formatPlacement(
-                          event.placement,
-                          event.placementStart,
-                          event.placementEnd
-                        );
-                  const isChampion =
-                    !isLanResult && (
-                      (event.placementStart === 1 && event.placementEnd === 1) || placement === "1st"
-                    );
-                  return (
-                    <tr
-                      key={
-                        event.eventId ??
-                        `${event.season}-${event.split}-${event.mode}-${event.scope}-${event.tier}-${event.event}`
-                      }
-                      className={won ? "results-row--win" : "results-row--loss"}
-                    >
-                      <td className="results-cell-event">
-                        {eventHref ? (
-                          <Link className="inline-link" to={eventHref}>
-                            {eventLabel || event.event}
-                          </Link>
-                        ) : (
-                          eventLabel || "—"
-                        )}
-                      </td>
-                      <td>
-                        <span className={`results-placement${isChampion ? " results-placement--gold" : ""}`}>
-                          {placement}
-                        </span>
-                      </td>
-                      <td className="results-cell-opponent">
-                        {s?.opponent ? <TeamNameWithLogo team={s.opponent} link={!isLanResult} /> : "—"}
-                      </td>
-                      <td className="results-cell-score">
-                        {s ? (
-                          <>
-                            <span className={won ? "score-win" : "score-loss"}>{s.playerWins}</span>
-                            <span className="score-dash"> - </span>
-                            <span className={won ? "score-loss" : "score-win"}>{s.opponentWins}</span>
-                          </>
-                        ) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <PlayerResultsPanel
+        results={results}
+        loading={resultsLoading}
+        error={resultsError}
+        onRetry={() => setResultsRefreshKey((value) => value + 1)}
+        viewMode={resultsViewMode}
+        onViewModeChange={setResultsViewMode}
+        resultSeasons={resultSeasons}
+        resultSeason={resultSeason}
+        onResultSeasonChange={setResultSeason}
+      />
 
       <div className="profile-teams">
         <div className="section-title">Teams</div>
