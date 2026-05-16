@@ -33,10 +33,3 @@ export type StatCategory = {
   name: string;
   stats: StatOption[];
 };
-
-export type Insight = {
-  id: string;
-  title: string;
-  subtitle: string;
-  sql: string;
-};

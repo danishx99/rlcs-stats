@@ -207,26 +207,6 @@ function denormalizeRow(
   }
 }
 
-export function extractColumnSpecs(sql: string): ColumnSpec[] {
-  const specs: ColumnSpec[] = [];
-  const regex = /"([^"]+)"\s+([A-Z ]+?)(?:,|\n)/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(sql)) !== null) {
-    const name = match[1];
-    const type = match[2].trim().toUpperCase() as ColumnType;
-    if (
-      type === "TEXT" ||
-      type === "INTEGER" ||
-      type === "BOOLEAN" ||
-      type === "TIMESTAMPTZ" ||
-      type === "DOUBLE PRECISION"
-    ) {
-      specs.push({ name, type });
-    }
-  }
-  return specs;
-}
-
 function quoteIdent(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }

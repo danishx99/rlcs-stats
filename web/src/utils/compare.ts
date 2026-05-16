@@ -8,12 +8,6 @@ export function seriesLabelParts(row: CompareHistoryRow) {
   };
 }
 
-export function formatSeriesLabel(row: CompareHistoryRow) {
-  const { prefix, event, suffix } = seriesLabelParts(row);
-  const parts = [prefix, event, suffix].filter(Boolean);
-  return parts.length ? parts.join(" · ") : "Series";
-}
-
 export function teamLabel(team?: CompareHistoryTeam) {
   return team?.team ?? "Team";
 }

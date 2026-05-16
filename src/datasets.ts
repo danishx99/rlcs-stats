@@ -50,7 +50,6 @@ const playerHeaderAliases = new Map<string, string>([
   ["dateofbirth", "Date of Birth"],
   ["country", "Country"],
   ["twitch", "Twitch"],
-  ["twitch", "Twitch"],
   ["tiktok", "TikTok"],
   ["twitter", "Twitter"],
   ["photourl", "Photo URL"]

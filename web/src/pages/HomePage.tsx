@@ -9,16 +9,6 @@ import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 
-/*
- * Preserved featured insight presets (available via api.featured):
- * - least_grounded: Least Grounded (lowest on-ground %)
- * - best_grand_finals: Best in Grand Finals
- * - best_decider: Best in Deciders
- * - fastest_player: Fastest Player (avg speed)
- * - best_ot: Best in Overtime
- * - most_demos: Most Demos per Game
- */
-
 export type HomePageProps = {
   latestSeason: string | null;
   featuredOptions: StatOption[];

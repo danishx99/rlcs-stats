@@ -54,17 +54,7 @@ function getObject(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function getRequiredString(value: unknown, maxLength: number): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (trimmed.length > maxLength) {
-    return trimmed.slice(0, maxLength);
-  }
-  return trimmed;
-}
-
-function getOptionalString(value: unknown, maxLength: number): string | null {
+function getString(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -181,7 +171,7 @@ export async function handleFeedbackSubmit(req: IncomingMessage, res: ServerResp
     return;
   }
 
-  const message = getRequiredString(payload.message, 2000);
+  const message = getString(payload.message, 2000);
   if (!message || message.length < 5) {
     badRequest(res, "message must be at least 5 characters");
     return;
@@ -193,16 +183,16 @@ export async function handleFeedbackSubmit(req: IncomingMessage, res: ServerResp
     return;
   }
 
-  const pageUrl = getRequiredString(page.url, 4000);
-  const pagePath = getRequiredString(page.path, 2048);
+  const pageUrl = getString(page.url, 4000);
+  const pagePath = getString(page.path, 2048);
   if (!pageUrl || !pagePath) {
     badRequest(res, "page.url and page.path are required");
     return;
   }
 
-  const pageSearch = getOptionalString(page.search, 2048);
-  const pageHash = getOptionalString(page.hash, 2048);
-  const pageTitle = getOptionalString(page.title, 512);
+  const pageSearch = getString(page.search, 2048);
+  const pageHash = getString(page.hash, 2048);
+  const pageTitle = getString(page.title, 512);
 
   const client = getObject(payload.client) ?? {};
   const clientContext = {
@@ -210,21 +200,21 @@ export async function handleFeedbackSubmit(req: IncomingMessage, res: ServerResp
     viewportHeight: getOptionalNumber(client.viewportHeight),
     screenWidth: getOptionalNumber(client.screenWidth),
     screenHeight: getOptionalNumber(client.screenHeight),
-    language: getOptionalString(client.language, 64),
-    timezone: getOptionalString(client.timezone, 128),
-    userAgent: getOptionalString(client.userAgent, 1024),
-    platform: getOptionalString(client.platform, 128),
-    referrer: getOptionalString(client.referrer, 2048),
-    submittedAt: getOptionalString(client.submittedAt, 64),
-    sessionId: getOptionalString(client.sessionId, 128)
+    language: getString(client.language, 64),
+    timezone: getString(client.timezone, 128),
+    userAgent: getString(client.userAgent, 1024),
+    platform: getString(client.platform, 128),
+    referrer: getString(client.referrer, 2048),
+    submittedAt: getString(client.submittedAt, 64),
+    sessionId: getString(client.sessionId, 128)
   };
 
   const clientIp = getClientIp(req);
   const serverContext = {
     receivedAt: new Date().toISOString(),
     ipHash: hashValue(clientIp ?? "unknown"),
-    host: getOptionalString(req.headers.host, 512),
-    origin: getOptionalString(req.headers.origin, 2048),
+    host: getString(req.headers.host, 512),
+    origin: getString(req.headers.origin, 2048),
     method: req.method ?? null
   };
 

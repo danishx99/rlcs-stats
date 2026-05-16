@@ -48,14 +48,6 @@ function placementLabel(start: number, end: number) {
   return `${ordinal(start)}-${ordinal(end)}`;
 }
 
-function phaseLabel(phase: string) {
-  return phase;
-}
-
-function dayLabel(day: string) {
-  return day;
-}
-
 export default function EventPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -744,7 +736,7 @@ export default function EventPage() {
               >
                 <option value="">All Phases</option>
                 {phaseOptions.map((phase) => (
-                  <option key={phase} value={phase}>{phaseLabel(phase)}</option>
+                  <option key={phase} value={phase}>{phase}</option>
                 ))}
               </select>
             )}
@@ -756,7 +748,7 @@ export default function EventPage() {
               >
                 <option value="">All Days</option>
                 {dayOptions.map((day) => (
-                  <option key={day} value={day}>{dayLabel(day)}</option>
+                  <option key={day} value={day}>{day}</option>
                 ))}
               </select>
             )}
