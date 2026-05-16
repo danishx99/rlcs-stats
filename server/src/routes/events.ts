@@ -4,6 +4,7 @@ import { json } from "../utils/http";
 import { formatSql, loadSql } from "../utils/sql";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { parseEventQueryIntent } from "../utils/query-intent";
+import { mapPlayerLeaderboardRow } from "../utils/leaderboard-rows";
 
 const detailSql = loadSql("../../sql/events/detail.sql", import.meta.url);
 const topTeamsSql = loadSql("../../sql/events/top-teams.sql", import.meta.url);
@@ -107,16 +108,12 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
         label: q.option!.label,
         format: q.option!.format
       },
-      rows: leaderboardResults[i].rows.map((row) => ({
-        id: row.id,
-        label: row.label,
-        teams: row.teams ?? [],
-        photoUrl: row.photo_url ?? null,
-        country: row.country ?? null,
-        value: Number(row.value ?? 0),
-        avgValue: Number(row.avg_value ?? 0),
-        totalValue: Number(row.total_value ?? 0)
-      }))
+      rows: leaderboardResults[i].rows.map((row) =>
+        mapPlayerLeaderboardRow(row, {
+          teamsFallback: [],
+          normalizeNullables: true
+        })
+      )
     }));
 
     const bracketSeason = season;

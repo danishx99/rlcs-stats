@@ -1,6 +1,6 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { json, withRouteError } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
@@ -22,7 +22,7 @@ export async function handleRosterProfile(
   const where = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
   const rosterIndex = values.length + 1;
 
-  try {
+  await withRouteError(res, "Failed to load roster profile", async () => {
     const result = await pool.query(
       formatSql(rosterProfileSql, {
         rosterIdParam: `$${rosterIndex}`,
@@ -74,10 +74,7 @@ export async function handleRosterProfile(
         }
       }
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load roster profile" });
-  }
+  });
 }
 
 export async function handleRosterSeason(
@@ -98,7 +95,7 @@ export async function handleRosterSeason(
   const savesExpr = metricExpression(resolveStatOption("saves"), mode, "roster_scope", gameCount);
   const demosExpr = metricExpression(resolveStatOption("demos"), mode, "roster_scope", gameCount);
 
-  try {
+  await withRouteError(res, "Failed to load season performance", async () => {
     const result = await pool.query(
       formatSql(rosterSeasonSql, {
         where,
@@ -123,10 +120,7 @@ export async function handleRosterSeason(
         demos: Number(row.demos ?? 0)
       }))
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load season performance" });
-  }
+  });
 }
 
 export async function handleRosterResults(
@@ -149,7 +143,7 @@ export async function handleRosterResults(
   const where = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
   const rosterIndex = values.length + 1;
 
-  try {
+  await withRouteError(res, "Failed to load roster results", async () => {
     const result = await pool.query(
       formatSql(rosterResultsSql, {
         rosterIdParam: `$${rosterIndex}`,
@@ -314,8 +308,5 @@ export async function handleRosterResults(
     });
 
     json(res, 200, { season, rows: enrichedRows });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load roster results" });
-  }
+  });
 }

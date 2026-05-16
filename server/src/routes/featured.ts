@@ -1,6 +1,6 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { json, withRouteError } from "../utils/http";
 import { buildFilterClauses } from "../utils/filters";
 import { FEATURED_INSIGHTS } from "../utils/stats";
 
@@ -18,7 +18,7 @@ export async function handleFeatured(_req: IncomingMessage, res: ServerResponse,
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const limitIndex = values.length + 1;
 
-  try {
+  await withRouteError(res, "Failed to load featured players", async () => {
     const result = await pool.query(insight.sql(where, limitIndex), [...values, limit]);
 
     const extraColumns = insight.columns ?? [];
@@ -44,8 +44,5 @@ export async function handleFeatured(_req: IncomingMessage, res: ServerResponse,
         };
       })
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load featured players" });
-  }
+  });
 }

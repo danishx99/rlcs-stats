@@ -7,6 +7,7 @@ import type { StatOption } from "../types";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr } from "../utils/roster";
 import { toNumber } from "../utils/response-mappers";
+import { runCompareHistoryQuery } from "../utils/compare-history";
 const comparePlayersSql = loadSql("../../sql/compare/compare_players.sql", import.meta.url);
 const compareTeamsSql = loadSql("../../sql/compare/compare_teams.sql", import.meta.url);
 const compareRostersSql = loadSql("../../sql/compare/compare_rosters.sql", import.meta.url);
@@ -180,53 +181,24 @@ export async function handleCompareHistory(
   }
 
   try {
-    if (type === "rosters") {
-      const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-      const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
-      const idsIndex = values.length + 1;
-      const limitIndex = idsIndex + 1;
-      const offsetIndex = idsIndex + 2;
+    const queryConfig =
+      type === "rosters"
+        ? { sqlTemplate: historyRostersSql }
+        : {
+          sqlTemplate: historyPlayersSql,
+          extraSqlTokens: { playerKeyExpr: playerKeyExpr("s") }
+        };
 
-      const result = await pool.query(
-        formatSql(historyRostersSql, {
-          idsParam: `$${idsIndex}`,
-          filterClauses,
-          limitParam: `$${limitIndex}`,
-          offsetParam: `$${offsetIndex}`
-        }),
-        [...values, ids, limit, offset]
-      );
-
-      const total = Number(result.rows[0]?.total_count ?? 0);
-      const rows = result.rows.filter((row) => row.series_id !== null).map((row) => {
-        const { total_count, ...rest } = row as Record<string, unknown>;
-        return rest;
-      });
-      json(res, 200, { rows, total, limit, offset });
-      return;
-    }
-
-    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-    const idsIndex = values.length + 1;
-    const limitIndex = idsIndex + 1;
-    const offsetIndex = idsIndex + 2;
-    const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
-    const result = await pool.query(
-      formatSql(historyPlayersSql, {
-        filterClauses,
-        playerKeyExpr: playerKeyExpr("s"),
-        idsParam: `$${idsIndex}`,
-        limitParam: `$${limitIndex}`,
-        offsetParam: `$${offsetIndex}`
-      }),
-      [...values, ids, limit, offset]
-    );
-
-    const total = Number(result.rows[0]?.total_count ?? 0);
-    const rows = result.rows.filter((row) => row.series_id !== null).map((row) => {
-      const { total_count, ...rest } = row as Record<string, unknown>;
-      return rest;
+    const { rows, total } = await runCompareHistoryQuery({
+      searchParams: url.searchParams,
+      sqlTemplate: queryConfig.sqlTemplate,
+      ids,
+      limit,
+      offset,
+      execute: (sql, params) => pool.query(sql, params),
+      extraSqlTokens: queryConfig.extraSqlTokens
     });
+
     json(res, 200, { rows, total, limit, offset });
   } catch (error) {
     console.error(error);

@@ -5,6 +5,7 @@ import { metricExpression, resolveStatOptionAsync, shouldUseGameDenominatorForTe
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr } from "../utils/roster";
 import { parseStatsTopIntent } from "../utils/query-intent";
+import { mapPlayerLeaderboardRow, mapTeamLeaderboardRow } from "../utils/leaderboard-rows";
 const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
 const statsTopTeamSql = loadSql("../../sql/stats/top-team.sql", import.meta.url);
 
@@ -75,14 +76,7 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
         sortDir,
         limitParam: `$${limitIndex}`
       });
-      mapRow = (row) => ({
-        id: row.id,
-        label: row.label,
-        teams: [],
-        value: Number(row.value ?? 0),
-        avgValue: Number(row.avg_value ?? 0),
-        totalValue: Number(row.total_value ?? 0)
-      });
+      mapRow = (row) => mapTeamLeaderboardRow(row, { teamsFallback: [] });
     } else {
       const primaryValueExpr = metricExpression(option, mode, "player_scope");
       const avgValueExpr = metricExpression(option, "avg", "player_scope");
@@ -105,16 +99,7 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
         sortDir,
         limitParam: `$${limitIndex}`
       });
-      mapRow = (row) => ({
-        id: row.id,
-        label: row.label,
-        teams: row.teams ?? [],
-        photoUrl: row.photo_url,
-        country: row.country,
-        value: Number(row.value ?? 0),
-        avgValue: Number(row.avg_value ?? 0),
-        totalValue: Number(row.total_value ?? 0)
-      });
+      mapRow = (row) => mapPlayerLeaderboardRow(row, { teamsFallback: [] });
     }
 
     const result = await pool.query(query, [...values, limit]);

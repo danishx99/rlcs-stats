@@ -1,6 +1,6 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { json, withRouteError } from "../utils/http";
 import { buildFilterClauses } from "../utils/filters";
 import { categorizeStatOptions, FEATURED_INSIGHTS, getAllStatOptions, STAT_OPTIONS } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
@@ -35,7 +35,7 @@ function toWhere(clauses: string[]) {
 }
 
 export async function handleMeta(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  try {
+  await withRouteError(res, "Failed to load metadata", async () => {
     const seasonFilters = buildFilterClauses(url.searchParams, "", ["gameMode", "scope", "tier"]);
     const splitFilters = buildFilterClauses(url.searchParams, "", ["season", "gameMode", "scope", "tier"]);
     // Event selectors should include all events for the selected season/split/mode,
@@ -77,14 +77,11 @@ export async function handleMeta(_req: IncomingMessage, res: ServerResponse, url
         format
       }))
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load metadata" });
-  }
+  });
 }
 
 export async function handleMetaColumns(_req: IncomingMessage, res: ServerResponse) {
-  try {
+  await withRouteError(res, "Failed to load column metadata", async () => {
     const options = await getAllStatOptions();
     const categories = categorizeStatOptions(options);
     json(res, 200, {
@@ -93,8 +90,5 @@ export async function handleMetaColumns(_req: IncomingMessage, res: ServerRespon
         stats: cat.stats.map(({ key, label, format }) => ({ key, label, format }))
       }))
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load column metadata" });
-  }
+  });
 }

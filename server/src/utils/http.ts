@@ -42,6 +42,19 @@ export function getRequestUrl(req: IncomingMessage) {
   return new URL(req.url, `http://${req.headers.host}`);
 }
 
+export async function withRouteError(
+  res: ServerResponse,
+  failureMessage: string,
+  handler: () => Promise<void>
+) {
+  try {
+    await handler();
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: failureMessage });
+  }
+}
+
 export async function readJsonBody(req: IncomingMessage, maxBytes = 32 * 1024): Promise<unknown> {
   const chunks: Buffer[] = [];
   let totalBytes = 0;

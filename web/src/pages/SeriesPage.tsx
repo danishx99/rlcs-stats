@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api } from "../api";
-import type { SeriesDetail, SeriesListRow, SeriesMetaResponse } from "../types/api";
+import type { SeriesDetail, SeriesListRow } from "../types/api";
 import { formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
 import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
-import { buildSeriesListParams, buildSeriesMetaParams, DEFAULT_SERIES_FILTERS, type SeriesFilters } from "../utils/series-filters";
+import { DEFAULT_SERIES_FILTERS, type SeriesFilters } from "../utils/series-filters";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
+import { useSeriesMeta } from "../hooks/useSeriesMeta";
+import { useSeriesList } from "../hooks/useSeriesList";
+import { useSeriesDetail } from "../hooks/useSeriesDetail";
 
 function scoreClass(aWins: number, bWins: number) {
   if (aWins > bWins) return "score-win";
@@ -40,15 +42,16 @@ function seriesContext(row: SeriesListRow | SeriesDetail | null) {
 export default function SeriesPage() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<SeriesFilters>(DEFAULT_SERIES_FILTERS);
-  const [meta, setMeta] = useState<SeriesMetaResponse | null>(null);
-  const [metaError, setMetaError] = useState<string | null>(null);
-  const [seriesRows, setSeriesRows] = useState<SeriesListRow[]>([]);
-  const [seriesLoading, setSeriesLoading] = useState(false);
-  const [seriesError, setSeriesError] = useState<string | null>(null);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
-  const [seriesDetailCache, setSeriesDetailCache] = useState<Record<string, SeriesDetail>>({});
-  const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [seriesDetailCache, setSeriesDetailCache] = useState<Record<string, SeriesDetail>>({});
+  const { meta, metaError } = useSeriesMeta(filters);
+  const { seriesRows, seriesLoading, seriesError } = useSeriesList(filters);
+  const {
+    selectedSeriesDetail: fetchedSeriesDetail,
+    detailLoading,
+    detailError: fetchedDetailError
+  } = useSeriesDetail(selectedSeriesId);
 
   const teamOptions = meta?.teams ?? [];
   const internationalEvents = meta?.internationalEvents ?? [];
@@ -60,109 +63,20 @@ export default function SeriesPage() {
     ? teamOptions.filter((team) => team !== filters.team)
     : teamOptions;
 
+  useEffect(() => {
+    if (!selectedSeriesId || !fetchedSeriesDetail) return;
+    setSeriesDetailCache((prev) => {
+      if (prev[selectedSeriesId]) return prev;
+      return { ...prev, [selectedSeriesId]: fetchedSeriesDetail };
+    });
+  }, [fetchedSeriesDetail, selectedSeriesId]);
+
   const selectedSeriesSummary = useMemo(
     () => (selectedSeriesId ? seriesRows.find((row) => row.seriesId === selectedSeriesId) ?? null : null),
     [selectedSeriesId, seriesRows]
   );
   const selectedSeriesDetail = selectedSeriesId ? seriesDetailCache[selectedSeriesId] ?? null : null;
   const selectedSeries = selectedSeriesDetail ?? selectedSeriesSummary;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadMeta() {
-      try {
-        const response = await api.seriesMeta({
-          ...buildSeriesMetaParams(filters)
-        });
-        if (cancelled) return;
-
-        setMeta(response);
-        setMetaError(null);
-      } catch (error) {
-        console.error(error);
-        if (!cancelled) {
-          setMetaError("Failed to load series filters");
-        }
-      }
-    }
-
-    loadMeta();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [filters.event, filters.includeLans, filters.mode, filters.season, filters.split, filters.stage]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadSeries() {
-      setSeriesLoading(true);
-      setSeriesError(null);
-      try {
-        const response = await api.seriesList({
-          ...buildSeriesListParams(filters)
-        });
-        if (cancelled) return;
-        setSeriesRows(response.rows ?? []);
-      } catch (error) {
-        console.error(error);
-        if (!cancelled) {
-          setSeriesRows([]);
-          setSeriesError("Failed to load series");
-        }
-      } finally {
-        if (!cancelled) {
-          setSeriesLoading(false);
-        }
-      }
-    }
-
-    loadSeries();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [filters.event, filters.includeLans, filters.mode, filters.season, filters.split, filters.stage, filters.team, filters.team2]);
-
-  useEffect(() => {
-    const maybeSeriesId = selectedSeriesId;
-    if (!maybeSeriesId || seriesDetailCache[maybeSeriesId]) {
-      return;
-    }
-    const seriesId: string = maybeSeriesId;
-
-    let cancelled = false;
-
-    async function loadDetails() {
-      setDetailLoading(true);
-      setDetailError(null);
-      try {
-        const response = await api.seriesDetail(seriesId);
-        if (cancelled) return;
-        setSeriesDetailCache((prev) => ({
-          ...prev,
-          [seriesId]: response.series
-        }));
-      } catch (error) {
-        console.error(error);
-        if (!cancelled) {
-          setDetailError("Failed to load series details");
-        }
-      } finally {
-        if (!cancelled) {
-          setDetailLoading(false);
-        }
-      }
-    }
-
-    loadDetails();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedSeriesId, seriesDetailCache]);
 
   useEffect(() => {
     if (!selectedSeriesId) return;
@@ -577,7 +491,7 @@ export default function SeriesPage() {
                 ))}
               </div>
             ) : null}
-            {detailError ? <div className="error">{detailError}</div> : null}
+            {(detailError ?? fetchedDetailError) ? <div className="error">{detailError ?? fetchedDetailError}</div> : null}
 
             {selectedSeriesDetail ? (
               <div className="table-wrap">

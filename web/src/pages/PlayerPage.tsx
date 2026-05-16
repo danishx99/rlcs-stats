@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import type { PlayerResultEvent, SeasonResponse, SeasonRow, StatCategory, StatOption } from "../types/api";
+import type { StatCategory, StatOption } from "../types/api";
 import SocialIconLink from "../components/SocialIconLink";
 import SpotlightTile from "../components/SpotlightTile";
 import StatPicker from "../components/StatPicker";
@@ -17,6 +17,8 @@ import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 import PageBackActions from "../components/PageBackActions";
 import { usePlayerProfile } from "../hooks/usePlayerProfile";
+import { usePlayerSeason } from "../hooks/usePlayerSeason";
+import { usePlayerResults } from "../hooks/usePlayerResults";
 
 const DEFAULT_SPOTLIGHT_KEYS = ["goals", "assists", "saves", "demos"] as const;
 type DefaultSpotlightKey = (typeof DEFAULT_SPOTLIGHT_KEYS)[number];
@@ -108,144 +110,38 @@ export default function PlayerPage() {
     }
     return disabled;
   }, [statCategories, spotlightKeys]);
-  const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
-  const [seasonLoading, setSeasonLoading] = useState(false);
-  const [seasonError, setSeasonError] = useState<string | null>(null);
-  const [seasonRefreshKey, setSeasonRefreshKey] = useState(0);
   const [seasonGameMode, setSeasonGameMode] = useState<"1s" | "2s" | "3s">("3s");
   const [seasonStatMode, setSeasonStatMode] = useState<"avg" | "total">("avg");
   const [seasonIncludeLans, setSeasonIncludeLans] = useState(false);
-  const [results, setResults] = useState<PlayerResultEvent[]>([]);
-  const [resultSeasons, setResultSeasons] = useState<string[]>([]);
   const [resultSeason, setResultSeason] = useState("");
   const [resultsViewMode, setResultsViewMode] = useState<"season" | "all">("season");
-  const [resultsLoading, setResultsLoading] = useState(false);
-  const [resultsError, setResultsError] = useState<string | null>(null);
-  const [resultsRefreshKey, setResultsRefreshKey] = useState(0);
-  const [hasLanEvents, setHasLanEvents] = useState(false);
-  const allTimeCacheRef = useRef<{ playerId: string; events: PlayerResultEvent[]; seasons: string[] } | null>(null);
-  const allTimePrefetchedRef = useRef<string | null>(null);
 
   const { playerProfile, playerProfileLoading, playerProfileError } = usePlayerProfile(uniqueId, spotlightKey);
+  const { seasonRows, seasonLoading, seasonError, retrySeason } = usePlayerSeason(
+    uniqueId,
+    seasonGameMode,
+    seasonStatMode,
+    seasonIncludeLans
+  );
+  const {
+    results,
+    resultSeasons,
+    resultsLoading,
+    resultsError,
+    retryResults,
+    playerHasLanEvents,
+    getAllEventsForTeamRouting
+  } = usePlayerResults(uniqueId, resultsViewMode, resultSeason, setResultSeason);
 
   useEffect(() => {
     setSeasonIncludeLans(false);
   }, [uniqueId]);
 
   useEffect(() => {
-    if (!uniqueId) return;
-    const playerId = uniqueId;
-    async function loadSeason() {
-      setSeasonLoading(true);
-      setSeasonError(null);
-      try {
-        const response: SeasonResponse = await api.playerSeason(playerId, {
-          mode: seasonStatMode,
-          gameMode: seasonGameMode,
-          scope: seasonGameMode === "3s" && !seasonIncludeLans ? "regional" : undefined,
-          tier: seasonGameMode === "3s" && !seasonIncludeLans ? "none" : undefined
-        });
-        setSeasonRows(response.rows);
-      } catch (error) {
-        console.error(error);
-        setSeasonRows([]);
-        setSeasonError("Failed to load seasonal performance.");
-      } finally {
-        setSeasonLoading(false);
-      }
-    }
-
-    loadSeason();
-  }, [seasonGameMode, seasonIncludeLans, seasonRefreshKey, seasonStatMode, uniqueId]);
-
-  useEffect(() => {
     if (resultSeason || !seasonRows.length) return;
     const latest = seasonRows[seasonRows.length - 1]?.season ?? "";
     if (latest) setResultSeason(latest);
   }, [resultSeason, seasonRows]);
-
-  useEffect(() => {
-    allTimeCacheRef.current = null;
-    allTimePrefetchedRef.current = null;
-    setHasLanEvents(false);
-  }, [uniqueId]);
-
-  useEffect(() => {
-    if (!uniqueId) {
-      setResults([]);
-      setResultSeasons([]);
-      setResultSeason("");
-      setResultsLoading(false);
-      return;
-    }
-    if (resultsViewMode === "all" && allTimeCacheRef.current?.playerId === uniqueId) {
-      setResults(allTimeCacheRef.current.events);
-      setResultSeasons(allTimeCacheRef.current.seasons);
-      setResultsLoading(false);
-      setResultsError(null);
-      return;
-    }
-    const playerId = uniqueId;
-    const params: Record<string, string> = {};
-    if (resultsViewMode === "season" && resultSeason) {
-      params.season = resultSeason;
-    }
-    let isActive = true;
-    async function loadResults() {
-      setResultsLoading(true);
-      setResultsError(null);
-      try {
-        const response = await api.playerResults(playerId, params);
-        if (!isActive) return;
-        setResults(response.events);
-        const seasons = (response.seasons ?? []).filter(Boolean).reverse();
-        setResultSeasons(seasons);
-        setResultSeason((current) => {
-          if (current && seasons.includes(current)) return current;
-          return seasons[0] ?? "";
-        });
-        if (response.events.some((e) => e.scope === "international")) {
-          setHasLanEvents(true);
-        }
-        if (resultsViewMode === "all") {
-          allTimeCacheRef.current = { playerId, events: response.events, seasons };
-        }
-      } catch (error) {
-        if (!isActive) return;
-        console.error(error);
-        setResults([]);
-        setResultsError("Failed to load event results.");
-      } finally {
-        if (!isActive) return;
-        setResultsLoading(false);
-      }
-    }
-
-    loadResults();
-
-    return () => {
-      isActive = false;
-    };
-  }, [resultsRefreshKey, resultSeason, resultsViewMode, uniqueId]);
-
-  useEffect(() => {
-    if (!uniqueId || allTimePrefetchedRef.current === uniqueId) return;
-    if (!resultSeason) return;
-    allTimePrefetchedRef.current = uniqueId;
-    const playerId = uniqueId;
-    api.playerResults(playerId).then((response) => {
-      if (allTimePrefetchedRef.current !== playerId) return;
-      const seasons = (response.seasons ?? []).filter(Boolean).reverse();
-      allTimeCacheRef.current = { playerId, events: response.events, seasons };
-      if (response.events.some((e) => e.scope === "international")) {
-        setHasLanEvents(true);
-      }
-    }).catch(() => {
-      allTimePrefetchedRef.current = null;
-    });
-  }, [uniqueId, resultSeason]);
-
-  const playerHasLanEvents = hasLanEvents;
 
   if (playerProfileLoading) {
     return (
@@ -328,8 +224,7 @@ export default function PlayerPage() {
   };
   const navigateToTeam = async (teamName: string) => {
     const rosterId = await resolveTeamRosterId(teamName);
-    const cache = allTimeCacheRef.current;
-    const allEvents = cache && cache.playerId === uniqueId ? cache.events : results;
+    const allEvents = getAllEventsForTeamRouting();
     const teamNorm = teamName.trim().toUpperCase();
     const match = allEvents.find(
       (e) => e.team && e.team.trim().toUpperCase() === teamNorm
@@ -399,7 +294,7 @@ export default function PlayerPage() {
           rows={seasonRows}
           loading={seasonLoading}
           error={seasonError}
-          onRetry={() => setSeasonRefreshKey((value) => value + 1)}
+          onRetry={retrySeason}
           statMode={seasonStatMode}
           onStatModeChange={setSeasonStatMode}
           gameMode={seasonGameMode}
@@ -474,7 +369,7 @@ export default function PlayerPage() {
         results={results}
         loading={resultsLoading}
         error={resultsError}
-        onRetry={() => setResultsRefreshKey((value) => value + 1)}
+        onRetry={retryResults}
         viewMode={resultsViewMode}
         onViewModeChange={setResultsViewMode}
         resultSeasons={resultSeasons}

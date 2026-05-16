@@ -1,6 +1,6 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { json, withRouteError } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
@@ -29,7 +29,7 @@ export async function handlePlayers(_req: IncomingMessage, res: ServerResponse, 
   const limitIndex = values.length + 1;
   const offsetIndex = values.length + 2;
 
-  try {
+  await withRouteError(res, "Failed to load players", async () => {
     const result = await pool.query(
       formatSql(playersListSql, {
         playerKeyExpr: playerKeyExpr("s"),
@@ -51,10 +51,7 @@ export async function handlePlayers(_req: IncomingMessage, res: ServerResponse, 
         games: Number(row.games ?? 0)
       }))
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load players" });
-  }
+  });
 }
 
 export async function handlePlayerProfile(
@@ -68,7 +65,7 @@ export async function handlePlayerProfile(
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const playerIndex = values.length + 1;
 
-  try {
+  await withRouteError(res, "Failed to load player profile", async () => {
     // playerProfile and playerResults share no data dependency — run in parallel.
     const queryParams = [...values, normalizedPlayerId];
     const [result, resultsForBest] = await Promise.all([
@@ -172,10 +169,7 @@ export async function handlePlayerProfile(
         }
       }
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load player profile" });
-  }
+  });
 }
 
 export async function handlePlayerResults(
@@ -189,7 +183,7 @@ export async function handlePlayerResults(
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const playerIndex = values.length + 1;
 
-  try {
+  await withRouteError(res, "Failed to load player results", async () => {
     const result = await pool.query(
       formatSql(playerResultsSql, {
         where,
@@ -235,10 +229,7 @@ export async function handlePlayerResults(
     }));
 
     json(res, 200, { seasons, events });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load player results" });
-  }
+  });
 }
 
 export async function handlePlayerSeason(
@@ -268,7 +259,7 @@ export async function handlePlayerSeason(
   const savesTotalExpr = metricExpression(resolveStatOption("saves"), "total", "player_scope");
   const demosTotalExpr = metricExpression(resolveStatOption("demos"), "total", "player_scope");
 
-  try {
+  await withRouteError(res, "Failed to load season performance", async () => {
     const result = await pool.query(
       formatSql(playerSeasonSql, {
         playerKeyExpr: playerKeyExpr("s"),
@@ -310,8 +301,5 @@ export async function handlePlayerSeason(
         demosTotal: Number(row.demos_total ?? 0)
       }))
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Failed to load season performance" });
-  }
+  });
 }

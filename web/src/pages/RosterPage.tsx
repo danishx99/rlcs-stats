@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api";
-import type { RosterEventResultRow, RosterProfile } from "../types/api";
+import type { RosterProfile } from "../types/api";
 import { proxyImageUrl, normalizeSocialLink, DEFAULT_TEAM_LOGO } from "../utils/normalize";
 import { formatRosterStarters } from "../utils/roster";
 import { buildEventPath } from "../utils/event-routing";
@@ -11,8 +10,8 @@ import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 import PageBackActions from "../components/PageBackActions";
 import { formatPlacement } from "../utils/format";
-
-const ROSTER_MODE = "3s" as const;
+import { useRosterProfile } from "../hooks/useRosterProfile";
+import { useRosterResults } from "../hooks/useRosterResults";
 
 function rosterEventLabel(split: string | null, event: string | null) {
   if (split && event) return `${split} / ${event}`;
@@ -23,94 +22,20 @@ export default function RosterPage() {
   const { rosterId } = useParams();
   const [searchParams] = useSearchParams();
   const seasonHint = searchParams.get("season") ?? "";
-  const [rosterProfile, setRosterProfile] = useState<RosterProfile | null>(null);
-  const [rosterProfileLoading, setRosterProfileLoading] = useState(false);
-  const [rosterProfileError, setRosterProfileError] = useState<string | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<string>("");
-  const [resultRows, setResultRows] = useState<RosterEventResultRow[]>([]);
-  const [resultsLoading, setResultsLoading] = useState(false);
-  const [resultsError, setResultsError] = useState<string | null>(null);
-  const [resultsRefreshKey, setResultsRefreshKey] = useState(0);
-
-  useEffect(() => {
-    if (!rosterId) return;
-    const rosterKey: string = rosterId;
-
-    async function loadRoster() {
-      setRosterProfileLoading(true);
-      setRosterProfileError(null);
-      try {
-        const response = await api.rosterProfile(rosterKey, {
-          gameMode: ROSTER_MODE
-        });
-        setRosterProfile(response.roster);
-
-        const available = response.roster.seasonsCompeted
-          ?? response.roster.seasonRosters?.map((e) => e.season)
-          ?? [];
-        const hintValid = seasonHint && available.includes(seasonHint);
-        const initialSeason = hintValid
-          ? seasonHint
-          : response.roster.defaultSeason
-            ?? available[0]
-            ?? "";
-        setSelectedSeason(initialSeason);
-      } catch (error) {
-        console.error(error);
-        setRosterProfile(null);
-        setRosterProfileError("Failed to load team profile.");
-      } finally {
-        setRosterProfileLoading(false);
-      }
-    }
-
-    loadRoster();
-  }, [rosterId]);
-
-  useEffect(() => {
-    if (!rosterId || !selectedSeason) {
-      setResultRows([]);
-      return;
-    }
-    const rosterKey = rosterId;
-
-    let isActive = true;
-    async function loadResults() {
-      setResultsLoading(true);
-      setResultsError(null);
-      try {
-        const response = await api.rosterResults(rosterKey, {
-          season: selectedSeason,
-          gameMode: ROSTER_MODE
-        });
-        if (!isActive) return;
-        setResultRows(response.rows ?? []);
-      } catch (error) {
-        if (!isActive) return;
-        console.error(error);
-        setResultRows([]);
-        setResultsError("Failed to load team results.");
-      } finally {
-        if (!isActive) return;
-        setResultsLoading(false);
-      }
-    }
-
-    loadResults();
-    return () => {
-      isActive = false;
-    };
-  }, [resultsRefreshKey, rosterId, selectedSeason]);
-
-  const seasonOptions = useMemo(() => {
-    if (!rosterProfile) return [] as string[];
-
-    if (rosterProfile.seasonsCompeted?.length) {
-      return rosterProfile.seasonsCompeted;
-    }
-
-    return (rosterProfile.seasonRosters ?? []).map((entry) => entry.season);
-  }, [rosterProfile]);
+  const {
+    rosterProfile,
+    rosterProfileLoading,
+    rosterProfileError,
+    selectedSeason,
+    setSelectedSeason,
+    seasonOptions
+  } = useRosterProfile(rosterId, seasonHint);
+  const {
+    resultRows,
+    resultsLoading,
+    resultsError,
+    retryResults
+  } = useRosterResults(rosterId, selectedSeason);
 
   const selectedSeasonEntry = useMemo(() => {
     if (!rosterProfile?.seasonRosters?.length) return null;
@@ -378,7 +303,7 @@ export default function RosterPage() {
           <PanelState
             state="error"
             message={resultsError}
-            onRetry={() => setResultsRefreshKey((value) => value + 1)}
+            onRetry={retryResults}
           />
         ) : resultRows.length === 0 ? (
           <PanelState state="empty" message="No event results found for this season." />

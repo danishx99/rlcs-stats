@@ -1,6 +1,6 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { json, withRouteError } from "../utils/http";
 import { buildFilterClauses } from "../utils/filters";
 import { formatSql, loadSql } from "../utils/sql";
 import { getAllStatOptions } from "../utils/stats";
@@ -20,7 +20,7 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
     return;
   }
 
-  try {
+  await withRouteError(res, "Search failed", async () => {
     const like = `%${trimmed}%`;
     const { clauses, values } = buildFilterClauses(url.searchParams, "s");
     const extraWhere = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
@@ -125,8 +125,5 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
         }
       }))
     });
-  } catch (error) {
-    console.error(error);
-    json(res, 500, { error: "Search failed" });
-  }
+  });
 }
