@@ -1,10 +1,9 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
-import { normalizeMode } from "../utils/filters";
-import { normalizeDay, normalizePhase } from "../utils/phases";
 import { formatSql, loadSql } from "../utils/sql";
 import { metricExpression, resolveStatOption } from "../utils/stats";
+import { parseEventQueryIntent } from "../utils/query-intent";
 
 const detailSql = loadSql("../../sql/events/detail.sql", import.meta.url);
 const topTeamsSql = loadSql("../../sql/events/top-teams.sql", import.meta.url);
@@ -23,14 +22,11 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
     json(res, 400, { error: "Event id is required" });
     return;
   }
-  const teamsLimitRaw = Number.parseInt(url.searchParams.get("teamsLimit") ?? "", 10);
-  const teamsLimit = Number.isFinite(teamsLimitRaw) && teamsLimitRaw > 0
-    ? Math.min(teamsLimitRaw, MAX_TEAMS_LIMIT)
-    : DEFAULT_TEAMS_LIMIT;
-  const leaderboardMode = normalizeMode(url.searchParams.get("mode"));
-  const selectedPhase = normalizePhase(url.searchParams.get("phase"));
-  const selectedDay = normalizeDay(url.searchParams.get("day"));
-  const arenaParam = url.searchParams.get("arena")?.trim() || null;
+  const intent = parseEventQueryIntent(url, {
+    teamsLimit: DEFAULT_TEAMS_LIMIT,
+    maxTeamsLimit: MAX_TEAMS_LIMIT
+  });
+  const { teamsLimit, leaderboardMode, selectedPhase, selectedDay, arena: arenaParam } = intent;
 
   try {
     const detailResult = await pool.query(

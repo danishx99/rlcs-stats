@@ -1,20 +1,16 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
-import { buildFilterClauses, normalizeMode } from "../utils/filters";
-import { normalizeDay, normalizePhase } from "../utils/phases";
 import { metricExpression, resolveStatOptionAsync, shouldUseGameDenominatorForTeamAvg } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr } from "../utils/roster";
+import { parseStatsTopIntent } from "../utils/query-intent";
 const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
 const statsTopTeamSql = loadSql("../../sql/stats/top-team.sql", import.meta.url);
 
 export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const metricKey = url.searchParams.get("metric") ?? "score";
-  const mode = normalizeMode(url.searchParams.get("mode"));
-  const type = url.searchParams.get("type") === "team" ? "team" : "player";
-  const sortDir = url.searchParams.get("sort") === "asc" ? "ASC" : "DESC";
-  const limit = Math.min(Number.parseInt(url.searchParams.get("limit") ?? "10", 10), 50);
+  const intent = parseStatsTopIntent(url);
+  const { metricKey, mode, type, sortDir, limit } = intent;
   const option = await resolveStatOptionAsync(metricKey);
 
   if (!option) {
@@ -22,39 +18,22 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
     return;
   }
 
-  const { clauses, values: stringValues } = buildFilterClauses(url.searchParams, "s");
-  // Widen to (string | number) so numeric min* params can be pushed as numbers
-  // rather than coerced to strings — matches how `limit` is bound below.
-  const values: Array<string | number> = [...stringValues];
-  const phase = normalizePhase(url.searchParams.get("phase"));
-  if (phase !== "all") {
-    values.push(phase);
-    clauses.push(`LOWER(TRIM(COALESCE(s."Stage", ''))) = LOWER($${values.length})`);
-  }
-  const day = normalizeDay(url.searchParams.get("day"));
-  if (day !== "all") {
-    values.push(day);
-    clauses.push(`LOWER(TRIM(COALESCE(s."Day"::text, ''))) = LOWER($${values.length})`);
-  }
-  const ssaOnly = url.searchParams.get("ssaOnly") === "1";
+  const clauses = [...intent.clauses];
+  const values: Array<string | number> = [...intent.values];
+  const ssaOnly = intent.ssaOnly;
   if (ssaOnly && type === "player") {
     clauses.push(`s."Unique ID" LIKE 'SSA-%'`);
   }
-  const arena = url.searchParams.get("arena")?.trim();
-  if (arena) {
-    values.push(arena);
-    clauses.push(`s."Arena" = $${values.length}`);
-  }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
-  const minSeries = Number.parseInt(url.searchParams.get("minSeries") ?? "0", 10);
+  const minSeries = intent.minSeries;
   let minSeriesIndex = 0;
   if (minSeries > 0) {
     values.push(minSeries);
     minSeriesIndex = values.length;
   }
 
-  const minGames = Number.parseInt(url.searchParams.get("minGames") ?? "0", 10);
+  const minGames = intent.minGames;
   let minGamesIndex = 0;
   if (minGames > 0) {
     values.push(minGames);

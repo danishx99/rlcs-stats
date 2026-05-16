@@ -1,7 +1,6 @@
 import { createServer } from "node:http";
 import { PORT } from "./src/config";
 import {
-  badRequest,
   getRequestUrl,
   handleOptions,
   json,
@@ -21,11 +20,46 @@ import { handleSeriesDetail, handleSeriesList, handleSeriesMeta } from "./src/ro
 import { handleStandings } from "./src/routes/standings";
 import { handleStatsTop } from "./src/routes/stats";
 import { handleEventDetail } from "./src/routes/events";
+import { createRouter } from "./src/router";
+
+const router = createRouter([
+  {
+    method: "GET",
+    pattern: "/api/health",
+    handler: ({ res }) => {
+      json(res, 200, { ok: true, time: new Date().toISOString() });
+    }
+  },
+  { method: "GET", pattern: "/api/image", handler: ({ req, res, url }) => handleImage(req, res, url) },
+  { method: "GET", pattern: "/api/meta/columns", handler: ({ req, res }) => handleMetaColumns(req, res) },
+  { method: "GET", pattern: "/api/meta", handler: ({ req, res, url }) => handleMeta(req, res, url) },
+  { method: "GET", pattern: "/api/series/meta", handler: ({ req, res, url }) => handleSeriesMeta(req, res, url) },
+  { method: "GET", pattern: "/api/series", handler: ({ req, res, url }) => handleSeriesList(req, res, url) },
+  { method: "GET", pattern: "/api/series/:seriesId", handler: ({ req, res, params }) => handleSeriesDetail(req, res, params.seriesId) },
+  { method: "GET", pattern: "/api/search", handler: ({ req, res, url }) => handleSearch(req, res, url) },
+  { method: "GET", pattern: "/api/players", handler: ({ req, res, url }) => handlePlayers(req, res, url) },
+  { method: "GET", pattern: "/api/players/:playerId", handler: ({ req, res, url, params }) => handlePlayerProfile(req, res, url, params.playerId) },
+  { method: "GET", pattern: "/api/players/:playerId/season", handler: ({ req, res, url, params }) => handlePlayerSeason(req, res, url, params.playerId) },
+  { method: "GET", pattern: "/api/players/:playerId/results", handler: ({ req, res, url, params }) => handlePlayerResults(req, res, url, params.playerId) },
+  { method: "GET", pattern: "/api/rosters/:rosterId", handler: ({ req, res, url, params }) => handleRosterProfile(req, res, url, params.rosterId) },
+  { method: "GET", pattern: "/api/rosters/:rosterId/season", handler: ({ req, res, url, params }) => handleRosterSeason(req, res, url, params.rosterId) },
+  { method: "GET", pattern: "/api/rosters/:rosterId/results", handler: ({ req, res, url, params }) => handleRosterResults(req, res, url, params.rosterId) },
+  { method: "GET", pattern: "/api/compare/history", handler: ({ req, res, url }) => handleCompareHistory(req, res, url) },
+  { method: "GET", pattern: "/api/compare", handler: ({ req, res, url }) => handleCompare(req, res, url) },
+  { method: "GET", pattern: "/api/stats/top", handler: ({ req, res, url }) => handleStatsTop(req, res, url) },
+  { method: "GET", pattern: "/api/featured", handler: ({ req, res, url }) => handleFeatured(req, res, url) },
+  { method: "GET", pattern: "/api/standings", handler: ({ req, res, url }) => handleStandings(req, res, url) },
+  { method: "GET", pattern: "/api/insights", handler: ({ req, res, url }) => handleInsights(req, res, url) },
+  { method: "GET", pattern: "/api/events/:eventName", handler: ({ req, res, url, params }) => handleEventDetail(req, res, params.eventName, url) },
+  { method: "POST", pattern: "/api/feedback", handler: ({ req, res }) => handleFeedbackSubmit(req, res) },
+  { method: "GET", pattern: "/api/feedback", handler: ({ req, res, url }) => handleFeedbackList(req, res, url) },
+  { method: "PATCH", pattern: "/api/feedback/:feedbackId", handler: ({ req, res, params }) => handleFeedbackUpdate(req, res, params.feedbackId ?? null) }
+]);
 
 const server = createServer(async (req, res) => {
   const url = getRequestUrl(req);
   if (!url) {
-    badRequest(res, "Bad request");
+    json(res, 400, { error: "Bad request" });
     return;
   }
 
@@ -34,174 +68,11 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === "/api/feedback") {
-    if (req.method === "POST") {
-      await handleFeedbackSubmit(req, res);
-      return;
-    }
+  const handled = await router.route(req, res, url);
+  if (handled) return;
 
-    if (req.method === "GET") {
-      await handleFeedbackList(req, res, url);
-      return;
-    }
-
+  if (url.pathname.startsWith("/api/") && router.hasPath(url.pathname)) {
     methodNotAllowed(res);
-    return;
-  }
-
-  if (url.pathname.startsWith("/api/feedback/")) {
-    const parts = url.pathname.split("/").filter(Boolean);
-    const feedbackId = parts[2] ?? null;
-
-    if (req.method === "PATCH") {
-      await handleFeedbackUpdate(req, res, feedbackId);
-      return;
-    }
-
-    methodNotAllowed(res);
-    return;
-  }
-
-  if (req.method !== "GET") {
-    methodNotAllowed(res);
-    return;
-  }
-
-  if (url.pathname === "/api/health") {
-    json(res, 200, { ok: true, time: new Date().toISOString() });
-    return;
-  }
-
-  if (url.pathname === "/api/image") {
-    await handleImage(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/meta/columns") {
-    await handleMetaColumns(req, res);
-    return;
-  }
-
-  if (url.pathname === "/api/meta") {
-    await handleMeta(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/series/meta") {
-    await handleSeriesMeta(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/series") {
-    await handleSeriesList(req, res, url);
-    return;
-  }
-
-  if (url.pathname.startsWith("/api/series/")) {
-    const parts = url.pathname.split("/").filter(Boolean);
-    const seriesId = parts[2];
-    if (!seriesId) {
-      badRequest(res, "Series id is required");
-      return;
-    }
-
-    await handleSeriesDetail(req, res, seriesId);
-    return;
-  }
-
-  if (url.pathname === "/api/search") {
-    await handleSearch(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/players") {
-    await handlePlayers(req, res, url);
-    return;
-  }
-
-  if (url.pathname.startsWith("/api/players/")) {
-    const parts = url.pathname.split("/").filter(Boolean);
-    const playerId = parts[2];
-    if (!playerId) {
-      badRequest(res, "Player id is required");
-      return;
-    }
-
-    if (parts[3] === "season") {
-      await handlePlayerSeason(req, res, url, playerId);
-      return;
-    }
-
-    if (parts[3] === "results") {
-      await handlePlayerResults(req, res, url, playerId);
-      return;
-    }
-
-    await handlePlayerProfile(req, res, url, playerId);
-    return;
-  }
-
-  if (url.pathname.startsWith("/api/rosters/")) {
-    const parts = url.pathname.split("/").filter(Boolean);
-    const rosterId = parts[2];
-    if (!rosterId) {
-      badRequest(res, "Roster id is required");
-      return;
-    }
-
-    if (parts[3] === "season") {
-      await handleRosterSeason(req, res, url, rosterId);
-      return;
-    }
-
-    if (parts[3] === "results") {
-      await handleRosterResults(req, res, url, rosterId);
-      return;
-    }
-
-    await handleRosterProfile(req, res, url, rosterId);
-    return;
-  }
-
-  if (url.pathname === "/api/compare/history") {
-    await handleCompareHistory(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/compare") {
-    await handleCompare(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/stats/top") {
-    await handleStatsTop(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/featured") {
-    await handleFeatured(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/standings") {
-    await handleStandings(req, res, url);
-    return;
-  }
-
-  if (url.pathname === "/api/insights") {
-    await handleInsights(req, res, url);
-    return;
-  }
-
-  if (url.pathname.startsWith("/api/events/")) {
-    const parts = url.pathname.split("/").filter(Boolean);
-    const eventName = parts[2];
-    if (!eventName) {
-      badRequest(res, "Event name is required");
-      return;
-    }
-
-    await handleEventDetail(req, res, eventName, url);
     return;
   }
 

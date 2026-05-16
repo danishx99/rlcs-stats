@@ -4,26 +4,12 @@ import { json } from "../utils/http";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
+import { normalizeTeamGroupId, normalizeTeamLabel } from "../utils/team-identity";
 const rosterSeasonSql = loadSql("../../sql/rosters/season.sql", import.meta.url);
 const rosterProfileSql = loadSql("../../sql/rosters/profile.sql", import.meta.url);
 const rosterResultsSql = loadSql("../../sql/rosters/results.sql", import.meta.url);
 const eventTopTeamsSql = loadSql("../../sql/events/top-teams.sql", import.meta.url);
 const rosterFinalSeriesSql = loadSql("../../sql/rosters/final-series.sql", import.meta.url);
-
-function normalizeTeamGroupId(rawId: string) {
-  let decoded = rawId;
-  try {
-    decoded = decodeURIComponent(rawId);
-  } catch {
-    decoded = rawId;
-  }
-  decoded = decoded.trim();
-  if (!decoded) return decoded;
-  if (decoded.startsWith("org:") || decoded.startsWith("roster:")) {
-    return decoded;
-  }
-  return `roster:${decoded}`;
-}
 
 export async function handleRosterProfile(
   _req: IncomingMessage,
@@ -172,7 +158,6 @@ export async function handleRosterResults(
       [...values, rosterKey]
     );
 
-    const normalizeTeam = (value: string | null | undefined) => value?.trim().toUpperCase() ?? "";
     const eventPlacementKey = (
       event: string,
       seasonValue: string,
@@ -219,7 +204,7 @@ export async function handleRosterResults(
       const teamsResult = await pool.query(eventTopTeamsSql, [event, rowSeason, split, "3s", scope, tier, 256]);
       const map = new Map<string, string>();
       for (const teamRow of teamsResult.rows) {
-        const team = normalizeTeam(teamRow.team);
+        const team = normalizeTeamLabel(teamRow.team);
         if (!team) continue;
         const start = Number(teamRow.placement_start ?? 0);
         const end = Number(teamRow.placement_end ?? 0);
@@ -301,7 +286,7 @@ export async function handleRosterResults(
           const map = placementLookup.get(eventKey);
           if (!map) return null;
           for (const label of teamLabels) {
-            const placement = map.get(normalizeTeam(label));
+            const placement = map.get(normalizeTeamLabel(label));
             if (placement) return placement;
           }
           return null;

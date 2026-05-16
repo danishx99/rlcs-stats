@@ -12,6 +12,7 @@ import { useShare } from "../hooks/useShare";
 import EventBracketPanel from "../components/event/EventBracketPanel";
 import EventLeaderboardsPanel from "../components/event/EventLeaderboardsPanel";
 import EventSearchWidget from "../components/event/EventSearchWidget";
+import { useStatLeaderboards } from "../hooks/useStatLeaderboards";
 
 const CORE_LEADERBOARDS = [
   { key: "rating", title: "Top 10 Players (Rating)" },
@@ -57,9 +58,6 @@ export default function EventPage() {
   // Pick a stat state
   const [statCategories, setStatCategories] = useState<StatCategory[]>([]);
   const [selectedStats, setSelectedStats] = useState<string[]>(DEFAULT_STATS);
-  const [leaderboardMap, setLeaderboardMap] = useState<Map<string, LeaderboardResponse>>(new Map());
-  const [loadingStats, setLoadingStats] = useState<Set<string>>(new Set());
-  const [statLoadErrors, setStatLoadErrors] = useState<Map<string, string>>(new Map());
 
   // Load event data
   useEffect(() => {
@@ -218,96 +216,6 @@ export default function EventPage() {
     );
   };
 
-  // Reset leaderboard map when event context changes
-  useEffect(() => {
-    setLeaderboardMap(new Map());
-    setStatLoadErrors(new Map());
-  }, [eventId, leaderboardMode, selectedDay, selectedPhase, arenaParam]);
-
-  // Fetch leaderboards for extra selected stats (defaults are already in hardcoded cards)
-  useEffect(() => {
-    const extraStats = selectedStats.filter((k) => !DEFAULT_STATS.includes(k) && !CORE_LEADERBOARD_KEYS.has(k));
-    if (!event || extraStats.length === 0) {
-      setLeaderboardMap((prev) => (prev.size === 0 ? prev : new Map()));
-      return;
-    }
-
-    // Remove deselected stats from map
-      setLeaderboardMap((prev) => {
-        const next = new Map(prev);
-        for (const key of prev.keys()) {
-          if (!extraStats.includes(key)) next.delete(key);
-        }
-        return next.size !== prev.size ? next : prev;
-      });
-      setStatLoadErrors((prev) => {
-        const next = new Map(prev);
-        for (const key of prev.keys()) {
-          if (!extraStats.includes(key)) next.delete(key);
-        }
-        return next;
-      });
-
-    // Find stats that need fetching
-    const toFetch = extraStats.filter((key) => !leaderboardMap.has(key));
-    if (toFetch.length === 0) return;
-
-    let cancelled = false;
-    setLoadingStats((prev) => {
-      const next = new Set(prev);
-      toFetch.forEach((k) => next.add(k));
-      return next;
-    });
-
-    Promise.allSettled(
-      toFetch.map((metric) =>
-        api.statsTop({
-          metric,
-          event: event.name,
-          season: event.season ?? undefined,
-          split: event.split ?? undefined,
-          gameMode: event.mode ?? undefined,
-          scope: event.scope ?? undefined,
-          tier: event.tier ?? undefined,
-          mode: leaderboardMode,
-          phase: selectedPhase !== "all" ? selectedPhase : undefined,
-          day: selectedDay !== "all" ? selectedDay : undefined,
-          arena: arenaParam || undefined,
-          limit: 10,
-        }).then((result) => ({ metric, result }))
-      )
-    ).then((outcomes) => {
-      if (cancelled) return;
-      setLeaderboardMap((prev) => {
-        const next = new Map(prev);
-        for (const outcome of outcomes) {
-          if (outcome.status === "fulfilled") {
-            next.set(outcome.value.metric, outcome.value.result);
-          }
-        }
-        return next;
-      });
-      setStatLoadErrors((prev) => {
-        const next = new Map(prev);
-        outcomes.forEach((outcome, index) => {
-          if (outcome.status === "rejected") {
-            const reason = outcome.reason instanceof Error ? outcome.reason.message : "Request failed";
-            const metric = toFetch[index];
-            if (metric) next.set(metric, reason);
-          }
-        });
-        return next;
-      });
-      setLoadingStats((prev) => {
-        const next = new Set(prev);
-        toFetch.forEach((k) => next.delete(k));
-        return next;
-      });
-    });
-
-    return () => { cancelled = true; };
-  }, [event, leaderboardMap, leaderboardMode, selectedDay, selectedPhase, selectedStats, arenaParam]);
-
   const handleShare = async () => {
     const shareUrl = window.location.href;
     const shareTitle = event?.name ? `RLCS Stats · ${event.name}` : "RLCS Stats";
@@ -380,6 +288,29 @@ export default function EventPage() {
     return acc;
   }, []);
   const selectedExtraStats = selectedStats.filter((k) => !CORE_LEADERBOARD_KEYS.has(k));
+  const {
+    dataByKey: leaderboardMap,
+    loadingByKey: loadingStats,
+    errorByKey: statLoadErrors,
+  } = useStatLeaderboards(
+    event ? selectedExtraStats : [],
+    {
+      type: "player",
+      mode: leaderboardMode,
+      sort: "desc",
+      limit: 10,
+      ssaOnly: true,
+      gameMode: event?.mode ?? undefined,
+      scope: event?.scope ?? undefined,
+      tier: event?.tier ?? undefined,
+      season: event?.season ?? undefined,
+      split: event?.split ?? undefined,
+      event: event?.name ?? undefined,
+      arena: arenaParam || undefined,
+      phase: selectedPhase,
+      day: selectedDay,
+    }
+  );
 
   return (
     <div className="page page-no-nav">

@@ -15,6 +15,9 @@ export type StatLeaderboardQuery = {
   event?: string;
   arena?: string;
   minGames?: number;
+  phase?: string;
+  day?: string;
+  ssaOnly?: boolean;
 };
 
 type UseStatLeaderboardsResult = {
@@ -37,6 +40,9 @@ function serializeQuery(q: StatLeaderboardQuery): string {
     q.event ?? "",
     q.arena ?? "",
     q.minGames ?? 0,
+    q.phase ?? "",
+    q.day ?? "",
+    q.ssaOnly ? "1" : "0",
   ].join("|");
 }
 
@@ -107,7 +113,7 @@ export function useStatLeaderboards(
             mode: query.mode,
             type: query.type,
             sort: query.sort === "asc" ? "asc" : undefined,
-            ssaOnly: query.type === "player" ? "1" : undefined,
+            ssaOnly: (query.ssaOnly ?? query.type === "player") ? "1" : undefined,
             gameMode: query.gameMode || undefined,
             scope: query.scope || undefined,
             tier: query.tier || undefined,
@@ -116,6 +122,8 @@ export function useStatLeaderboards(
             event: query.event || undefined,
             arena: query.arena || undefined,
             minGames: query.minGames && query.minGames > 0 ? query.minGames : undefined,
+            phase: query.phase && query.phase !== "all" ? query.phase : undefined,
+            day: query.day && query.day !== "all" ? query.day : undefined,
             limit: query.limit,
           })
           .then((result) => ({ metric, result }))
