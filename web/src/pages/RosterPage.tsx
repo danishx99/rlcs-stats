@@ -10,30 +10,9 @@ import SocialIconLink from "../components/SocialIconLink";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 import PageBackActions from "../components/PageBackActions";
+import { formatPlacement } from "../utils/format";
 
 const ROSTER_MODE = "3s" as const;
-
-function ordinal(n: number) {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1: return `${n}st`;
-    case 2: return `${n}nd`;
-    case 3: return `${n}rd`;
-    default: return `${n}th`;
-  }
-}
-
-function formatPlacement(placement: string | null) {
-  if (!placement) return "—";
-  const match = placement.match(/^Top\s+(\d+)(?:-(\d+))?$/i);
-  if (!match) return placement;
-  const start = Number(match[1]);
-  const end = match[2] ? Number(match[2]) : start;
-  if (!Number.isFinite(start) || start <= 0 || !Number.isFinite(end) || end <= 0) return placement;
-  if (start === end) return ordinal(start);
-  return `${ordinal(start)}-${ordinal(end)}`;
-}
 
 function rosterEventLabel(split: string | null, event: string | null) {
   if (split && event) return `${split} / ${event}`;

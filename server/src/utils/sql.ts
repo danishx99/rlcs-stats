@@ -8,6 +8,10 @@ export function loadSql(relativePath: string, importMetaUrl: string) {
   return readFileSync(fullPath, "utf8");
 }
 
+export function columnRef(alias: string, column: string) {
+  return alias ? `${alias}."${column}"` : `"${column}"`;
+}
+
 export function formatSql(template: string, replacements: Record<string, string>) {
   return template.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
     const replacement = replacements[key];

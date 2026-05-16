@@ -2,7 +2,7 @@ import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
 import { normalizeFilter } from "../utils/filters";
-import { formatSql, loadSql } from "../utils/sql";
+import { columnRef, formatSql, loadSql } from "../utils/sql";
 
 const seriesMetaSeasonsSql = loadSql("../../sql/series/meta_seasons.sql", import.meta.url);
 const seriesMetaSplitsSql = loadSql("../../sql/series/meta_splits.sql", import.meta.url);
@@ -67,10 +67,6 @@ function parseSeriesFilters(url: URL): { filters: SeriesFilters | null; error: s
     filters: { mode, scope, tier, season, split, event, stage, team, team2 },
     error: null
   };
-}
-
-function columnRef(alias: string, column: string) {
-  return alias ? `${alias}."${column}"` : `"${column}"`;
 }
 
 function buildSeriesFilterClauses(filters: SeriesFilters, alias: string, flags: SeriesFilterFlags = {}) {

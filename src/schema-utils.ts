@@ -1,6 +1,4 @@
-function quoteIdent(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
+import { quoteIdent } from "./util/sql.js";
 
 export function addIngestionColumnsSql(tableName: string): string {
   return `

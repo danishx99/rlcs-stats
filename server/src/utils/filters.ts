@@ -1,3 +1,5 @@
+import { columnRef } from "./sql";
+
 export function normalizeMode(raw: string | null) {
   return raw === "total" ? "total" : "avg";
 }
@@ -29,10 +31,6 @@ const FILTER_COLUMNS: Record<FilterKey, string> = {
 };
 
 const LOWERCASE_FILTER_KEYS = new Set<FilterKey>(["gameMode", "scope", "tier"]);
-
-function columnRef(alias: string, column: string) {
-  return alias ? `${alias}."${column}"` : `"${column}"`;
-}
 
 export function buildFilterClauses(
   params: URLSearchParams,

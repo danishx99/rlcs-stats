@@ -26,7 +26,7 @@ import type {
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8787";
 const API_TIMEOUT_MS = Number.parseInt(import.meta.env.VITE_API_TIMEOUT_MS || "30000", 10);
 
-function resolveApiPath(path: string) {
+export function resolveApiPath(path: string) {
   const base = API_URL.trim();
   if (!base) return path;
 
@@ -54,11 +54,17 @@ async function parseApiError(response: Response): Promise<string | null> {
   return null;
 }
 
-export async function fetchJson<T>(
-  path: string,
-  params?: Record<string, string | number | boolean | null | undefined>,
-  options?: { signal?: AbortSignal }
-) {
+type QueryParams = Record<string, string | number | boolean | null | undefined>;
+
+type RequestOptions = {
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  body?: unknown;
+  params?: QueryParams;
+  signal?: AbortSignal;
+};
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { method = "GET", body, params, signal } = options;
   const url = new URL(resolveApiPath(path), window.location.origin);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
@@ -66,95 +72,55 @@ export async function fetchJson<T>(
       url.searchParams.set(key, String(value));
     });
   }
+
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-  if (options?.signal) {
-    options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  if (signal) {
+    signal.addEventListener("abort", () => controller.abort(), { once: true });
   }
+
+  const headers: Record<string, string> = { "ngrok-skip-browser-warning": "1" };
+  const init: RequestInit = { method, headers, signal: controller.signal };
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    init.body = JSON.stringify(body);
+  }
+
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
-      headers: { "ngrok-skip-browser-warning": "1" },
-      signal: controller.signal
-    });
+    response = await fetch(url.toString(), init);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      if (options?.signal?.aborted) throw error;
+      if (signal?.aborted) throw error;
       throw new Error(`API request timed out after ${API_TIMEOUT_MS}ms`);
     }
     throw error;
   } finally {
     window.clearTimeout(timeout);
   }
+
   if (!response.ok) {
     const apiError = await parseApiError(response);
     throw new Error(apiError ? `API error ${response.status}: ${apiError}` : `API error ${response.status}`);
   }
+
   return (await response.json()) as T;
 }
 
-export async function postJson<TResponse>(path: string, body: unknown) {
-  const url = new URL(resolveApiPath(path), window.location.origin);
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-  let response: Response;
-  try {
-    response = await fetch(url.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "1"
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error(`API request timed out after ${API_TIMEOUT_MS}ms`);
-    }
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
-  }
-
-  if (!response.ok) {
-    const apiError = await parseApiError(response);
-    throw new Error(apiError ? `API error ${response.status}: ${apiError}` : `API error ${response.status}`);
-  }
-
-  return (await response.json()) as TResponse;
+export function fetchJson<T>(
+  path: string,
+  params?: QueryParams,
+  options?: { signal?: AbortSignal }
+) {
+  return request<T>(path, { params, signal: options?.signal });
 }
 
-export async function patchJson<TResponse>(path: string, body: unknown) {
-  const url = new URL(resolveApiPath(path), window.location.origin);
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-  let response: Response;
-  try {
-    response = await fetch(url.toString(), {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "1"
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error(`API request timed out after ${API_TIMEOUT_MS}ms`);
-    }
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
-  }
+export function postJson<TResponse>(path: string, body: unknown, options?: { signal?: AbortSignal }) {
+  return request<TResponse>(path, { method: "POST", body, signal: options?.signal });
+}
 
-  if (!response.ok) {
-    const apiError = await parseApiError(response);
-    throw new Error(apiError ? `API error ${response.status}: ${apiError}` : `API error ${response.status}`);
-  }
-
-  return (await response.json()) as TResponse;
+export function patchJson<TResponse>(path: string, body: unknown, options?: { signal?: AbortSignal }) {
+  return request<TResponse>(path, { method: "PATCH", body, signal: options?.signal });
 }
 
 export const api = {

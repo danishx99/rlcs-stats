@@ -1,3 +1,5 @@
+import { resolveApiPath } from "../api";
+
 export function normalizeHandle(value?: string | null) {
   if (!value) return null;
   const trimmed = value.trim();
@@ -35,23 +37,9 @@ export function proxyImageUrl(value?: string | null, options?: ProxyImageOptions
   const url = normalizeHandle(value);
   if (!url) return null;
   const optimized = optimizeLiquipediaImage(url, options?.size);
-  const base = (import.meta.env.VITE_API_URL ?? "").trim();
   const encoded = encodeURIComponent(optimized);
   const sizeQuery = options?.size && Number.isFinite(options.size) ? `&size=${Math.round(options.size)}` : "";
-
-  if (!base) {
-    return `/api/image?url=${encoded}${sizeQuery}`;
-  }
-
-  if (base.startsWith("http://") || base.startsWith("https://")) {
-    return new URL(`/api/image?url=${encoded}${sizeQuery}`, base).toString();
-  }
-
-  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
-  if (normalizedBase.endsWith("/api")) {
-    return `${normalizedBase}/image?url=${encoded}${sizeQuery}`;
-  }
-  return `${normalizedBase}/api/image?url=${encoded}${sizeQuery}`;
+  return `${resolveApiPath("/api/image")}?url=${encoded}${sizeQuery}`;
 }
 
 const LIQUIPEDIA_THUMB_PX = 600;

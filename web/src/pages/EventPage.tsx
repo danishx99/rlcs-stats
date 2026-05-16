@@ -16,6 +16,7 @@ import SkeletonBlock from "../components/ui/SkeletonBlock";
 import SkeletonRows from "../components/ui/SkeletonRows";
 import PageBackActions from "../components/PageBackActions";
 import { useShare } from "../hooks/useShare";
+import { placementLabel } from "../utils/format";
 
 const CORE_LEADERBOARDS = [
   { key: "rating", title: "Top 10 Players (Rating)" },
@@ -30,23 +31,6 @@ const SUGGESTED_STATS = ["shots", "score", "avg_speed", "on_ground", "in_air"];
 const SEARCH_DEBOUNCE_MS = 500;
 const TOP_TEAMS_LIMIT = 8;
 const FULL_TEAMS_LIMIT = 256;
-
-function ordinal(n: number) {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1: return `${n}st`;
-    case 2: return `${n}nd`;
-    case 3: return `${n}rd`;
-    default: return `${n}th`;
-  }
-}
-
-function placementLabel(start: number, end: number) {
-  if (!start || !end) return "";
-  if (start === end) return ordinal(start);
-  return `${ordinal(start)}-${ordinal(end)}`;
-}
 
 export default function EventPage() {
   const { eventId } = useParams();

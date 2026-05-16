@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { createHash } from "node:crypto";
 import type { Client } from "pg";
 import { streamCsvRows } from "./util/csv";
+import { quoteIdent } from "./util/sql";
 import type { ColumnSpec, ColumnType, FileReport, RowError } from "./util/types";
 
 function buildSeriesUpdateSql(scoped: boolean): string {
@@ -205,10 +206,6 @@ function denormalizeRow(
       values[i] = Math.round(values[i] * gameDuration / 300);
     }
   }
-}
-
-function quoteIdent(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
 }
 
 function hasTimezone(value: string): boolean {

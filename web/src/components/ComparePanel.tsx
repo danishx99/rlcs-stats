@@ -9,7 +9,7 @@ import type {
 } from "../types/api";
 import { api } from "../api";
 import { formatStat, formatValue } from "../utils/format";
-import { seriesLabelParts } from "../utils/compare";
+import { scoreClass, scoreParts, seriesLabelParts, teamLabel } from "../utils/compare";
 import { formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
 import PlayerNameWithPhoto from "./PlayerNameWithPhoto";
@@ -368,20 +368,6 @@ export default function ComparePanel({
                         );
                       });
                     };
-                    const scoreParts = (team?: CompareHistoryTeam, other?: CompareHistoryTeam) => {
-                      if (team?.wins === undefined || other?.wins === undefined) {
-                        return { text: "—" };
-                      }
-                      return { text: `${team.wins}-${other.wins}` };
-                    };
-                    const scoreClass = (team?: CompareHistoryTeam, other?: CompareHistoryTeam) => {
-                      if (team?.wins === undefined || other?.wins === undefined) return "";
-                      if (team.wins > other.wins) return "score-win";
-                      if (team.wins < other.wins) return "score-loss";
-                      return "";
-                    };
-                    const teamLabel = (team?: CompareHistoryTeam) => team?.team ?? "—";
-
                     return (
                       <tr key={row.series_id}>
                         <td>{formatDate(row.date)}</td>
@@ -396,7 +382,7 @@ export default function ComparePanel({
                         <td>
                           <div className="cell-title">
                             <strong className={scoreClass(teamA, teamB)}>
-                              {scoreParts(teamA, teamB).text}
+                              {scoreParts(teamA, teamB)}
                             </strong>
                             <span className="cell-team-name">
                               <TeamNameWithLogo team={teamLabel(teamA)} />
@@ -411,7 +397,7 @@ export default function ComparePanel({
                         <td>
                           <div className="cell-title">
                             <strong className={scoreClass(teamB, teamA)}>
-                              {scoreParts(teamB, teamA).text}
+                              {scoreParts(teamB, teamA)}
                             </strong>
                             <span className="cell-team-name">
                               <TeamNameWithLogo team={teamLabel(teamB)} />

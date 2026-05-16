@@ -12,6 +12,7 @@ import {
   createFileIngestTableSql
 } from "./schema-utils";
 import { loadCsvFile, computeSeriesIds, refreshSeriesRoster } from "./load-csv";
+import { quoteIdent } from "./util/sql";
 import type { ColumnSpec, ColumnType, FileReport } from "./util/types";
 
 const DEFAULT_DIR = "./data";
@@ -91,10 +92,6 @@ function parseArgs(argv: string[]): CliOptions {
   }
 
   return options;
-}
-
-function quoteIdent(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
 }
 
 function escapeRegex(input: string): string {
