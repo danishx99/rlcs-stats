@@ -1,8 +1,13 @@
 .env
 env/.env.api
 env/.env.web
+
 node_modules/
 dist/
-
 out/
 cache/
+
+.notes/
+.sisyphus/
+plans/
+codebook.toml

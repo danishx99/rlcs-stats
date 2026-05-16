@@ -1,3 +1,9 @@
+# Example deploy workflow used for the live demo of this project.
+# To use: copy to `deploy-prod.yml`, replace placeholders, and set the referenced
+# secrets in your GitHub repo settings (VPS_*, RAILWAY_DATABASE_PUBLIC_URL, VITE_API_URL).
+#
+# Deploys the frontend to a VPS via SSH and syncs CSV data into a Railway Postgres.
+
 name: Deploy Prod
 
 on:
@@ -26,7 +32,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build frontend
-        run: VITE_API_URL=https://api-production-bfd2.up.railway.app VITE_FEEDBACK_ENABLED=true bun run build:web
+        run: VITE_API_URL=${{ secrets.VITE_API_URL }} VITE_FEEDBACK_ENABLED=true bun run build:web
 
       - name: Write Apache SPA .htaccess
         run: |

@@ -164,6 +164,6 @@ bun run dev
 ## Notes
 
 - **CORS**: API allows all origins (`Access-Control-Allow-Origin: *`)
-- **Image proxy**: Player photos are proxied through the API at `/api/image?url=<encoded>`
+- **Image proxy**: Player photos are proxied through `/api/image?url=<encoded>&size=<px>`, resized to WebP, and cached on the `image-cache` named volume (`/app/cache/images`). 30-day TTL. See `docs/image-proxy.md`
 - **CI/CD**: on push to `main`, Railway auto-deploys API; GitHub Actions deploys frontend and runs Railway data sync
 - The server reads `PORT` (Railway), falling back to `API_PORT`, then `8787`

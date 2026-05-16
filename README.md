@@ -1,179 +1,106 @@
-# RLCS Stats Loader
+# RLCS Stats
 
-Load multiple CSVs into Postgres tables using Bun + TypeScript. The loader is streaming, idempotent, and resilient to blank lines and bad cells.
+A full-stack statistics platform for the Rocket League Championship Series. Ingests CSV match data into Postgres, exposes a JSON API, and serves a React frontend for player profiles, team rosters, leaderboards, and head-to-head comparisons across every RLCS season.
 
-## What it does
+Built end-to-end as a portfolio project — data pipeline, API, and UI.
 
-- Creates/updates the `stats` (matches) and `players` tables.
-- Adds ingestion metadata: `source_file`, `ingested_at`.
-- Adds `row_hash` and a unique index for idempotency.
-- Streams CSV rows and coerces types safely.
-- Skips duplicates on re-run.
-- Writes an import report to `./out/import-report.json`.
+> **Live demo:** <https://rlesport.gg/>
+>
+> **Screenshot:**
+>
+> ![Home page](reference/home%20page.jpg)
 
-## Requirements
+## Tech stack
 
-- Bun
-- Docker + Docker Compose
+- **Runtime:** Bun + TypeScript (ESM)
+- **Database:** PostgreSQL 16 (Docker)
+- **API:** Lightweight Node HTTP server with SQL templates
+- **Web:** React 18 + Vite + React Router
+- **Infra:** Docker Compose for local dev; example workflow for VPS + Railway deployment
 
-## Setup
+## Architecture
 
-1) Copy env file and adjust if needed:
-
-```bash
-cp .env.example .env
+```
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
+│   CSV Files     │────▶│   Loader     │────▶│   PostgreSQL    │
+│ (data/matches/) │     │  (src/*.ts)  │     │   (Docker)      │
+└─────────────────┘     └──────────────┘     └─────────────────┘
+                                                      │
+                                                      ▼
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
+│   React SPA     │◀────│  REST API    │◀────│   SQL Queries   │
+│ (web/src/*.tsx) │     │(server/*.ts) │     │ (server/sql/)   │
+└─────────────────┘     └──────────────┘     └─────────────────┘
 ```
 
-2) Start Postgres:
+Three layers:
+
+1. **Loader** (`src/`) — streaming CSV ingest with type coercion, idempotency via `row_hash`, and a unique-index dedupe guard. Per-row errors are logged but don't abort the run.
+2. **API** (`server/`) — REST endpoints for search, player/roster profiles, leaderboards, head-to-head compare, and an image proxy (resize + WebP + disk cache).
+3. **Web** (`web/`) — React SPA with global search, filters, player/team pages, comparison panel, and per-stat leaderboards.
+
+## Quick start
+
+Requirements: [Bun](https://bun.sh), Docker + Docker Compose.
 
 ```bash
-docker compose up -d
-```
-
-3) Install dependencies:
-
-```bash
+# 1. Install deps
 bun install
+
+# 2. Copy env
+cp .env.example .env
+
+# 3. Start Postgres
+docker compose up -d
+
+# 4. Load sample data from data/
+bun run load
+
+# 5. Run API + web together
+bun run dev
 ```
 
-## Run
+The web app runs at <http://localhost:5173>, API at <http://localhost:8787>.
 
-```bash
-bun run src/run.ts --dir ./data
-```
+Useful scripts:
 
-By default this loads:
+- `bun run db:reset` — wipe and restart Postgres
+- `bun run load -- --dry-run` — validate CSVs without writing
+- `bun run test` — unit tests (`bun run test:all` includes integration)
+- `bun run build:web` — production frontend build
 
-- `./data/matches` → `stats` table
-- `./data/players` → `players` table
-
-## Reset Database
-
-To wipe the local Postgres volume and start fresh:
-
-```bash
-bun run db:reset
-```
-
-## CLI Flags
-
-- `--dir ./data` (default `./data`, base directory that contains `matches/` and `players/`)
-- `--pattern "*.csv"` (default `*.csv`)
-- `--limit N` (optional, stop after N rows per file)
-- `--dry-run` (parse + validate only, no DB writes)
-- `--strict` (stop on first row error)
-- `--truncate` (TRUNCATE selected tables before loading)
-- `--allow-new-columns` (temporarily add new CSV columns as TEXT)
-- `--dataset matches|players` (load only one dataset)
-
-## Schema + Columns
-
-The loader uses schemas in:
-
-- `src/stats-schema.ts` (matches)
-- `src/players-schema.ts` (players)
-
-Column names in SQL are quoted to match CSV headers exactly (including spaces and punctuation).
-
-Additional columns created at runtime:
-
-- `source_file TEXT NOT NULL DEFAULT ''`
-- `ingested_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-- `row_hash TEXT NOT NULL` with a unique index
-
-### Schema evolution (new CSV columns)
-
-By default, the loader **fails** if a CSV contains columns not defined in the relevant schema file. If you want to ingest and add them temporarily, run with `--allow-new-columns`. **Those columns are created as `TEXT` only as a placeholder.** After the run:
-
-1) Update the appropriate schema file with the correct type for each new column.
-2) If needed, backfill/convert data types with a manual SQL migration.
-3) Re-run the loader if you want the new types to be reflected on fresh loads.
-
-## Type Coercion Rules
-
-Blank strings are treated as `NULL`.
-
-- TEXT: stored as-is
-- INTEGER: `parseInt`, invalid => `NULL`
-- DOUBLE PRECISION: `parseFloat`, invalid => `NULL`
-- BOOLEAN: accepts `true/false`, `t/f`, `1/0`, `yes/no` (case-insensitive); invalid => `NULL`
-- TIMESTAMPTZ: `new Date(value)`; if no timezone, it is treated as UTC
-
-When a cell is invalid, the row is still inserted with `NULL` for that cell, and the error is logged. Use `--strict` to stop on first error.
-
-## Idempotency
-
-`row_hash` is a SHA-256 of the canonicalized row (excluding id and ingested_at). Inserts use:
+## Project structure
 
 ```
-ON CONFLICT (row_hash) DO NOTHING
+src/        CSV loader (run.ts, load-csv.ts, schemas)
+server/     REST API (routes + SQL templates in server/sql/)
+web/        React frontend (pages, components, hooks)
+data/       Sample CSV inputs (matches, players, rosters, etc.)
+docs/       Architecture, deployment, ADRs, page-level docs
+sql/        Ad-hoc analytics and migration SQL
+scripts/    Deploy and data-integrity helpers
+tests/      Unit + integration tests
 ```
 
-Re-running the loader does not create duplicates.
+## Features
 
-## Reporting
+- **Search** across players, teams, and stats with fuzzy matching
+- **Player profiles** with career and season-by-season stats, customizable spotlight, event history
+- **Roster profiles** with team performance broken down by season
+- **Leaderboards** for any stat with minimum-games filter and per-game variants
+- **Head-to-head comparison** of multiple players or teams with shared match history
+- **Image proxy** that resizes upstream player/team photos, encodes WebP, and caches to disk
 
-An import report is written to:
+## Documentation
 
-```
-./out/import-report.json
-```
+- [`docs/data-pipeline.md`](docs/data-pipeline.md) — loader internals and schema evolution
+- [`docs/series-grouping.md`](docs/series-grouping.md) — how series IDs are materialized
+- [`docs/image-proxy.md`](docs/image-proxy.md) — image proxy design
+- [`docs/rating.md`](docs/rating.md) — player rating model
+- [`docs/deploy.md`](docs/deploy.md) — production deployment notes
+- [`docs/adr/`](docs/adr/) — architecture decisions
+- [`docs/pages/`](docs/pages/) — page-level UX/data contracts
 
-It includes per-file counts and up to the first 100 row errors.
+## License
 
-## Example
-
-```bash
-bun run src/run.ts --dir ./data --pattern "*.csv" --dry-run
-```
-
-Load only matches:
-
-```bash
-bun run src/run.ts --dir ./data --dataset matches
-```
-
-## 🧠 More Powerful: pgAdmin 4 (feature-rich)
-
-Why
-- Full Postgres management UI
-- Query planner, indexes, stats, roles
-- Best long-term tool
-
-Tradeoff
-- Heavier
-- Slightly more setup
-
-Add to docker-compose.yml
-- Already included in this repo
-
-Access
-- Browser: http://localhost:5050
-- Login with pgAdmin credentials (default: admin@example.com / admin)
-
-Quick start
-```bash
-docker compose up -d pgadmin
-```
-
-Register server:
-- Host: postgres
-- Port: 5432
-- Username/password: Postgres creds
-
-Best if you want to:
-- Analyze query performance
-- Create indexes later
-- Explore large datasets deeply
-
-## Production Deployment
-
-Dockerized production setup docs are in:
-
-- `docs/deploy.md`
-
-This uses separate containers for:
-
-- `api` (Bun runtime)
-- `web` (Nginx serving React build)
-- optional `postgres` (or use managed external Postgres)
+[MIT](LICENSE) © Danish Saleem

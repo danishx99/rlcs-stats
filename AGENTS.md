@@ -58,7 +58,7 @@ RLCS Stats is a full-stack statistics platform for Rocket League Championship Se
   - `compare.ts` - Head-to-head comparison
   - `stats.ts` - Leaderboards and featured players
   - `meta.ts` - Metadata (seasons, splits, events, stat options)
-  - `image.ts` - Player photo proxy
+  - `image.ts` - Image proxy: resize + WebP encode + disk cache. See `docs/image-proxy.md`
 - `sql/` - SQL query templates organized by route
   - `players/`, `rosters/`, `compare/`, `stats/`, `meta/`
 
@@ -171,7 +171,7 @@ cd web && bun run dev    # Start Vite dev server
 | `GET /api/compare/history` | Head-to-head match history |
 | `GET /api/stats/top` | Top-10 leaderboard for any stat |
 | `GET /api/featured` | Featured player categories |
-| `GET /api/image` | Player photo proxy |
+| `GET /api/image` | Image proxy with resize, WebP encode, and 30-day disk cache (see `docs/image-proxy.md`) |
 
 ---
 
