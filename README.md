@@ -1,14 +1,10 @@
 # RLCS Stats
 
-A full-stack statistics platform for the Rocket League Championship Series. Ingests CSV match data into Postgres, exposes a JSON API, and serves a React frontend for player profiles, team rosters, leaderboards, and head-to-head comparisons across every RLCS season.
+A full-stack statistics platform for the South African (SSA) region of the Rocket League Championship Series. Ingests CSV match data into Postgres, exposes a JSON API, and serves a React frontend for player profiles, team rosters, leaderboards, and head-to-head comparisons across every SSA RLCS season.
 
 Built end-to-end as a portfolio project — data pipeline, API, and UI.
 
 > **Live demo:** <https://rlesport.gg/>
->
-> **Screenshot:**
->
-> ![Home page](reference/home%20page.jpg)
 
 ## Tech stack
 
