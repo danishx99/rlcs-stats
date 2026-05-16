@@ -83,7 +83,7 @@ The migration runs in one transaction (`BEGIN ... COMMIT`) and includes a hard a
 
 ## Usage in queries
 
-Server SQL templates and insight queries reference the column directly. Query paths that require valid series grouping should also filter out NULLs:
+Server SQL templates reference the column directly. Query paths that require valid series grouping should also filter out NULLs:
 
 ```sql
 -- Count series played

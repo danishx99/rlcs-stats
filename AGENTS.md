@@ -36,47 +36,68 @@ RLCS Stats is a full-stack statistics platform for Rocket League Championship Se
   - `data/matches/` - Match statistics CSVs
   - `data/players/` - Player metadata CSVs
 - `out/` - Generated import reports (`out/import-report.json`)
-- `sql/` - General SQL queries for insights and data validation
-- `plans/` - MVP planning documents
-- `docker-compose.yml` - Postgres + pgAdmin services
+- `sql/` - General SQL queries for migrations and data validation
+- `scripts/` - Deploy and data-integrity helpers
+- `tests/` - Unit (`tests/unit`) and integration (`tests/integration`) tests
+- `docker-compose.yml` - Postgres + Adminer services (dev)
+- `docker-compose.prod.yml` - Prod-like compose with image-cache volume
 
 ### Backend (`src/`)
-- `run.ts` - Main entry point with CLI argument parsing
-- `load-csv.ts` - Core CSV loading, streaming parser, type coercion
-- `stats-schema.ts` - Match stats table schema (~280 columns)
-- `players-schema.ts` - Player metadata table schema
-- `datasets.ts` - Dataset configuration (matches vs players)
+- `run.ts` - Main entry point; CLI parsing + `ensureSchema` + ingest loop
+- `load-csv.ts` - Streaming CSV parse, type coercion, batch insert, `computeSeriesIds`
+- `stats-schema.ts` - `stats` table schema (~284 columns)
+- `players-schema.ts` - Player metadata schema
+- `teams-schema.ts` / `standings-schema.ts` / `brackets-schema.ts` - Other dataset schemas
+- `load-standings.ts` / `load-brackets.ts` - Dataset-specific loaders
+- `datasets.ts` - Dataset configuration (matches, players, teams, standings, brackets)
 - `db.ts` - PostgreSQL connection setup
-- `schema-utils.ts` - Schema validation utilities
-- `util/` - Utility functions (csv helpers, types)
+- `schema-utils.ts` - DDL helpers (ingestion columns, row_hash, file_ingest)
+- `util/csv.ts` - Streaming CSV parser wrapper
+- `util/sql.ts` - `quoteIdent` helper (shared by loader)
+- `util/types.ts` - Shared loader types (`ColumnSpec`, `ColumnType`, `CellValue`, `FileReport`, `RowError`)
 
 ### API Server (`server/`)
 - `index.ts` - HTTP server entry point, route dispatch
+- `src/config.ts` / `db.ts` / `types.ts` / `spotlight.ts` - Shared server modules
 - `src/routes/` - API route handlers
-  - `players.ts` - Player search, profiles, career stats
-  - `rosters.ts` - Team/roster profiles
-  - `compare.ts` - Head-to-head comparison
-  - `stats.ts` - Leaderboards and featured players
-  - `meta.ts` - Metadata (seasons, splits, events, stat options)
-  - `image.ts` - Image proxy: resize + WebP encode + disk cache. See `docs/image-proxy.md`
+  - `players.ts` - Player search, profiles, season + results
+  - `rosters.ts` - Team/roster profiles (batched roster lookups, no N+1)
+  - `compare.ts` - Head-to-head comparison and history
+  - `stats.ts` - Leaderboards (`/api/stats/top`)
+  - `featured.ts` - Featured player categories (`/api/featured`)
+  - `meta.ts` - Metadata (seasons, splits, events, stat options/columns)
+  - `search.ts` - Cross-entity search (`/api/search`)
+  - `events.ts` - Event detail, placements, bracket, leaderboards
+  - `series.ts` - Series detail and listings
+  - `standings.ts` - Season standings
+  - `insights.ts` - Homepage "Fast Insights" queries (inline SQL, in-memory cache)
+  - `feedback.ts` - Feedback submission
+  - `image.ts` - Image proxy: resize + WebP + disk cache. See `docs/image-proxy.md`
+- `src/utils/` - Cross-route helpers: `filters.ts`, `http.ts`, `phases.ts`, `roster.ts`, `sql.ts` (`columnRef`), `stats.ts` (`metricExpression`, `ratingExpression`)
 - `sql/` - SQL query templates organized by route
-  - `players/`, `rosters/`, `compare/`, `stats/`, `meta/`
+  - `players/`, `rosters/`, `compare/`, `stats/`, `meta/`, `events/`, `series/`, `standings/`, `search/`, `featured/`
 
 ### Web Frontend (`web/`)
-- `src/App.tsx` - Main app with routing and search state
+- `src/App.tsx` - Routing only (no global search state — each page owns its own)
+- `src/main.tsx` - React entry point
 - `src/pages/` - Page-level components
-  - `HomePage.tsx` - Dashboard with compare, featured, teams panels
-  - `PlayerPage.tsx` - Player profile with stats
-  - `RosterPage.tsx` - Team roster page
-  - `StatPage.tsx` - Single stat leaderboard
-- `src/components/` - Reusable UI components
-  - `TopNav.tsx` - Global search bar + filters
-  - `ComparePanel.tsx` - Side-by-side comparison view
-  - `FeaturedPanel.tsx` - Featured players display
-  - `SearchPanel.tsx` - Search results and selection
-- `src/hooks/` - Custom React hooks (useSearch, useMeta, usePagination)
-- `src/api/` - API client utilities
+  - `HomePage.tsx` - Dashboard (search, standings, insights, featured)
+  - `PlayerPage.tsx` - Player profile (orchestrates `PlayerResultsPanel`, `PlayerSeasonPanel`)
+  - `RosterPage.tsx` - Team/roster profile
+  - `EventPage.tsx` - Event detail (orchestrates `EventBracketPanel`, `EventLeaderboardsPanel`, `EventSearchWidget`)
+  - `StatPage.tsx` - Multi-stat leaderboard grid (see ADR 0001)
+  - `ComparePage.tsx` - Head-to-head compare
+  - `SeriesPage.tsx` - Series detail
+  - `FeedbackPage.tsx` - Feedback log
+- `src/components/` - Reusable UI components (`ComparePanel`, `FeaturedPanel`, `Leaderboard`, `StatPicker`, `SeasonTable`, etc.)
+  - `player/` - Player page sub-panels (`PlayerResultsPanel`, `PlayerSeasonPanel`)
+  - `event/` - Event page sub-panels (`EventBracketPanel`, `EventLeaderboardsPanel`, `EventSearchWidget`)
+  - `ui/` - Generic primitives (`PanelState`, `SkeletonBlock`, `SkeletonRows`)
+- `src/hooks/` - `useAsyncResource`, `useMeta`, `useShare`, `useStatLeaderboards`, `useStatSelection`, `useTeamLogos`
+- `src/api/index.ts` - Single `request<T>()` client with per-endpoint typed param interfaces (`api.search()`, `api.statsTop()`, etc.)
+- `src/utils/` - Formatting and routing helpers (`format.ts` exports `ordinal`, `placementLabel`, `formatPlacement`; `normalize.ts` exports `proxyImageUrl` which delegates to `resolveApiPath`; `compare.ts`, `event-routing.ts`, `team-routing.ts`, etc.)
 - `src/types/` - TypeScript type definitions
+- `src/styles.css` - Single global stylesheet
 
 ---
 
@@ -96,25 +117,25 @@ bun run src/run.ts --dir ./data --dry-run   # Dry run validation
 
 ### Infrastructure
 ```bash
-docker compose up -d     # Start Postgres + pgAdmin containers
+docker compose up -d     # Start Postgres + Adminer containers
 bun run db:reset         # Wipe Postgres volume and restart containers
 psql postgres://stats:stats_pw@localhost:5432/statsdb  # Query the local DB
 ```
 
-### API Server
+### API Server + Web (combined)
 ```bash
-bun run server           # Start REST API server
-```
-
-### Web Frontend
-```bash
-cd web && bun install    # Install web dependencies
-cd web && bun run dev    # Start Vite dev server
+bun run dev              # Concurrently runs API (nodemon + Bun) and Vite dev server
+bun run dev:api          # API only
+bun run dev:web          # Frontend only
 ```
 
 ### Testing
-- No test framework configured yet. If you add tests, document the runner and add a `bun run test` script.
-- For now, validate loader changes with: `bun run src/run.ts --dir ./data --dry-run`
+```bash
+bun run test             # Unit tests (tests/unit)
+bun run test:integration # Integration tests (spins up test DB)
+bun run test:all         # Both
+bun run verify:data      # Run scripts/verify-data-integrity.ts against current DB
+```
 
 ---
 
@@ -142,7 +163,7 @@ cd web && bun run dev    # Start Vite dev server
 
 **`stats`** - Per-player, per-game statistics (~280 columns). Each row represents one player's performance in a single game. A 3v3 game produces 6 rows (one per player), all sharing the same `Match ID` and `Game Number`. A best-of-5 series (one `Match ID`) can have up to 30 rows.
 - Key columns: `Match ID`, `Game Number`, `Unique ID` (player), `Team`, `Victory`
-- `series_id`: Materialized semantic series identifier — `md5(Season|Split|Regional|Day|Stage|Round|Best of|team_a|team_b)`. Computed after ingestion by `computeSeriesIds()`. NULL for single-team or collided matches. See `docs/series-grouping.md`.
+- `series_id`: Materialized semantic series identifier — `md5(Season|Split|Event|Day|Stage|Round|Best of|team_a|team_b)`. Computed after ingestion by `computeSeriesIds()`. NULL for single-team or collided matches. See `docs/series-grouping.md`.
 - Player performance metrics partitioned by zone (All/Defense/Neutral/Offense)
 - Covers: positioning, ball touches, speed, boost, goals, assists, saves, demos
 - Metadata: `source_file`, `ingested_at`, `row_hash` (for deduplication)
@@ -169,8 +190,13 @@ cd web && bun run dev    # Start Vite dev server
 | `GET /api/rosters/{id}/season` | Team season breakdown |
 | `GET /api/compare` | Compare multiple players/rosters |
 | `GET /api/compare/history` | Head-to-head match history |
-| `GET /api/stats/top` | Top-10 leaderboard for any stat |
+| `GET /api/stats/top` | Leaderboard for any stat (`limit`, `minGames`, filters) |
 | `GET /api/featured` | Featured player categories |
+| `GET /api/insights` | Homepage "Fast Insights" categories (in-memory cached) |
+| `GET /api/standings` | Season standings |
+| `GET /api/events/{id}` | Event detail, placements, bracket, leaderboards |
+| `GET /api/series`, `GET /api/series/{id}`, `GET /api/series/meta` | Series listing + detail |
+| `GET /api/feedback` (and `POST`) | Feedback log |
 | `GET /api/image` | Image proxy with resize, WebP encode, and 30-day disk cache (see `docs/image-proxy.md`) |
 
 ---

@@ -100,17 +100,17 @@ Aggregates per-file reports into `out/import-report.json` with totals for `total
 
 ## Datasets
 
-Two datasets are configured in `src/datasets.ts`:
+Datasets are configured in `src/datasets.ts`. The matches/players/teams datasets use the generic CSV loader; `standings` and `brackets` are custom loaders with their own modules (`load-standings.ts`, `load-brackets.ts`).
 
-| Property | `matches` | `players` |
-|----------|-----------|-----------|
-| Table | `stats` | `players` |
-| Data subdirectory | `data/matches/` | `data/players/` |
-| Schema file | `src/stats-schema.ts` | `src/players-schema.ts` |
-| Header normalizer | none | Alias mapping (camelCase/lowercase → canonical) |
-| Stop after header | none | `Photo URL` |
-| Ignore coercion errors | `false` | `true` |
-| OT denormalization | `true` | `false` |
+| Property | `matches` | `players` | `teams` |
+|----------|-----------|-----------|---------|
+| Table | `stats` | `players` | `team_profiles` |
+| Data subdirectory | `data/matches/` | `data/players/` | `data/teams/` |
+| Schema file | `src/stats-schema.ts` | `src/players-schema.ts` | `src/teams-schema.ts` |
+| Header normalizer | none | Alias mapping (camelCase/lowercase → canonical) | none |
+| Stop after header | none | `Photo URL` | none |
+| Ignore coercion errors | `false` | `true` | `false` |
+| OT denormalization | `true` | `false` | `false` |
 
 ## Deduplication
 
@@ -272,7 +272,9 @@ Unique index on `(table_name, file_name)` stores the latest ingest metadata per 
 |------|------|
 | `src/run.ts` | CLI entry point, orchestrates the full pipeline |
 | `src/load-csv.ts` | CSV streaming, type coercion, transforms, batch inserts, series_id SQL |
-| `src/datasets.ts` | Dataset configs (matches vs players) |
+| `src/datasets.ts` | Dataset configs (matches, players, teams, standings, brackets) |
+| `src/teams-schema.ts` / `src/standings-schema.ts` / `src/brackets-schema.ts` | Schemas for other datasets |
+| `src/load-standings.ts` / `src/load-brackets.ts` | Custom loaders for standings + brackets |
 | `src/db.ts` | PostgreSQL connection |
 | `src/stats-schema.ts` | `CREATE TABLE` and column comments for `stats` |
 | `src/players-schema.ts` | `CREATE TABLE` and column comments for `players` |
