@@ -22,7 +22,10 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
     return;
   }
 
-  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const { clauses, values: stringValues } = buildFilterClauses(url.searchParams, "s");
+  // Widen to (string | number) so numeric min* params can be pushed as numbers
+  // rather than coerced to strings — matches how `limit` is bound below.
+  const values: Array<string | number> = [...stringValues];
   const phase = normalizePhase(url.searchParams.get("phase"));
   if (phase !== "all") {
     values.push(phase);
@@ -47,14 +50,14 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
   const minSeries = Number.parseInt(url.searchParams.get("minSeries") ?? "0", 10);
   let minSeriesIndex = 0;
   if (minSeries > 0) {
-    values.push(String(minSeries));
+    values.push(minSeries);
     minSeriesIndex = values.length;
   }
 
   const minGames = Number.parseInt(url.searchParams.get("minGames") ?? "0", 10);
   let minGamesIndex = 0;
   if (minGames > 0) {
-    values.push(String(minGames));
+    values.push(minGames);
     minGamesIndex = values.length;
   }
 

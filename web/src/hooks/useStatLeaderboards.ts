@@ -158,6 +158,9 @@ export function useStatLeaderboards(
     return () => {
       cancelled = true;
     };
+    // Intentionally narrow deps: re-fetch ALL stats when the query changes,
+    // otherwise fetch ONLY newly-selected stats. Including dataByKey/errorByKey
+    // would re-trigger the effect after every successful/failed fetch and loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderedStats, querySig]);
 

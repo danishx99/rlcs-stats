@@ -133,6 +133,10 @@ export async function ensureFeedbackSchema(): Promise<void> {
   try {
     await feedbackSchemaPromise;
   } finally {
+    // Clearing the promise here is safe: on success, feedbackSchemaReady is already
+    // true (set inside the IIFE before this finally runs) so any concurrent caller
+    // short-circuits at the top of this function. On failure, clearing the promise
+    // lets the next caller retry the schema setup instead of re-awaiting a rejection.
     feedbackSchemaPromise = null;
   }
 }
@@ -273,7 +277,7 @@ export async function handleFeedbackList(_req: IncomingMessage, res: ServerRespo
     return;
   }
 
-  if (url.searchParams.has("resolved") && parseResolvedFilter(url.searchParams.get("resolved")) === null) {
+  if (url.searchParams.has("resolved") && filterResolved === null) {
     const rawValue = (url.searchParams.get("resolved") ?? "").trim().toLowerCase();
     if (rawValue && rawValue !== "all") {
       badRequest(res, "resolved must be one of: resolved, unresolved, all");

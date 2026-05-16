@@ -69,14 +69,25 @@ export async function handlePlayerProfile(
   const playerIndex = values.length + 1;
 
   try {
-    const result = await pool.query(
-      formatSql(playerProfileSql, {
-        playerKeyExpr: playerKeyExpr("s"),
-        where,
-        playerIdParam: `$${playerIndex}`
-      }),
-      [...values, normalizedPlayerId]
-    );
+    // playerProfile and playerResults share no data dependency — run in parallel.
+    const queryParams = [...values, normalizedPlayerId];
+    const [result, resultsForBest] = await Promise.all([
+      pool.query(
+        formatSql(playerProfileSql, {
+          playerKeyExpr: playerKeyExpr("s"),
+          where,
+          playerIdParam: `$${playerIndex}`
+        }),
+        queryParams
+      ),
+      pool.query(
+        formatSql(playerResultsSql, {
+          where,
+          playerIdParam: `$${playerIndex}`
+        }),
+        queryParams
+      )
+    ]);
 
     if (!result.rows.length || !result.rows[0].player_found) {
       json(res, 404, { error: "Player not found" });
@@ -86,13 +97,6 @@ export async function handlePlayerProfile(
     const row = result.rows[0];
     const debutParts = [row.debut_season, row.debut_split, row.debut_event].filter(Boolean);
     const debut = debutParts.length ? debutParts.join(" / ") : null;
-    const resultsForBest = await pool.query(
-      formatSql(playerResultsSql, {
-        where,
-        playerIdParam: `$${playerIndex}`
-      }),
-      [...values, normalizedPlayerId]
-    );
 
     const completedPlacementEnds = resultsForBest.rows
       .filter((eventRow) => (eventRow.status ?? "completed") === "completed")

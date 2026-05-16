@@ -287,6 +287,11 @@ function coerceValue(raw: string, type: ColumnType): { value: CellValue; error?:
       if (["true", "t", "1", "yes", "y"].includes(normalized)) {
         return { value: true };
       }
+      // "ff" maps to false here because some Victory columns store "ff" to mean
+      // forfeit-loss. The synthetic Forfeit column (populated near line 534) re-reads
+      // the raw Victory string to flip Forfeit=true for those same rows, so both
+      // representations stay consistent. Do not "fix" this without also updating
+      // the Forfeit synthesis path.
       if (["false", "f", "0", "no", "n", "ff"].includes(normalized)) {
         return { value: false };
       }
@@ -402,16 +407,17 @@ export async function loadCsvFile(
             normalizedHeaders = normalizedHeaders.slice(0, stopIndex + 1);
           }
         }
-        const filteredHeaders: string[] = [];
+        // Pass 1: drop empty-named columns from the raw CSV header row.
+        const nonEmptyHeaders: string[] = [];
         includedIndices = [];
         normalizedHeaders.forEach((header, index) => {
           if (header.trim().length === 0) {
             return;
           }
-          filteredHeaders.push(header);
+          nonEmptyHeaders.push(header);
           includedIndices.push(index);
         });
-        headers = filteredHeaders;
+        headers = nonEmptyHeaders;
         const headerCounts = new Map<string, number>();
         for (const header of headers) {
           headerCounts.set(header, (headerCounts.get(header) ?? 0) + 1);
@@ -425,17 +431,18 @@ export async function loadCsvFile(
         const extra = headers.filter((col) => !typeMap.has(col));
         if (extra.length > 0) {
           if (options.ignoreUnknownColumns) {
-            const filteredHeaders: string[] = [];
-            const filteredIndices: number[] = [];
+            // Pass 2: drop columns that aren't in the schema typeMap.
+            const knownHeaders: string[] = [];
+            const knownIndices: number[] = [];
             headers.forEach((header, index) => {
               if (!typeMap.has(header)) {
                 return;
               }
-              filteredHeaders.push(header);
-              filteredIndices.push(includedIndices[index]);
+              knownHeaders.push(header);
+              knownIndices.push(includedIndices[index]);
             });
-            headers = filteredHeaders;
-            includedIndices = filteredIndices;
+            headers = knownHeaders;
+            includedIndices = knownIndices;
             console.log(
               `${fileName}: ignoring ${extra.length} undefined columns for ${options.tableName}: ${extra.join(", ")}`
             );

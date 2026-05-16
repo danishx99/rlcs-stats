@@ -8,7 +8,10 @@ import { json } from "../utils/http";
 const SIZE_BUCKETS = [64, 128, 256, 512, 1024] as const;
 const DEFAULT_SIZE = 512;
 const WEBP_QUALITY = 80;
-const MAX_UPSTREAM_BYTES = 100 * 1024 * 1024; // 100MB safety cap
+// Reject responses whose advertised Content-Length exceeds 100MB; also enforced
+// after the body is buffered (see fetchUpstreamBuffer). Not a streaming cap —
+// upstreams that omit Content-Length are only checked post-read.
+const MAX_UPSTREAM_BYTES = 100 * 1024 * 1024;
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const CACHE_DIR = path.resolve(process.env.IMAGE_CACHE_DIR ?? "cache/images");
