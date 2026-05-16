@@ -1,8 +1,9 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { pool } from "../db";
 import { json } from "../utils/http";
-import { normalizeFilter } from "../utils/filters";
-import { columnRef, formatSql, loadSql } from "../utils/sql";
+import { formatSql, loadSql } from "../utils/sql";
+import { buildSeriesFilterClauses, buildSeriesTeamClause, parseSeriesFilters } from "../utils/query-intent";
+import { toDateString, toNullableNumber, toNullableString, toNumber } from "../utils/response-mappers";
 
 const seriesMetaSeasonsSql = loadSql("../../sql/series/meta_seasons.sql", import.meta.url);
 const seriesMetaSplitsSql = loadSql("../../sql/series/meta_splits.sql", import.meta.url);
@@ -41,167 +42,21 @@ type SeriesListRow = {
   gamesRecorded: number;
 };
 
-type SeriesFilters = {
-  mode: string | null;
-  scope: string | null;
-  tier: string | null;
-  season: string | null;
-  split: string | null;
-  event: string | null;
-  stage: string | null;
-  team: string | null;
-  team2: string | null;
-};
-
-type SeriesFilterFlags = {
-  mode?: boolean;
-  scope?: boolean;
-  tier?: boolean;
-  season?: boolean;
-  split?: boolean;
-  event?: boolean;
-  stage?: boolean;
-};
-
-function parseSeriesFilters(url: URL): { filters: SeriesFilters | null; error: string | null } {
-  const mode = normalizeFilter(url.searchParams.get("gameMode"))
-    ?? normalizeFilter(url.searchParams.get("mode"));
-  const includeLans = url.searchParams.get("includeLans") === "1";
-  if (!mode) {
-    return {
-      filters: null,
-      error: "mode is required"
-    };
-  }
-  let scope = normalizeFilter(url.searchParams.get("scope"));
-  let tier = normalizeFilter(url.searchParams.get("tier"));
-  if (mode !== "3s") {
-    scope = "regional";
-    tier = "none";
-  } else if (!includeLans) {
-    scope = scope ?? "regional";
-    tier = tier ?? "none";
-  } else {
-    scope = null;
-    tier = null;
-  }
-  const season = normalizeFilter(url.searchParams.get("season"));
-  const split = normalizeFilter(url.searchParams.get("split"));
-  const event = normalizeFilter(url.searchParams.get("event"));
-  const stage = normalizeFilter(url.searchParams.get("stage"));
-  const team = normalizeFilter(url.searchParams.get("team"));
-  const team2 = normalizeFilter(url.searchParams.get("team2"));
-
-  return {
-    filters: { mode, scope, tier, season, split, event, stage, team, team2 },
-    error: null
-  };
-}
-
-function buildSeriesFilterClauses(filters: SeriesFilters, alias: string, flags: SeriesFilterFlags = {}) {
-  const clauses: string[] = [];
-  const values: Array<string | number> = [];
-
-  if (flags.mode && filters.mode) {
-    clauses.push(`LOWER(TRIM(${columnRef(alias, "mode")})) = LOWER($${values.length + 1})`);
-    values.push(filters.mode);
-  }
-  if (flags.scope && filters.scope) {
-    clauses.push(`LOWER(TRIM(${columnRef(alias, "scope")})) = LOWER($${values.length + 1})`);
-    values.push(filters.scope);
-  }
-  if (flags.tier && filters.tier) {
-    clauses.push(`LOWER(TRIM(${columnRef(alias, "tier")})) = LOWER($${values.length + 1})`);
-    values.push(filters.tier);
-  }
-  if (flags.season && filters.season) {
-    clauses.push(`LOWER(TRIM(${columnRef(alias, "Season")})) = LOWER($${values.length + 1})`);
-    values.push(filters.season);
-  }
-  if (flags.split && filters.split) {
-    clauses.push(`LOWER(TRIM(${columnRef(alias, "Split")})) = LOWER($${values.length + 1})`);
-    values.push(filters.split);
-  }
-  if (flags.event && filters.event) {
-    clauses.push(`LOWER(TRIM(${columnRef(alias, "Event")})) = LOWER($${values.length + 1})`);
-    values.push(filters.event);
-  }
-  if (flags.stage && filters.stage) {
-    clauses.push(`LOWER(TRIM(${columnRef(alias, "Stage")})) = LOWER($${values.length + 1})`);
-    values.push(filters.stage);
-  }
-
-  return { clauses, values };
-}
-
-function buildSeriesTeamClause(filters: SeriesFilters, startIndex: number, alias = "st") {
-  const teamValues = Array.from(
-    new Set(
-      [filters.team, filters.team2]
-        .map((entry) => (entry ? entry.toUpperCase() : null))
-        .filter((entry): entry is string => Boolean(entry))
-    )
-  );
-
-  if (!teamValues.length) {
-    return { clause: "", values: [] as string[] };
-  }
-
-  if (teamValues.length === 1) {
-    return {
-      clause: `(${alias}.team_a = $${startIndex} OR ${alias}.team_b = $${startIndex})`,
-      values: [teamValues[0]]
-    };
-  }
-
-  return {
-    clause: `(${alias}.team_a IN ($${startIndex}, $${startIndex + 1}) AND ${alias}.team_b IN ($${startIndex}, $${startIndex + 1}))`,
-    values: [teamValues[0], teamValues[1]]
-  };
-}
-
-function mapNullableString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length ? trimmed : null;
-}
-
-function mapNullableNumber(value: unknown): number | null {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
-function mapNumber(value: unknown): number {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : 0;
-}
-
-function mapDate(value: unknown): string | null {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed.length ? trimmed : null;
-  }
-  if (value instanceof Date && !Number.isNaN(value.valueOf())) {
-    return value.toISOString().slice(0, 10);
-  }
-  return null;
-}
-
 function parseGames(value: unknown): SeriesGame[] {
   if (!Array.isArray(value)) return [];
 
   return value
     .map((entry): SeriesGame | null => {
       const row = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {};
-      const gameNumber = mapNullableNumber(row.gameNumber);
+      const gameNumber = toNullableNumber(row.gameNumber);
       if (gameNumber === null) return null;
 
       return {
         gameNumber,
-        matchId: mapNullableString(row.matchId),
-        teamAGoals: mapNullableNumber(row.teamAGoals),
-        teamBGoals: mapNullableNumber(row.teamBGoals),
-        winnerTeam: mapNullableString(row.winnerTeam)
+        matchId: toNullableString(row.matchId),
+        teamAGoals: toNullableNumber(row.teamAGoals),
+        teamBGoals: toNullableNumber(row.teamBGoals),
+        winnerTeam: toNullableString(row.winnerTeam)
       };
     })
     .filter((row): row is SeriesGame => row !== null);
@@ -270,11 +125,11 @@ export async function handleSeriesMeta(_req: IncomingMessage, res: ServerRespons
       mode: filters.mode,
       scope: filters.scope,
       tier: filters.tier,
-      seasons: seasons.rows.map((row) => mapNullableString(row.value)).filter(Boolean),
-      splits: splits.rows.map((row) => mapNullableString(row.value)).filter(Boolean),
-      events: events.rows.map((row) => mapNullableString(row.value)).filter(Boolean),
-      stages: stages.rows.map((row) => mapNullableString(row.value)).filter(Boolean),
-      teams: teams.rows.map((row) => mapNullableString(row.value)).filter(Boolean)
+      seasons: seasons.rows.map((row) => toNullableString(row.value)).filter(Boolean),
+      splits: splits.rows.map((row) => toNullableString(row.value)).filter(Boolean),
+      events: events.rows.map((row) => toNullableString(row.value)).filter(Boolean),
+      stages: stages.rows.map((row) => toNullableString(row.value)).filter(Boolean),
+      teams: teams.rows.map((row) => toNullableString(row.value)).filter(Boolean)
     });
   } catch (routeError) {
     console.error(routeError);
@@ -310,28 +165,28 @@ export async function handleSeriesList(_req: IncomingMessage, res: ServerRespons
 
     const rows = result.rows
       .map((row): SeriesListRow | null => {
-        const seriesId = mapNullableString(row.series_id);
+        const seriesId = toNullableString(row.series_id);
         if (!seriesId) return null;
 
         return {
           seriesId,
-          eventId: mapNullableString(row.event_id),
-          date: mapDate(row.date),
-          season: mapNullableString(row.season),
-          mode: mapNullableString(row.mode),
-          scope: mapNullableString(row.scope),
-          tier: mapNullableString(row.tier),
-          split: mapNullableString(row.split),
-          event: mapNullableString(row.event),
-          stage: mapNullableString(row.stage),
-          round: mapNullableString(row.round),
-          day: mapNullableNumber(row.day),
-          bestOf: mapNullableNumber(row.best_of),
-          teamA: mapNullableString(row.team_a),
-          teamB: mapNullableString(row.team_b),
-          teamAWins: mapNumber(row.team_a_wins),
-          teamBWins: mapNumber(row.team_b_wins),
-          gamesRecorded: mapNumber(row.games_recorded)
+          eventId: toNullableString(row.event_id),
+          date: toDateString(row.date),
+          season: toNullableString(row.season),
+          mode: toNullableString(row.mode),
+          scope: toNullableString(row.scope),
+          tier: toNullableString(row.tier),
+          split: toNullableString(row.split),
+          event: toNullableString(row.event),
+          stage: toNullableString(row.stage),
+          round: toNullableString(row.round),
+          day: toNullableNumber(row.day),
+          bestOf: toNullableNumber(row.best_of),
+          teamA: toNullableString(row.team_a),
+          teamB: toNullableString(row.team_b),
+          teamAWins: toNumber(row.team_a_wins),
+          teamBWins: toNumber(row.team_b_wins),
+          gamesRecorded: toNumber(row.games_recorded)
         };
       })
       .filter((row): row is SeriesListRow => row !== null);
@@ -368,7 +223,7 @@ export async function handleSeriesDetail(
     }
 
     const row = result.rows[0];
-    const foundSeriesId = mapNullableString(row.series_id);
+    const foundSeriesId = toNullableString(row.series_id);
     if (!foundSeriesId) {
       json(res, 404, { error: "Series not found" });
       return;
@@ -377,23 +232,23 @@ export async function handleSeriesDetail(
     json(res, 200, {
       series: {
         seriesId: foundSeriesId,
-        eventId: mapNullableString(row.event_id),
-        date: mapDate(row.date),
-        mode: mapNullableString(row.mode),
-        scope: mapNullableString(row.scope),
-        tier: mapNullableString(row.tier),
-        season: mapNullableString(row.season),
-        split: mapNullableString(row.split),
-        event: mapNullableString(row.event),
-        stage: mapNullableString(row.stage),
-        round: mapNullableString(row.round),
-        day: mapNullableNumber(row.day),
-        bestOf: mapNullableNumber(row.best_of),
-        teamA: mapNullableString(row.team_a),
-        teamB: mapNullableString(row.team_b),
-        teamAWins: mapNumber(row.team_a_wins),
-        teamBWins: mapNumber(row.team_b_wins),
-        gamesRecorded: mapNumber(row.games_recorded),
+        eventId: toNullableString(row.event_id),
+        date: toDateString(row.date),
+        mode: toNullableString(row.mode),
+        scope: toNullableString(row.scope),
+        tier: toNullableString(row.tier),
+        season: toNullableString(row.season),
+        split: toNullableString(row.split),
+        event: toNullableString(row.event),
+        stage: toNullableString(row.stage),
+        round: toNullableString(row.round),
+        day: toNullableNumber(row.day),
+        bestOf: toNullableNumber(row.best_of),
+        teamA: toNullableString(row.team_a),
+        teamB: toNullableString(row.team_b),
+        teamAWins: toNumber(row.team_a_wins),
+        teamBWins: toNumber(row.team_b_wins),
+        gamesRecorded: toNumber(row.games_recorded),
         games: parseGames(row.games)
       }
     });

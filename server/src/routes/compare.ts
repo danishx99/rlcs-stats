@@ -6,6 +6,7 @@ import { DEFAULT_COMPARE_STATS, getAllStatOptions, metricExpression, shouldUseGa
 import type { StatOption } from "../types";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr } from "../utils/roster";
+import { toNumber } from "../utils/response-mappers";
 const comparePlayersSql = loadSql("../../sql/compare/compare_players.sql", import.meta.url);
 const compareTeamsSql = loadSql("../../sql/compare/compare_teams.sql", import.meta.url);
 const compareRostersSql = loadSql("../../sql/compare/compare_rosters.sql", import.meta.url);
@@ -14,6 +15,31 @@ const historyRostersSql = loadSql("../../sql/compare/history_rosters.sql", impor
 const DEFAULT_HISTORY_LIMIT = 5;
 const MAX_HISTORY_LIMIT = 50;
 const MAX_COMPARE_IDS = 6;
+type CompareType = "players" | "teams" | "rosters";
+
+function buildMetricValuesRow(row: Record<string, unknown>, options: StatOption[]) {
+  return options.reduce((acc, option) => {
+    acc[option.key] = toNumber(row[option.key]);
+    return acc;
+  }, {} as Record<string, number>);
+}
+
+function buildMetricSelect(
+  options: StatOption[],
+  mode: "avg" | "total",
+  scope: "player_scope" | "team_scope" | "roster_scope" | "base",
+  gameCountExpr?: string
+) {
+  return options
+    .map((option) => {
+      const perGameDenominator =
+        mode === "avg" && gameCountExpr && shouldUseGameDenominatorForTeamAvg(option)
+          ? gameCountExpr
+          : undefined;
+      return `${metricExpression(option, mode, scope, perGameDenominator)} AS "${option.key}"`;
+    })
+    .join(",\n            ");
+}
 
 function parseHistoryPagination(url: URL) {
   const limitRaw = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
@@ -26,7 +52,7 @@ function parseHistoryPagination(url: URL) {
 }
 
 export async function handleCompare(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const type = url.searchParams.get("type") ?? "players";
+  const type = (url.searchParams.get("type") ?? "players") as CompareType;
   const ids = parseListParam(url.searchParams.get("ids"));
   const metricsRaw = parseListParam(url.searchParams.get("metrics"));
   const mode = normalizeMode(url.searchParams.get("mode"));
@@ -52,116 +78,72 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
     return;
   }
 
-  if (type === "rosters") {
-    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-    const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
-    const idsIndex = values.length + 1;
-    const rosterGameCountExpr = 'COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game Number"))';
-    const metricSelect = options
-      .map((option) => {
-        const perGameDenominator =
-          mode === "avg" && shouldUseGameDenominatorForTeamAvg(option)
-            ? rosterGameCountExpr
-            : undefined;
-        return `${metricExpression(option, mode, "roster_scope", perGameDenominator)} AS "${option.key}"`;
-      })
-      .join(",\n            ");
-
-    try {
+  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const idsIndex = values.length + 1;
+  try {
+    if (type === "rosters") {
       const result = await pool.query(
         formatSql(compareRostersSql, {
           idsParam: `$${idsIndex}`,
-          metricSelect,
-          filterClauses
+          metricSelect: buildMetricSelect(
+            options,
+            mode,
+            "roster_scope",
+            'COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game Number"))'
+          ),
+          filterClauses: clauses.length ? `AND ${clauses.join(" AND ")}` : ""
         }),
         [...values, ids]
       );
-
       json(res, 200, {
         mode,
         metrics: options.map((option) => ({ key: option.key, label: option.label })),
         rows: result.rows.map((row) => ({
           id: row.id,
           label: row.label,
-          games: Number(row.games ?? 0),
-          values: options.reduce((acc, option) => {
-            acc[option.key] = Number(row[option.key] ?? 0);
-            return acc;
-          }, {} as Record<string, number>)
+          games: toNumber(row.games),
+          values: buildMetricValuesRow(row, options)
         }))
       });
       return;
-    } catch (error) {
-      console.error(error);
-      json(res, 500, { error: "Failed to compare rosters" });
-      return;
     }
-  }
 
-  if (type === "teams") {
-    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-    const idsIndex = values.length + 1;
-    const teamGameCountExpr = 'COUNT(DISTINCT (base.series_id, base."Game Number"))';
-    const metricSelect = options
-      .map((option) => {
-        const perGameDenominator =
-          mode === "avg" && shouldUseGameDenominatorForTeamAvg(option)
-            ? teamGameCountExpr
-            : undefined;
-        return `${metricExpression(option, mode, "base", perGameDenominator)} AS "${option.key}"`;
-      })
-      .join(",\n            ");
-
-    try {
+    if (type === "teams") {
       const result = await pool.query(
         formatSql(compareTeamsSql, {
-          where,
+          where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
           idsParam: `$${idsIndex}`,
-          metricSelect
+          metricSelect: buildMetricSelect(
+            options,
+            mode,
+            "base",
+            'COUNT(DISTINCT (base.series_id, base."Game Number"))'
+          )
         }),
         [...values, ids]
       );
-
       json(res, 200, {
         mode,
         metrics: options.map((option) => ({ key: option.key, label: option.label })),
         rows: result.rows.map((row) => ({
           id: row.id,
           label: row.label,
-          games: Number(row.games ?? 0),
-          values: options.reduce((acc, option) => {
-            acc[option.key] = Number(row[option.key] ?? 0);
-            return acc;
-          }, {} as Record<string, number>)
+          games: toNumber(row.games),
+          values: buildMetricValuesRow(row, options)
         }))
       });
       return;
-    } catch (error) {
-      console.error(error);
-      json(res, 500, { error: "Failed to compare teams" });
-      return;
     }
-  }
 
-  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
-  const filterClauses = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
-  const idsIndex = values.length + 1;
-  const metricSelect = options
-    .map((option) => `${metricExpression(option, mode, "player_scope")} AS "${option.key}"`)
-    .join(",\n            ");
-
-  try {
     const result = await pool.query(
       formatSql(comparePlayersSql, {
         playerKeyExpr: playerKeyExpr("s"),
         idsParam: `$${idsIndex}`,
-        metricSelect,
-        filterClauses
+        metricSelect: buildMetricSelect(options, mode, "player_scope"),
+        filterClauses: clauses.length ? `AND ${clauses.join(" AND ")}` : ""
       }),
       [...values, ids]
     );
-
     json(res, 200, {
       mode,
       metrics: options.map((option) => ({ key: option.key, label: option.label })),
@@ -169,16 +151,13 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
         id: row.id,
         label: row.label,
         teams: row.teams ?? [],
-        games: Number(row.games ?? 0),
-        values: options.reduce((acc, option) => {
-          acc[option.key] = Number(row[option.key] ?? 0);
-          return acc;
-        }, {} as Record<string, number>)
+        games: toNumber(row.games),
+        values: buildMetricValuesRow(row, options)
       }))
     });
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to compare players" });
+    json(res, 500, { error: `Failed to compare ${type}` });
   }
 }
 

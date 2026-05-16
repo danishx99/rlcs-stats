@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import type { PlayerProfile, PlayerResultEvent, SeasonResponse, SeasonRow, StatCategory, StatOption } from "../types/api";
+import type { PlayerResultEvent, SeasonResponse, SeasonRow, StatCategory, StatOption } from "../types/api";
 import SocialIconLink from "../components/SocialIconLink";
 import SpotlightTile from "../components/SpotlightTile";
 import StatPicker from "../components/StatPicker";
@@ -16,6 +16,7 @@ import { resolveTeamRosterId } from "../utils/team-routing";
 import PanelState from "../components/ui/PanelState";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
 import PageBackActions from "../components/PageBackActions";
+import { usePlayerProfile } from "../hooks/usePlayerProfile";
 
 const DEFAULT_SPOTLIGHT_KEYS = ["goals", "assists", "saves", "demos"] as const;
 type DefaultSpotlightKey = (typeof DEFAULT_SPOTLIGHT_KEYS)[number];
@@ -107,12 +108,6 @@ export default function PlayerPage() {
     }
     return disabled;
   }, [statCategories, spotlightKeys]);
-  const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
-  const playerProfileRef = useRef<PlayerProfile | null>(null);
-  const playerProfileRequestRef = useRef(0);
-  useEffect(() => { playerProfileRef.current = playerProfile; }, [playerProfile]);
-  const [playerProfileLoading, setPlayerProfileLoading] = useState(false);
-  const [playerProfileError, setPlayerProfileError] = useState<string | null>(null);
   const [seasonRows, setSeasonRows] = useState<SeasonRow[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
   const [seasonError, setSeasonError] = useState<string | null>(null);
@@ -131,45 +126,7 @@ export default function PlayerPage() {
   const allTimeCacheRef = useRef<{ playerId: string; events: PlayerResultEvent[]; seasons: string[] } | null>(null);
   const allTimePrefetchedRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!uniqueId) return;
-    const playerId = uniqueId;
-    const requestId = ++playerProfileRequestRef.current;
-    const keys = spotlightKey ? spotlightKey.split(",") : [];
-    const existing = playerProfileRef.current;
-    const samePlayerInBackground = existing !== null && existing.id === playerId;
-    async function loadProfile() {
-      if (!samePlayerInBackground) {
-        setPlayerProfile(null);
-        setPlayerProfileLoading(true);
-      }
-      setPlayerProfileError(null);
-      try {
-        const response = await api.playerProfile(
-          playerId,
-          undefined,
-          keys.length ? { spotlight: keys } : undefined
-        );
-        if (playerProfileRequestRef.current !== requestId) return;
-        setPlayerProfile(response.player);
-      } catch (error) {
-        if (playerProfileRequestRef.current !== requestId) return;
-        console.error(error);
-        setPlayerProfile(null);
-        const message = error instanceof Error ? error.message.toLowerCase() : "";
-        if (message.includes("player not found") || message.includes("api error 404")) {
-          setPlayerProfileError("Player profile not found.");
-        } else {
-          setPlayerProfileError("Failed to load player profile");
-        }
-      } finally {
-        if (playerProfileRequestRef.current !== requestId) return;
-        setPlayerProfileLoading(false);
-      }
-    }
-
-    loadProfile();
-  }, [uniqueId, spotlightKey]);
+  const { playerProfile, playerProfileLoading, playerProfileError } = usePlayerProfile(uniqueId, spotlightKey);
 
   useEffect(() => {
     setSeasonIncludeLans(false);

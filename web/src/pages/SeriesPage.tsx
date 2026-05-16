@@ -5,30 +5,9 @@ import type { SeriesDetail, SeriesListRow, SeriesMetaResponse } from "../types/a
 import { formatDate } from "../utils/date";
 import { buildEventPath } from "../utils/event-routing";
 import { isInternationalEvent, sortEventsLanLast } from "../utils/events";
+import { buildSeriesListParams, buildSeriesMetaParams, DEFAULT_SERIES_FILTERS, type SeriesFilters } from "../utils/series-filters";
 import TeamNameWithLogo from "../components/TeamNameWithLogo";
 import SkeletonBlock from "../components/ui/SkeletonBlock";
-
-type SeriesFilters = {
-  mode: string;
-  includeLans: boolean;
-  season: string;
-  split: string;
-  event: string;
-  stage: string;
-  team: string;
-  team2: string;
-};
-
-const DEFAULT_FILTERS: SeriesFilters = {
-  mode: "3s",
-  includeLans: false,
-  season: "",
-  split: "",
-  event: "",
-  stage: "",
-  team: "",
-  team2: ""
-};
 
 function scoreClass(aWins: number, bWins: number) {
   if (aWins > bWins) return "score-win";
@@ -60,7 +39,7 @@ function seriesContext(row: SeriesListRow | SeriesDetail | null) {
 
 export default function SeriesPage() {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<SeriesFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<SeriesFilters>(DEFAULT_SERIES_FILTERS);
   const [meta, setMeta] = useState<SeriesMetaResponse | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [seriesRows, setSeriesRows] = useState<SeriesListRow[]>([]);
@@ -94,14 +73,7 @@ export default function SeriesPage() {
     async function loadMeta() {
       try {
         const response = await api.seriesMeta({
-          gameMode: filters.mode,
-          includeLans: filters.mode === "3s" && filters.includeLans ? "1" : undefined,
-          scope: filters.mode === "3s" && !filters.includeLans ? "regional" : undefined,
-          tier: filters.mode === "3s" && !filters.includeLans ? "none" : undefined,
-          season: filters.season || undefined,
-          split: filters.split || undefined,
-          event: filters.event || undefined,
-          stage: filters.stage || undefined
+          ...buildSeriesMetaParams(filters)
         });
         if (cancelled) return;
 
@@ -130,16 +102,7 @@ export default function SeriesPage() {
       setSeriesError(null);
       try {
         const response = await api.seriesList({
-          gameMode: filters.mode,
-          includeLans: filters.mode === "3s" && filters.includeLans ? "1" : undefined,
-          scope: filters.mode === "3s" && !filters.includeLans ? "regional" : undefined,
-          tier: filters.mode === "3s" && !filters.includeLans ? "none" : undefined,
-          season: filters.season || undefined,
-          split: filters.split || undefined,
-          event: filters.event || undefined,
-          stage: filters.stage || undefined,
-          team: filters.team || undefined,
-          team2: filters.team2 || undefined
+          ...buildSeriesListParams(filters)
         });
         if (cancelled) return;
         setSeriesRows(response.rows ?? []);
