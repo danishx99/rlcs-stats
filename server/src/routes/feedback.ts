@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { badRequest, json, readJsonBody } from "../utils/http";
+import { getClientIp } from "../utils/client-ip";
+import { errorJson } from "../utils/responses";
 
 type FeedbackType = "bug" | "idea" | "question";
 
@@ -76,15 +77,6 @@ function normalizeFeedbackType(value: unknown): FeedbackType | null {
   return normalized;
 }
 
-function getClientIp(req: IncomingMessage): string | null {
-  const forwardedFor = req.headers["x-forwarded-for"];
-  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
-    const first = forwardedFor.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return req.socket.remoteAddress ?? null;
-}
-
 function hashValue(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
@@ -133,65 +125,49 @@ export async function ensureFeedbackSchema(): Promise<void> {
   try {
     await feedbackSchemaPromise;
   } finally {
-    // Clearing the promise here is safe: on success, feedbackSchemaReady is already
-    // true (set inside the IIFE before this finally runs) so any concurrent caller
-    // short-circuits at the top of this function. On failure, clearing the promise
-    // lets the next caller retry the schema setup instead of re-awaiting a rejection.
     feedbackSchemaPromise = null;
   }
 }
 
-export async function handleFeedbackSubmit(req: IncomingMessage, res: ServerResponse) {
+export async function handleFeedbackSubmit(c: Context) {
   try {
     await ensureFeedbackSchema();
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to initialize feedback storage" });
-    return;
+    return errorJson(c, 500, "Failed to initialize feedback storage");
   }
 
   let body: unknown;
   try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid JSON body";
-    if (message === "Payload too large") {
-      json(res, 413, { error: "Payload too large" });
-      return;
-    }
-    badRequest(res, "Invalid JSON body");
-    return;
+    body = await c.req.json();
+  } catch {
+    return errorJson(c, 400, "Invalid JSON body");
   }
 
   const payload = getObject(body);
   if (!payload) {
-    badRequest(res, "Request body must be a JSON object");
-    return;
+    return errorJson(c, 400, "Request body must be a JSON object");
   }
 
   const feedbackType = normalizeFeedbackType(payload.type);
   if (!feedbackType) {
-    badRequest(res, "type must be one of: bug, idea, question");
-    return;
+    return errorJson(c, 400, "type must be one of: bug, idea, question");
   }
 
   const message = getString(payload.message, 2000);
   if (!message || message.length < 5) {
-    badRequest(res, "message must be at least 5 characters");
-    return;
+    return errorJson(c, 400, "message must be at least 5 characters");
   }
 
   const page = getObject(payload.page);
   if (!page) {
-    badRequest(res, "page context is required");
-    return;
+    return errorJson(c, 400, "page context is required");
   }
 
   const pageUrl = getString(page.url, 4000);
   const pagePath = getString(page.path, 2048);
   if (!pageUrl || !pagePath) {
-    badRequest(res, "page.url and page.path are required");
-    return;
+    return errorJson(c, 400, "page.url and page.path are required");
   }
 
   const pageSearch = getString(page.search, 2048);
@@ -213,13 +189,13 @@ export async function handleFeedbackSubmit(req: IncomingMessage, res: ServerResp
     sessionId: getString(client.sessionId, 128)
   };
 
-  const clientIp = getClientIp(req);
+  const clientIp = getClientIp(c);
   const serverContext = {
     receivedAt: new Date().toISOString(),
     ipHash: hashValue(clientIp ?? "unknown"),
-    host: getString(req.headers.host, 512),
-    origin: getString(req.headers.origin, 2048),
-    method: req.method ?? null
+    host: getString(c.req.header("host"), 512),
+    origin: getString(c.req.header("origin"), 2048),
+    method: c.req.method ?? null
   };
 
   try {
@@ -252,36 +228,35 @@ export async function handleFeedbackSubmit(req: IncomingMessage, res: ServerResp
       ]
     );
 
-    json(res, 201, { ok: true, id: Number(result.rows[0]?.id ?? 0) });
+    return c.json({ ok: true, id: Number(result.rows[0]?.id ?? 0) }, 201);
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to submit feedback" });
+    return errorJson(c, 500, "Failed to submit feedback");
   }
 }
 
-export async function handleFeedbackList(_req: IncomingMessage, res: ServerResponse, url: URL) {
+export async function handleFeedbackList(c: Context) {
   try {
     await ensureFeedbackSchema();
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to initialize feedback storage" });
-    return;
+    return errorJson(c, 500, "Failed to initialize feedback storage");
   }
 
-  const limit = parseLimit(url.searchParams.get("limit"));
-  const filterType = normalizeFeedbackType(url.searchParams.get("type"));
-  const filterResolved = parseResolvedFilter(url.searchParams.get("resolved"));
+  const typeRaw = c.req.query("type");
+  const resolvedRaw = c.req.query("resolved");
+  const limit = parseLimit(c.req.query("limit") ?? null);
+  const filterType = normalizeFeedbackType(typeRaw ?? null);
+  const filterResolved = parseResolvedFilter(resolvedRaw ?? null);
 
-  if (url.searchParams.has("type") && !filterType) {
-    badRequest(res, "type must be one of: bug, idea, question");
-    return;
+  if (typeRaw !== undefined && !filterType) {
+    return errorJson(c, 400, "type must be one of: bug, idea, question");
   }
 
-  if (url.searchParams.has("resolved") && filterResolved === null) {
-    const rawValue = (url.searchParams.get("resolved") ?? "").trim().toLowerCase();
+  if (resolvedRaw !== undefined && filterResolved === null) {
+    const rawValue = (resolvedRaw ?? "").trim().toLowerCase();
     if (rawValue && rawValue !== "all") {
-      badRequest(res, "resolved must be one of: resolved, unresolved, all");
-      return;
+      return errorJson(c, 400, "resolved must be one of: resolved, unresolved, all");
     }
   }
 
@@ -329,7 +304,7 @@ export async function handleFeedbackList(_req: IncomingMessage, res: ServerRespo
       values
     );
 
-    json(res, 200, {
+    return c.json({
       rows: result.rows.map((row) => ({
         id: Number(row.id),
         createdAt: row.created_at,
@@ -350,47 +325,37 @@ export async function handleFeedbackList(_req: IncomingMessage, res: ServerRespo
     });
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to load feedback" });
+    return errorJson(c, 500, "Failed to load feedback");
   }
 }
 
-export async function handleFeedbackUpdate(req: IncomingMessage, res: ServerResponse, feedbackIdRaw: string | null) {
+export async function handleFeedbackUpdate(c: Context, feedbackIdRaw: string | null) {
   try {
     await ensureFeedbackSchema();
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to initialize feedback storage" });
-    return;
+    return errorJson(c, 500, "Failed to initialize feedback storage");
   }
 
   const feedbackId = parseFeedbackId(feedbackIdRaw);
   if (!feedbackId) {
-    badRequest(res, "Invalid feedback id");
-    return;
+    return errorJson(c, 400, "Invalid feedback id");
   }
 
   let body: unknown;
   try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid JSON body";
-    if (message === "Payload too large") {
-      json(res, 413, { error: "Payload too large" });
-      return;
-    }
-    badRequest(res, "Invalid JSON body");
-    return;
+    body = await c.req.json();
+  } catch {
+    return errorJson(c, 400, "Invalid JSON body");
   }
 
   const payload = getObject(body);
   if (!payload) {
-    badRequest(res, "Request body must be a JSON object");
-    return;
+    return errorJson(c, 400, "Request body must be a JSON object");
   }
 
   if (typeof payload.resolved !== "boolean") {
-    badRequest(res, "resolved must be a boolean");
-    return;
+    return errorJson(c, 400, "resolved must be a boolean");
   }
 
   try {
@@ -405,12 +370,11 @@ export async function handleFeedbackUpdate(req: IncomingMessage, res: ServerResp
     );
 
     if (result.rowCount === 0) {
-      json(res, 404, { error: "Feedback item not found" });
-      return;
+      return errorJson(c, 404, "Feedback item not found");
     }
 
     const row = result.rows[0];
-    json(res, 200, {
+    return c.json({
       ok: true,
       id: Number(row.id),
       resolvedAt: row.resolved_at,
@@ -418,6 +382,6 @@ export async function handleFeedbackUpdate(req: IncomingMessage, res: ServerResp
     });
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to update feedback" });
+    return errorJson(c, 500, "Failed to update feedback");
   }
 }

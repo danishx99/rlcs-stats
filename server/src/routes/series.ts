@@ -1,6 +1,6 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 import { formatSql, loadSql } from "../utils/sql";
 import { buildSeriesFilterClauses, buildSeriesTeamClause, parseSeriesFilters } from "../utils/query-intent";
 import { toDateString, toNullableNumber, toNullableString, toNumber } from "../utils/response-mappers";
@@ -62,11 +62,10 @@ function parseGames(value: unknown): SeriesGame[] {
     .filter((row): row is SeriesGame => row !== null);
 }
 
-export async function handleSeriesMeta(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const { filters, error } = parseSeriesFilters(url);
+export async function handleSeriesMeta(c: Context) {
+  const { filters, error } = parseSeriesFilters(new URLSearchParams(c.req.query()));
   if (error || !filters) {
-    json(res, 400, { error: error ?? "Invalid filters" });
-    return;
+    return errorJson(c, 400, error ?? "Invalid filters");
   }
 
   const seasonFilters = buildSeriesFilterClauses(filters, "", {
@@ -120,7 +119,7 @@ export async function handleSeriesMeta(_req: IncomingMessage, res: ServerRespons
       pool.query(formatSql(seriesMetaTeamsSql, { where: teamWhere }), teamFilters.values)
     ]);
 
-    json(res, 200, {
+    return jsonCached(c, {
       generatedAt: new Date().toISOString(),
       mode: filters.mode,
       scope: filters.scope,
@@ -133,15 +132,14 @@ export async function handleSeriesMeta(_req: IncomingMessage, res: ServerRespons
     });
   } catch (routeError) {
     console.error(routeError);
-    json(res, 500, { error: "Failed to load series metadata" });
+    return errorJson(c, 500, "Failed to load series metadata");
   }
 }
 
-export async function handleSeriesList(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const { filters, error } = parseSeriesFilters(url);
+export async function handleSeriesList(c: Context) {
+  const { filters, error } = parseSeriesFilters(new URLSearchParams(c.req.query()));
   if (error || !filters) {
-    json(res, 400, { error: error ?? "Invalid filters" });
-    return;
+    return errorJson(c, 400, error ?? "Invalid filters");
   }
 
   const { clauses, values } = buildSeriesFilterClauses(filters, "s", {
@@ -191,22 +189,17 @@ export async function handleSeriesList(_req: IncomingMessage, res: ServerRespons
       })
       .filter((row): row is SeriesListRow => row !== null);
 
-    json(res, 200, { rows });
+    return jsonCached(c, { rows });
   } catch (routeError) {
     console.error(routeError);
-    json(res, 500, { error: "Failed to load series list" });
+    return errorJson(c, 500, "Failed to load series list");
   }
 }
 
-export async function handleSeriesDetail(
-  _req: IncomingMessage,
-  res: ServerResponse,
-  seriesId: string
-) {
+export async function handleSeriesDetail(c: Context, seriesId: string) {
   const normalizedSeriesId = decodeURIComponent(seriesId).trim();
   if (!normalizedSeriesId) {
-    json(res, 400, { error: "series id is required" });
-    return;
+    return errorJson(c, 400, "series id is required");
   }
 
   try {
@@ -218,18 +211,16 @@ export async function handleSeriesDetail(
     );
 
     if (!result.rows.length) {
-      json(res, 404, { error: "Series not found" });
-      return;
+      return errorJson(c, 404, "Series not found");
     }
 
     const row = result.rows[0];
     const foundSeriesId = toNullableString(row.series_id);
     if (!foundSeriesId) {
-      json(res, 404, { error: "Series not found" });
-      return;
+      return errorJson(c, 404, "Series not found");
     }
 
-    json(res, 200, {
+    return jsonCached(c, {
       series: {
         seriesId: foundSeriesId,
         eventId: toNullableString(row.event_id),
@@ -254,6 +245,6 @@ export async function handleSeriesDetail(
     });
   } catch (routeError) {
     console.error(routeError);
-    json(res, 500, { error: "Failed to load series details" });
+    return errorJson(c, 500, "Failed to load series details");
   }
 }

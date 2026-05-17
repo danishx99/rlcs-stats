@@ -18,38 +18,38 @@ export type StatsTopIntent = {
   values: Array<string | number>;
 };
 
-export function parseStatsTopIntent(url: URL): StatsTopIntent {
-  const metricKey = url.searchParams.get("metric") ?? "score";
-  const mode = normalizeMode(url.searchParams.get("mode"));
-  const type = url.searchParams.get("type") === "team" ? "team" : "player";
-  const sortDir = url.searchParams.get("sort") === "asc" ? "ASC" : "DESC";
-  const limit = Math.min(Number.parseInt(url.searchParams.get("limit") ?? "10", 10), 50);
+export function parseStatsTopIntent(params: URLSearchParams): StatsTopIntent {
+  const metricKey = params.get("metric") ?? "score";
+  const mode = normalizeMode(params.get("mode"));
+  const type = params.get("type") === "team" ? "team" : "player";
+  const sortDir = params.get("sort") === "asc" ? "ASC" : "DESC";
+  const limit = Math.min(Number.parseInt(params.get("limit") ?? "10", 10), 50);
 
-  const base = buildFilterClauses(url.searchParams, "s");
+  const base = buildFilterClauses(params, "s");
   const values: Array<string | number> = [...base.values];
   const clauses = [...base.clauses];
 
-  const phase = normalizePhase(url.searchParams.get("phase"));
+  const phase = normalizePhase(params.get("phase"));
   if (phase !== "all") {
     values.push(phase);
     clauses.push(`LOWER(TRIM(COALESCE(s."Stage", ''))) = LOWER($${values.length})`);
   }
 
-  const day = normalizeDay(url.searchParams.get("day"));
+  const day = normalizeDay(params.get("day"));
   if (day !== "all") {
     values.push(day);
     clauses.push(`LOWER(TRIM(COALESCE(s."Day"::text, ''))) = LOWER($${values.length})`);
   }
 
-  const ssaOnly = url.searchParams.get("ssaOnly") === "1";
-  const arena = url.searchParams.get("arena")?.trim() || null;
+  const ssaOnly = params.get("ssaOnly") === "1";
+  const arena = params.get("arena")?.trim() || null;
   if (arena) {
     values.push(arena);
     clauses.push(`s."Arena" = $${values.length}`);
   }
 
-  const minSeries = Number.parseInt(url.searchParams.get("minSeries") ?? "0", 10);
-  const minGames = Number.parseInt(url.searchParams.get("minGames") ?? "0", 10);
+  const minSeries = Number.parseInt(params.get("minSeries") ?? "0", 10);
+  const minGames = Number.parseInt(params.get("minGames") ?? "0", 10);
 
   return {
     metricKey,
@@ -76,18 +76,18 @@ export type EventQueryIntent = {
   arena: string | null;
 };
 
-export function parseEventQueryIntent(url: URL, defaults: { teamsLimit: number; maxTeamsLimit: number }): EventQueryIntent {
-  const teamsLimitRaw = Number.parseInt(url.searchParams.get("teamsLimit") ?? "", 10);
+export function parseEventQueryIntent(params: URLSearchParams, defaults: { teamsLimit: number; maxTeamsLimit: number }): EventQueryIntent {
+  const teamsLimitRaw = Number.parseInt(params.get("teamsLimit") ?? "", 10);
   const teamsLimit = Number.isFinite(teamsLimitRaw) && teamsLimitRaw > 0
     ? Math.min(teamsLimitRaw, defaults.maxTeamsLimit)
     : defaults.teamsLimit;
 
   return {
     teamsLimit,
-    leaderboardMode: normalizeMode(url.searchParams.get("mode")),
-    selectedPhase: normalizePhase(url.searchParams.get("phase")),
-    selectedDay: normalizeDay(url.searchParams.get("day")),
-    arena: url.searchParams.get("arena")?.trim() || null
+    leaderboardMode: normalizeMode(params.get("mode")),
+    selectedPhase: normalizePhase(params.get("phase")),
+    selectedDay: normalizeDay(params.get("day")),
+    arena: params.get("arena")?.trim() || null
   };
 }
 
@@ -113,16 +113,16 @@ export type SeriesFilterFlags = {
   stage?: boolean;
 };
 
-export function parseSeriesFilters(url: URL): { filters: SeriesFilters | null; error: string | null } {
-  const mode = normalizeFilter(url.searchParams.get("gameMode"))
-    ?? normalizeFilter(url.searchParams.get("mode"));
-  const includeLans = url.searchParams.get("includeLans") === "1";
+export function parseSeriesFilters(params: URLSearchParams): { filters: SeriesFilters | null; error: string | null } {
+  const mode = normalizeFilter(params.get("gameMode"))
+    ?? normalizeFilter(params.get("mode"));
+  const includeLans = params.get("includeLans") === "1";
   if (!mode) {
     return { filters: null, error: "mode is required" };
   }
 
-  let scope = normalizeFilter(url.searchParams.get("scope"));
-  let tier = normalizeFilter(url.searchParams.get("tier"));
+  let scope = normalizeFilter(params.get("scope"));
+  let tier = normalizeFilter(params.get("tier"));
   if (mode !== "3s") {
     scope = "regional";
     tier = "none";
@@ -139,12 +139,12 @@ export function parseSeriesFilters(url: URL): { filters: SeriesFilters | null; e
       mode,
       scope,
       tier,
-      season: normalizeFilter(url.searchParams.get("season")),
-      split: normalizeFilter(url.searchParams.get("split")),
-      event: normalizeFilter(url.searchParams.get("event")),
-      stage: normalizeFilter(url.searchParams.get("stage")),
-      team: normalizeFilter(url.searchParams.get("team")),
-      team2: normalizeFilter(url.searchParams.get("team2"))
+      season: normalizeFilter(params.get("season")),
+      split: normalizeFilter(params.get("split")),
+      event: normalizeFilter(params.get("event")),
+      stage: normalizeFilter(params.get("stage")),
+      team: normalizeFilter(params.get("team")),
+      team2: normalizeFilter(params.get("team2"))
     },
     error: null
   };

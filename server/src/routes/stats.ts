@@ -1,6 +1,6 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 import { metricExpression, resolveStatOptionAsync, shouldUseGameDenominatorForTeamAvg } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
 import { playerKeyExpr } from "../utils/roster";
@@ -9,14 +9,13 @@ import { mapPlayerLeaderboardRow, mapTeamLeaderboardRow } from "../utils/leaderb
 const statsTopSql = loadSql("../../sql/stats/top.sql", import.meta.url);
 const statsTopTeamSql = loadSql("../../sql/stats/top-team.sql", import.meta.url);
 
-export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const intent = parseStatsTopIntent(url);
+export async function handleStatsTop(c: Context) {
+  const intent = parseStatsTopIntent(new URLSearchParams(c.req.query()));
   const { metricKey, mode, type, sortDir, limit } = intent;
   const option = await resolveStatOptionAsync(metricKey);
 
   if (!option) {
-    json(res, 400, { error: "Invalid metric" });
-    return;
+    return errorJson(c, 400, "Invalid metric");
   }
 
   const clauses = [...intent.clauses];
@@ -104,7 +103,7 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
 
     const result = await pool.query(query, [...values, limit]);
 
-    json(res, 200, {
+    return jsonCached(c, {
       generatedAt: new Date().toISOString(),
       mode,
       metric: { key: option.key, label: option.label, format: option.format },
@@ -112,6 +111,6 @@ export async function handleStatsTop(_req: IncomingMessage, res: ServerResponse,
     });
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to load leaderboard" });
+    return errorJson(c, 500, "Failed to load leaderboard");
   }
 }

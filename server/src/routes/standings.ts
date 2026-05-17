@@ -1,8 +1,8 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 
-export async function handleStandings(_req: IncomingMessage, res: ServerResponse, url: URL) {
+export async function handleStandings(c: Context) {
   try {
     const seasonsResult = await pool.query(
       "SELECT DISTINCT season FROM standings ORDER BY season"
@@ -10,11 +10,10 @@ export async function handleStandings(_req: IncomingMessage, res: ServerResponse
     const seasons: string[] = seasonsResult.rows.map((r) => r.season);
 
     if (seasons.length === 0) {
-      json(res, 200, { seasons: [], season: "", rows: [] });
-      return;
+      return jsonCached(c, { seasons: [], season: "", rows: [] });
     }
 
-    const season = url.searchParams.get("season") || seasons[seasons.length - 1];
+    const season = c.req.query("season") || seasons[seasons.length - 1];
 
     const result = await pool.query(
       `SELECT s.rank, s.team_name, s.points,
@@ -25,7 +24,7 @@ export async function handleStandings(_req: IncomingMessage, res: ServerResponse
       [season]
     );
 
-    json(res, 200, {
+    return jsonCached(c, {
       seasons,
       season,
       rows: result.rows.map((r) => ({
@@ -37,6 +36,6 @@ export async function handleStandings(_req: IncomingMessage, res: ServerResponse
     });
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to load standings" });
+    return errorJson(c, 500, "Failed to load standings");
   }
 }

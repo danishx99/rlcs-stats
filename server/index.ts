@@ -1,12 +1,8 @@
-import { createServer } from "node:http";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { bodyLimit } from "hono/body-limit";
+import { serve } from "@hono/node-server";
 import { PORT } from "./src/config";
-import {
-  getRequestUrl,
-  handleOptions,
-  json,
-  methodNotAllowed,
-  notFound
-} from "./src/utils/http";
 import { handleCompare, handleCompareHistory } from "./src/routes/compare";
 import { handleFeatured } from "./src/routes/featured";
 import { ensureFeedbackSchema, handleFeedbackList, handleFeedbackSubmit, handleFeedbackUpdate } from "./src/routes/feedback";
@@ -20,69 +16,99 @@ import { handleSeriesDetail, handleSeriesList, handleSeriesMeta } from "./src/ro
 import { handleStandings } from "./src/routes/standings";
 import { handleStatsTop } from "./src/routes/stats";
 import { handleEventDetail } from "./src/routes/events";
-import { createRouter } from "./src/router";
+import { FEEDBACK_SUBMIT_LIMIT, FEEDBACK_UPDATE_LIMIT, createRateLimiter } from "./src/middleware/rate-limit";
 
-const router = createRouter([
-  {
-    method: "GET",
-    pattern: "/api/health",
-    handler: ({ res }) => {
-      json(res, 200, { ok: true, time: new Date().toISOString() });
-    }
-  },
-  { method: "GET", pattern: "/api/image", handler: ({ req, res, url }) => handleImage(req, res, url) },
-  { method: "GET", pattern: "/api/meta/columns", handler: ({ req, res }) => handleMetaColumns(req, res) },
-  { method: "GET", pattern: "/api/meta", handler: ({ req, res, url }) => handleMeta(req, res, url) },
-  { method: "GET", pattern: "/api/series/meta", handler: ({ req, res, url }) => handleSeriesMeta(req, res, url) },
-  { method: "GET", pattern: "/api/series", handler: ({ req, res, url }) => handleSeriesList(req, res, url) },
-  { method: "GET", pattern: "/api/series/:seriesId", handler: ({ req, res, params }) => handleSeriesDetail(req, res, params.seriesId) },
-  { method: "GET", pattern: "/api/search", handler: ({ req, res, url }) => handleSearch(req, res, url) },
-  { method: "GET", pattern: "/api/players", handler: ({ req, res, url }) => handlePlayers(req, res, url) },
-  { method: "GET", pattern: "/api/players/:playerId", handler: ({ req, res, url, params }) => handlePlayerProfile(req, res, url, params.playerId) },
-  { method: "GET", pattern: "/api/players/:playerId/season", handler: ({ req, res, url, params }) => handlePlayerSeason(req, res, url, params.playerId) },
-  { method: "GET", pattern: "/api/players/:playerId/results", handler: ({ req, res, url, params }) => handlePlayerResults(req, res, url, params.playerId) },
-  { method: "GET", pattern: "/api/rosters/:rosterId", handler: ({ req, res, url, params }) => handleRosterProfile(req, res, url, params.rosterId) },
-  { method: "GET", pattern: "/api/rosters/:rosterId/season", handler: ({ req, res, url, params }) => handleRosterSeason(req, res, url, params.rosterId) },
-  { method: "GET", pattern: "/api/rosters/:rosterId/results", handler: ({ req, res, url, params }) => handleRosterResults(req, res, url, params.rosterId) },
-  { method: "GET", pattern: "/api/compare/history", handler: ({ req, res, url }) => handleCompareHistory(req, res, url) },
-  { method: "GET", pattern: "/api/compare", handler: ({ req, res, url }) => handleCompare(req, res, url) },
-  { method: "GET", pattern: "/api/stats/top", handler: ({ req, res, url }) => handleStatsTop(req, res, url) },
-  { method: "GET", pattern: "/api/featured", handler: ({ req, res, url }) => handleFeatured(req, res, url) },
-  { method: "GET", pattern: "/api/standings", handler: ({ req, res, url }) => handleStandings(req, res, url) },
-  { method: "GET", pattern: "/api/insights", handler: ({ req, res, url }) => handleInsights(req, res, url) },
-  { method: "GET", pattern: "/api/events/:eventName", handler: ({ req, res, url, params }) => handleEventDetail(req, res, params.eventName, url) },
-  { method: "POST", pattern: "/api/feedback", handler: ({ req, res }) => handleFeedbackSubmit(req, res) },
-  { method: "GET", pattern: "/api/feedback", handler: ({ req, res, url }) => handleFeedbackList(req, res, url) },
-  { method: "PATCH", pattern: "/api/feedback/:feedbackId", handler: ({ req, res, params }) => handleFeedbackUpdate(req, res, params.feedbackId ?? null) }
-]);
+const app = new Hono();
 
-const server = createServer(async (req, res) => {
-  const url = getRequestUrl(req);
-  if (!url) {
-    json(res, 400, { error: "Bad request" });
-    return;
-  }
+const feedbackSubmitRateLimit = createRateLimiter(FEEDBACK_SUBMIT_LIMIT).middleware;
+const feedbackUpdateRateLimit = createRateLimiter(FEEDBACK_UPDATE_LIMIT).middleware;
 
-  if (req.method === "OPTIONS") {
-    handleOptions(res);
-    return;
-  }
+app.use("*", cors({
+  origin: "*",
+  allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
+  allowHeaders: ["Content-Type", "ngrok-skip-browser-warning"]
+}));
 
-  const handled = await router.route(req, res, url);
-  if (handled) return;
-
-  if (url.pathname.startsWith("/api/") && router.hasPath(url.pathname)) {
-    methodNotAllowed(res);
-    return;
-  }
-
-  notFound(res);
+// 32 KB body limit on feedback writes (matches previous readJsonBody cap)
+const feedbackBodyLimit = bodyLimit({
+  maxSize: 32 * 1024,
+  onError: (c) => c.json({ error: "Payload too large" }, 413)
 });
 
-server.listen(PORT, () => {
-  console.log(`API running on http://localhost:${PORT}`);
+app.get("/api/health", (c) => c.json({ ok: true, time: new Date().toISOString() }));
+
+app.get("/api/image", (c) => handleImage(c));
+app.get("/api/meta/columns", (c) => handleMetaColumns(c));
+app.get("/api/meta", (c) => handleMeta(c));
+app.get("/api/series/meta", (c) => handleSeriesMeta(c));
+app.get("/api/series", (c) => handleSeriesList(c));
+app.get("/api/series/:seriesId", (c) => handleSeriesDetail(c, c.req.param("seriesId")));
+app.get("/api/search", (c) => handleSearch(c));
+app.get("/api/players", (c) => handlePlayers(c));
+app.get("/api/players/:playerId", (c) => handlePlayerProfile(c, c.req.param("playerId")));
+app.get("/api/players/:playerId/season", (c) => handlePlayerSeason(c, c.req.param("playerId")));
+app.get("/api/players/:playerId/results", (c) => handlePlayerResults(c, c.req.param("playerId")));
+app.get("/api/rosters/:rosterId", (c) => handleRosterProfile(c, c.req.param("rosterId")));
+app.get("/api/rosters/:rosterId/season", (c) => handleRosterSeason(c, c.req.param("rosterId")));
+app.get("/api/rosters/:rosterId/results", (c) => handleRosterResults(c, c.req.param("rosterId")));
+app.get("/api/compare/history", (c) => handleCompareHistory(c));
+app.get("/api/compare", (c) => handleCompare(c));
+app.get("/api/stats/top", (c) => handleStatsTop(c));
+app.get("/api/featured", (c) => handleFeatured(c));
+app.get("/api/standings", (c) => handleStandings(c));
+app.get("/api/insights", (c) => handleInsights(c));
+app.get("/api/events/:eventName", (c) => handleEventDetail(c, c.req.param("eventName")));
+app.post("/api/feedback", feedbackSubmitRateLimit, feedbackBodyLimit, (c) => handleFeedbackSubmit(c));
+app.get("/api/feedback", (c) => handleFeedbackList(c));
+app.patch("/api/feedback/:feedbackId", feedbackUpdateRateLimit, feedbackBodyLimit, (c) => handleFeedbackUpdate(c, c.req.param("feedbackId") ?? null));
+
+const apiMethodRules: Array<{ pattern: RegExp; methods: Set<string> }> = [
+  { pattern: /^\/api\/health$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/image$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/meta\/columns$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/meta$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/series\/meta$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/series$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/series\/[^/]+$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/search$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/players$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/players\/[^/]+$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/players\/[^/]+\/season$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/players\/[^/]+\/results$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/rosters\/[^/]+$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/rosters\/[^/]+\/season$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/rosters\/[^/]+\/results$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/compare\/history$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/compare$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/stats\/top$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/featured$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/standings$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/insights$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/events\/[^/]+$/, methods: new Set(["GET"]) },
+  { pattern: /^\/api\/feedback$/, methods: new Set(["GET", "POST"]) },
+  { pattern: /^\/api\/feedback\/[^/]+$/, methods: new Set(["PATCH"]) }
+];
+
+app.notFound((c) => {
+  const path = c.req.path;
+  const method = c.req.method.toUpperCase();
+  const matchedRule = apiMethodRules.find((rule) => rule.pattern.test(path));
+  if (matchedRule && !matchedRule.methods.has(method)) {
+    return c.json({ error: "Method not allowed" }, 405);
+  }
+  return c.json({ error: "Not found" }, 404);
+});
+app.onError((err, c) => {
+  console.error(err);
+  return c.json({ error: "Internal server error" }, 500);
 });
 
-void ensureFeedbackSchema().catch((error) => {
+try {
+  await ensureFeedbackSchema();
+} catch (error) {
   console.warn("Feedback schema init failed; feedback endpoint may be unavailable until schema is created:", error);
+}
+
+serve({ fetch: app.fetch, port: Number(PORT) }, (info) => {
+  console.log(`API running on http://localhost:${info.port}`);
 });

@@ -1,6 +1,6 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 import { formatSql, loadSql } from "../utils/sql";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { parseEventQueryIntent } from "../utils/query-intent";
@@ -17,13 +17,13 @@ const LEADERBOARD_METRICS = ["rating", "goals", "demos", "saves", "assists"];
 const DEFAULT_TEAMS_LIMIT = 8;
 const MAX_TEAMS_LIMIT = 256;
 
-export async function handleEventDetail(_req: IncomingMessage, res: ServerResponse, eventId: string, url: URL) {
-  const decodedEventId = decodeURIComponent(eventId).trim().toLowerCase();
-  if (!decodedEventId) {
-    json(res, 400, { error: "Event id is required" });
-    return;
+export async function handleEventDetail(c: Context, eventId: string) {
+  const params = new URLSearchParams(c.req.query());
+  const normalizedEventId = eventId.trim().toLowerCase();
+  if (!normalizedEventId) {
+    return errorJson(c, 400, "Event id is required");
   }
-  const intent = parseEventQueryIntent(url, {
+  const intent = parseEventQueryIntent(params, {
     teamsLimit: DEFAULT_TEAMS_LIMIT,
     maxTeamsLimit: MAX_TEAMS_LIMIT
   });
@@ -32,12 +32,11 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
   try {
     const detailResult = await pool.query(
       detailSql,
-      [decodedEventId]
+      [normalizedEventId]
     );
     const detail = detailResult.rows[0];
     if (!detail || !detail.event_name) {
-      json(res, 404, { error: "Event not found" });
-      return;
+      return errorJson(c, 404, "Event not found");
     }
 
     const season = typeof detail.season === "string" ? detail.season : null;
@@ -48,12 +47,9 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
     const eventName = typeof detail.event_name === "string" ? detail.event_name : null;
 
     if (!eventName || !season || !split || !mode || !scope || !tier) {
-      json(res, 404, { error: "Event is missing canonical track metadata" });
-      return;
+      return errorJson(c, 404, "Event is missing canonical track metadata");
     }
 
-    // WHERE template and all SQL placeholders are identical across the 5 metrics —
-    // only the per-metric value expressions change. Build them once outside the loop.
     const leaderboardWhere = `WHERE s."Event" = $1
         AND ($2::text IS NULL OR s."Season" = $2)
         AND ($3::text IS NULL OR s."Split" = $3)
@@ -124,7 +120,7 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
       bracketRow = (bracketResult.rows[0] as { bracket_image_url: string | null; liquipedia_url: string | null } | undefined) ?? null;
     }
 
-    json(res, 200, {
+    return jsonCached(c, {
       event: {
         id: detail.event_id,
         name: detail.event_name,
@@ -166,6 +162,6 @@ export async function handleEventDetail(_req: IncomingMessage, res: ServerRespon
     });
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to load event detail" });
+    return errorJson(c, 500, "Failed to load event detail");
   }
 }

@@ -32,16 +32,20 @@
     "test:all": "bun run test && bun run test:integration"
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.2",
     "csv-parse": "^5.6.0",
     "dotenv": "^16.4.5",
+    "hono": "^4.12.19",
     "pg": "^8.11.5",
-    "simple-icons": "^16.10.0"
+    "simple-icons": "^16.10.0",
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
     "@types/pg": "^8.11.10",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
     "nodemon": "^3.1.0",

@@ -1,6 +1,6 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json, withRouteError } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 import { buildFilterClauses, normalizeMode } from "../utils/filters";
 import { metricExpression, resolveStatOption } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
@@ -11,18 +11,13 @@ const rosterResultsSql = loadSql("../../sql/rosters/results.sql", import.meta.ur
 const eventTopTeamsSql = loadSql("../../sql/events/top-teams.sql", import.meta.url);
 const rosterFinalSeriesSql = loadSql("../../sql/rosters/final-series.sql", import.meta.url);
 
-export async function handleRosterProfile(
-  _req: IncomingMessage,
-  res: ServerResponse,
-  url: URL,
-  rosterId: string
-) {
+export async function handleRosterProfile(c: Context, rosterId: string) {
   const rosterKey = normalizeTeamGroupId(rosterId);
-  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const { clauses, values } = buildFilterClauses(new URLSearchParams(c.req.query()), "s");
   const where = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
   const rosterIndex = values.length + 1;
 
-  await withRouteError(res, "Failed to load roster profile", async () => {
+  try {
     const result = await pool.query(
       formatSql(rosterProfileSql, {
         rosterIdParam: `$${rosterIndex}`,
@@ -32,15 +27,14 @@ export async function handleRosterProfile(
     );
 
     if (!result.rows.length) {
-      json(res, 404, { error: "Roster not found" });
-      return;
+      return errorJson(c, 404, "Roster not found");
     }
 
     const row = result.rows[0];
     const debutParts = [row.debut_season, row.debut_split, row.debut_event].filter(Boolean);
     const debut = debutParts.length ? debutParts.join(" / ") : null;
 
-    json(res, 200, {
+    return jsonCached(c, {
       roster: {
         id: row.roster_id,
         name: row.roster_name,
@@ -74,19 +68,18 @@ export async function handleRosterProfile(
         }
       }
     });
-  });
+  } catch (error) {
+    console.error(error);
+    return errorJson(c, 500, "Failed to load roster profile");
+  }
 }
 
-export async function handleRosterSeason(
-  _req: IncomingMessage,
-  res: ServerResponse,
-  url: URL,
-  rosterId: string
-) {
+export async function handleRosterSeason(c: Context, rosterId: string) {
+  const params = new URLSearchParams(c.req.query());
   const rosterKey = normalizeTeamGroupId(rosterId);
-  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const { clauses, values } = buildFilterClauses(params, "s");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  const mode = normalizeMode(url.searchParams.get("mode"));
+  const mode = normalizeMode(c.req.query("mode") ?? null);
   const rosterIndex = values.length + 1;
 
   const gameCount = `COUNT(DISTINCT (roster_scope.series_id, roster_scope."Game"))`;
@@ -95,7 +88,7 @@ export async function handleRosterSeason(
   const savesExpr = metricExpression(resolveStatOption("saves"), mode, "roster_scope", gameCount);
   const demosExpr = metricExpression(resolveStatOption("demos"), mode, "roster_scope", gameCount);
 
-  await withRouteError(res, "Failed to load season performance", async () => {
+  try {
     const result = await pool.query(
       formatSql(rosterSeasonSql, {
         where,
@@ -108,7 +101,7 @@ export async function handleRosterSeason(
       [...values, rosterKey]
     );
 
-    json(res, 200, {
+    return jsonCached(c, {
       mode,
       rows: result.rows.map((row) => ({
         season: row.season,
@@ -120,30 +113,27 @@ export async function handleRosterSeason(
         demos: Number(row.demos ?? 0)
       }))
     });
-  });
+  } catch (error) {
+    console.error(error);
+    return errorJson(c, 500, "Failed to load season performance");
+  }
 }
 
-export async function handleRosterResults(
-  _req: IncomingMessage,
-  res: ServerResponse,
-  url: URL,
-  rosterId: string
-) {
+export async function handleRosterResults(c: Context, rosterId: string) {
   const rosterKey = normalizeTeamGroupId(rosterId);
-  const season = url.searchParams.get("season")?.trim();
+  const season = c.req.query("season")?.trim();
   if (!season) {
-    json(res, 400, { error: "season is required" });
-    return;
+    return errorJson(c, 400, "season is required");
   }
 
-  const params = new URLSearchParams(url.searchParams);
+  const params = new URLSearchParams(c.req.query());
   params.set("season", season);
   params.set("gameMode", "3s");
   const { clauses, values } = buildFilterClauses(params, "s");
   const where = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
   const rosterIndex = values.length + 1;
 
-  await withRouteError(res, "Failed to load roster results", async () => {
+  try {
     const result = await pool.query(
       formatSql(rosterResultsSql, {
         rosterIdParam: `$${rosterIndex}`,
@@ -179,7 +169,6 @@ export async function handleRosterResults(
         : []
     }));
 
-    // Batch top-teams lookups: dedupe by event key and fire all unique queries concurrently.
     type TopTeamsParams = { event: string; rowSeason: string; split: string; scope: string; tier: string | null };
     const topTeamsJobs = new Map<string, TopTeamsParams>();
     for (let i = 0; i < result.rows.length; i++) {
@@ -208,7 +197,6 @@ export async function handleRosterResults(
       placementLookup.set(key, map);
     }));
 
-    // Batch final-series lookups: dedupe by event + sorted team labels, fire concurrently.
     type FinalSeriesParams = {
       event: string;
       rowSeason: string;
@@ -272,7 +260,6 @@ export async function handleRosterResults(
       }
 
       return {
-        // Use exact event-page placement logic for regional rows, matched by participating team labels.
         placement: (() => {
           if (scope !== "regional") return null;
           if (!event || !rowSeason || !split) return null;
@@ -307,6 +294,9 @@ export async function handleRosterResults(
       };
     });
 
-    json(res, 200, { season, rows: enrichedRows });
-  });
+    return jsonCached(c, { season, rows: enrichedRows });
+  } catch (error) {
+    console.error(error);
+    return errorJson(c, 500, "Failed to load roster results");
+  }
 }

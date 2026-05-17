@@ -10,7 +10,7 @@ Built end-to-end as a portfolio project — data pipeline, API, and UI.
 
 - **Runtime:** Bun + TypeScript (ESM)
 - **Database:** PostgreSQL 16 (Docker)
-- **API:** Lightweight Node HTTP server with SQL templates
+- **API:** Hono on Bun with SQL templates
 - **Web:** React 18 + Vite + React Router
 - **Infra:** Docker Compose for local dev; example workflow for VPS + Railway deployment
 

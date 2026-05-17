@@ -6,7 +6,7 @@
 ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
 │  rlesport.gg     │────▶│  Railway         │────▶│  Railway         │
 │  VPS / Apache    │     │  API Service     │     │  PostgreSQL      │
-│  Static frontend │     │  Bun + HTTP      │     │  Managed DB      │
+│  Static frontend │     │  Bun + Hono      │     │  Managed DB      │
 └──────────────────┘     └──────────────────┘     └──────────────────┘
 ```
 

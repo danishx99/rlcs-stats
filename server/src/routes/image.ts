@@ -1,16 +1,14 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import { Readable } from "node:stream";
 import path from "node:path";
-import { json } from "../utils/http";
+import type { Context } from "hono";
+import { errorJson } from "../utils/responses";
 
 const SIZE_BUCKETS = [64, 128, 256, 512, 1024] as const;
 const DEFAULT_SIZE = 512;
 const WEBP_QUALITY = 80;
-// Reject responses whose advertised Content-Length exceeds 100MB; also enforced
-// after the body is buffered (see fetchUpstreamBuffer). Not a streaming cap —
-// upstreams that omit Content-Length are only checked post-read.
 const MAX_UPSTREAM_BYTES = 100 * 1024 * 1024;
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -72,14 +70,14 @@ async function cachedFileExists(p: string): Promise<boolean> {
   }
 }
 
-function serveCacheFile(res: ServerResponse, filePath: string, etag: string, cacheStatus: "HIT" | "MISS" | "STALE") {
-  res.writeHead(200, {
+async function serveCacheFile(c: Context, filePath: string, etag: string, cacheStatus: "HIT" | "MISS" | "STALE") {
+  const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream;
+  return c.body(stream, 200, {
     "Content-Type": "image/webp",
     "Cache-Control": "public, max-age=2592000, stale-while-revalidate=2592000",
     ETag: etag,
     "X-Cache": cacheStatus
   });
-  createReadStream(filePath).pipe(res);
 }
 
 async function fetchUpstreamBuffer(targetUrl: URL): Promise<Buffer | null> {
@@ -138,24 +136,21 @@ async function generateVariant(
   return cachedFileExists(cachePath);
 }
 
-export async function handleImage(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const target = url.searchParams.get("url");
+export async function handleImage(c: Context) {
+  const target = c.req.query("url");
   if (!target) {
-    json(res, 400, { error: "Missing url" });
-    return;
+    return errorJson(c, 400, "Missing url");
   }
   try {
     const targetUrl = new URL(target);
     if (!["http:", "https:"].includes(targetUrl.protocol)) {
-      json(res, 400, { error: "Invalid protocol" });
-      return;
+      return errorJson(c, 400, "Invalid protocol");
     }
     if (!isAllowedImageHost(targetUrl.hostname)) {
-      json(res, 403, { error: "Host not allowed" });
-      return;
+      return errorJson(c, 403, "Host not allowed");
     }
 
-    const sizeParam = Number(url.searchParams.get("size"));
+    const sizeParam = Number(c.req.query("size"));
     const bucket = snapBucket(Number.isFinite(sizeParam) ? sizeParam : null);
     const cachePath = cachePathFor(targetUrl.toString(), bucket);
     const etag = `"${path.basename(cachePath, ".webp")}"`;
@@ -163,23 +158,19 @@ export async function handleImage(_req: IncomingMessage, res: ServerResponse, ur
     await ensureCacheDir();
 
     if (await freshCachedFile(cachePath)) {
-      serveCacheFile(res, cachePath, etag, "HIT");
-      return;
+      return serveCacheFile(c, cachePath, etag, "HIT");
     }
 
     const ok = await generateVariant(cachePath, targetUrl, bucket);
     if (ok) {
-      serveCacheFile(res, cachePath, etag, "MISS");
-      return;
+      return serveCacheFile(c, cachePath, etag, "MISS");
     }
-    // Upstream fetch failed — if a stale cached copy exists, serve it rather than 502.
     if (await cachedFileExists(cachePath)) {
-      serveCacheFile(res, cachePath, etag, "STALE");
-      return;
+      return serveCacheFile(c, cachePath, etag, "STALE");
     }
-    json(res, 502, { error: "Failed to fetch image" });
+    return errorJson(c, 502, "Failed to fetch image");
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Image proxy failed" });
+    return errorJson(c, 500, "Image proxy failed");
   }
 }

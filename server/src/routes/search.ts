@@ -1,6 +1,6 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json, withRouteError } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 import { buildFilterClauses } from "../utils/filters";
 import { formatSql, loadSql } from "../utils/sql";
 import { getAllStatOptions } from "../utils/stats";
@@ -10,19 +10,18 @@ const rostersSql = loadSql("../../sql/search/rosters.sql", import.meta.url);
 const teamsSql = loadSql("../../sql/search/teams.sql", import.meta.url);
 const eventsSql = loadSql("../../sql/search/events.sql", import.meta.url);
 
-export async function handleSearch(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const query = url.searchParams.get("q") ?? "";
-  const limit = Math.min(Number.parseInt(url.searchParams.get("limit") ?? "8", 10), 25);
+export async function handleSearch(c: Context) {
+  const query = c.req.query("q") ?? "";
+  const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "8", 10), 25);
   const trimmed = query.trim();
 
   if (!trimmed) {
-    json(res, 200, { players: [], teams: [], rosters: [], stats: [], events: [] });
-    return;
+    return jsonCached(c, { players: [], teams: [], rosters: [], stats: [], events: [] });
   }
 
-  await withRouteError(res, "Search failed", async () => {
+  try {
     const like = `%${trimmed}%`;
-    const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+    const { clauses, values } = buildFilterClauses(new URLSearchParams(c.req.query()), "s");
     const extraWhere = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
 
     const eventsLikeIndex = values.length + 1;
@@ -82,7 +81,7 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
         type: "stat"
       }));
 
-    json(res, 200, {
+    return jsonCached(c, {
       players: playersResult.rows.map((row) => ({
         id: row.id,
         label: row.label,
@@ -125,5 +124,8 @@ export async function handleSearch(_req: IncomingMessage, res: ServerResponse, u
         }
       }))
     });
-  });
+  } catch (error) {
+    console.error(error);
+    return errorJson(c, 500, "Search failed");
+  }
 }

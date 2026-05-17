@@ -1,6 +1,6 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 import { buildFilterClauses } from "../utils/filters";
 
 type QueryRow = {
@@ -96,11 +96,11 @@ function withExtraFilter(where: string, extra: string) {
   return `${where} AND ${extra}`;
 }
 
-function buildInsightsCacheKey(url: URL, limit: number) {
+function buildInsightsCacheKey(params: URLSearchParams, limit: number) {
   const keys = ["season", "split", "event", "gameMode", "scope", "tier"] as const;
   const parts = [`limit=${limit}`];
   for (const key of keys) {
-    const value = url.searchParams.get(key);
+    const value = params.get(key);
     if (value && value.trim()) {
       parts.push(`${key}=${value.trim().toLowerCase()}`);
     }
@@ -108,17 +108,17 @@ function buildInsightsCacheKey(url: URL, limit: number) {
   return parts.join("&");
 }
 
-export async function handleInsights(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
+export async function handleInsights(c: Context) {
+  const params = new URLSearchParams(c.req.query());
+  const rawLimit = Number.parseInt(c.req.query("limit") ?? "", 10);
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 10) : 6;
-  const cacheKey = buildInsightsCacheKey(url, limit);
+  const cacheKey = buildInsightsCacheKey(params, limit);
   const cached = insightsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    json(res, 200, cached.payload);
-    return;
+    return jsonCached(c, cached.payload);
   }
 
-  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const { clauses, values } = buildFilterClauses(params, "s");
   const baseWhere = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
   const queryDefinitions = [
@@ -362,9 +362,9 @@ export async function handleInsights(_req: IncomingMessage, res: ServerResponse,
       expiresAt: Date.now() + INSIGHTS_CACHE_TTL_MS,
       payload
     });
-    json(res, 200, payload);
+    return jsonCached(c, payload);
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to query insights" });
+    return errorJson(c, 500, "Failed to query insights");
   }
 }

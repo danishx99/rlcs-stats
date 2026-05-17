@@ -1,6 +1,6 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 import { buildFilterClauses, normalizeMode, parseListParam } from "../utils/filters";
 import { DEFAULT_COMPARE_STATS, getAllStatOptions, metricExpression, shouldUseGameDenominatorForTeamAvg } from "../utils/stats";
 import type { StatOption } from "../types";
@@ -42,9 +42,9 @@ function buildMetricSelect(
     .join(",\n            ");
 }
 
-function parseHistoryPagination(url: URL) {
-  const limitRaw = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
-  const offsetRaw = Number.parseInt(url.searchParams.get("offset") ?? "", 10);
+function parseHistoryPagination(params: URLSearchParams) {
+  const limitRaw = Number.parseInt(params.get("limit") ?? "", 10);
+  const offsetRaw = Number.parseInt(params.get("offset") ?? "", 10);
   const limit = Number.isFinite(limitRaw) && limitRaw > 0
     ? Math.min(limitRaw, MAX_HISTORY_LIMIT)
     : DEFAULT_HISTORY_LIMIT;
@@ -52,19 +52,18 @@ function parseHistoryPagination(url: URL) {
   return { limit, offset };
 }
 
-export async function handleCompare(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  const type = (url.searchParams.get("type") ?? "players") as CompareType;
-  const ids = parseListParam(url.searchParams.get("ids"));
-  const metricsRaw = parseListParam(url.searchParams.get("metrics"));
-  const mode = normalizeMode(url.searchParams.get("mode"));
+export async function handleCompare(c: Context) {
+  const params = new URLSearchParams(c.req.query());
+  const type = (c.req.query("type") ?? "players") as CompareType;
+  const ids = parseListParam(c.req.query("ids") ?? null);
+  const metricsRaw = parseListParam(c.req.query("metrics") ?? null);
+  const mode = normalizeMode(c.req.query("mode") ?? null);
 
   if (!ids.length) {
-    json(res, 400, { error: "ids is required" });
-    return;
+    return errorJson(c, 400, "ids is required");
   }
   if (ids.length > MAX_COMPARE_IDS) {
-    json(res, 400, { error: `A maximum of ${MAX_COMPARE_IDS} ids is allowed` });
-    return;
+    return errorJson(c, 400, `A maximum of ${MAX_COMPARE_IDS} ids is allowed`);
   }
 
   const metrics = metricsRaw.length ? metricsRaw : DEFAULT_COMPARE_STATS;
@@ -75,11 +74,10 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
     .filter((option): option is StatOption => Boolean(option));
 
   if (!options.length) {
-    json(res, 400, { error: "No valid metrics" });
-    return;
+    return errorJson(c, 400, "No valid metrics");
   }
 
-  const { clauses, values } = buildFilterClauses(url.searchParams, "s");
+  const { clauses, values } = buildFilterClauses(params, "s");
   const idsIndex = values.length + 1;
   try {
     if (type === "rosters") {
@@ -96,7 +94,7 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
         }),
         [...values, ids]
       );
-      json(res, 200, {
+      return jsonCached(c, {
         mode,
         metrics: options.map((option) => ({ key: option.key, label: option.label })),
         rows: result.rows.map((row) => ({
@@ -106,7 +104,6 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
           values: buildMetricValuesRow(row, options)
         }))
       });
-      return;
     }
 
     if (type === "teams") {
@@ -123,7 +120,7 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
         }),
         [...values, ids]
       );
-      json(res, 200, {
+      return jsonCached(c, {
         mode,
         metrics: options.map((option) => ({ key: option.key, label: option.label })),
         rows: result.rows.map((row) => ({
@@ -133,7 +130,6 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
           values: buildMetricValuesRow(row, options)
         }))
       });
-      return;
     }
 
     const result = await pool.query(
@@ -145,7 +141,7 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
       }),
       [...values, ids]
     );
-    json(res, 200, {
+    return jsonCached(c, {
       mode,
       metrics: options.map((option) => ({ key: option.key, label: option.label })),
       rows: result.rows.map((row) => ({
@@ -158,26 +154,21 @@ export async function handleCompare(_req: IncomingMessage, res: ServerResponse, 
     });
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: `Failed to compare ${type}` });
+    return errorJson(c, 500, `Failed to compare ${type}`);
   }
 }
 
-export async function handleCompareHistory(
-  _req: IncomingMessage,
-  res: ServerResponse,
-  url: URL
-) {
-  const type = url.searchParams.get("type") ?? "players";
-  const ids = parseListParam(url.searchParams.get("ids"));
-  const { limit, offset } = parseHistoryPagination(url);
+export async function handleCompareHistory(c: Context) {
+  const params = new URLSearchParams(c.req.query());
+  const type = c.req.query("type") ?? "players";
+  const ids = parseListParam(c.req.query("ids") ?? null);
+  const { limit, offset } = parseHistoryPagination(params);
 
   if (ids.length < 2) {
-    json(res, 200, { rows: [], total: 0, limit, offset });
-    return;
+    return jsonCached(c, { rows: [], total: 0, limit, offset });
   }
   if (ids.length > MAX_COMPARE_IDS) {
-    json(res, 400, { error: `A maximum of ${MAX_COMPARE_IDS} ids is allowed` });
-    return;
+    return errorJson(c, 400, `A maximum of ${MAX_COMPARE_IDS} ids is allowed`);
   }
 
   try {
@@ -190,7 +181,7 @@ export async function handleCompareHistory(
         };
 
     const { rows, total } = await runCompareHistoryQuery({
-      searchParams: url.searchParams,
+      searchParams: params,
       sqlTemplate: queryConfig.sqlTemplate,
       ids,
       limit,
@@ -199,9 +190,9 @@ export async function handleCompareHistory(
       extraSqlTokens: queryConfig.extraSqlTokens
     });
 
-    json(res, 200, { rows, total, limit, offset });
+    return jsonCached(c, { rows, total, limit, offset });
   } catch (error) {
     console.error(error);
-    json(res, 500, { error: "Failed to load compare history" });
+    return errorJson(c, 500, "Failed to load compare history");
   }
 }

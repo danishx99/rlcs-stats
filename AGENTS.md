@@ -21,7 +21,7 @@ RLCS Stats is a full-stack statistics platform for Rocket League Championship Se
 
 **Three main layers:**
 1. **Data Loader** (`src/`) - TypeScript/Bun CLI tool for CSV ingestion
-2. **REST API** (`server/`) - Node.js HTTP server providing JSON endpoints
+2. **REST API** (`server/`) - Hono app (on Bun via `@hono/node-server`) providing JSON endpoints
 3. **Web Frontend** (`web/`) - React + Vite SPA with dashboards and comparisons
 
 ---
@@ -57,7 +57,7 @@ RLCS Stats is a full-stack statistics platform for Rocket League Championship Se
 - `util/types.ts` - Shared loader types (`ColumnSpec`, `ColumnType`, `CellValue`, `FileReport`, `RowError`)
 
 ### API Server (`server/`)
-- `index.ts` - HTTP server entry point, route dispatch
+- `index.ts` - Hono app entry point: middleware (CORS, body limit), route registration, `serve()`
 - `src/config.ts` / `db.ts` / `types.ts` / `spotlight.ts` - Shared server modules
 - `src/routes/` - API route handlers
   - `players.ts` - Player search, profiles, season + results
@@ -73,7 +73,7 @@ RLCS Stats is a full-stack statistics platform for Rocket League Championship Se
   - `insights.ts` - Homepage "Fast Insights" queries (inline SQL, in-memory cache)
   - `feedback.ts` - Feedback submission
   - `image.ts` - Image proxy: resize + WebP + disk cache. See `docs/image-proxy.md`
-- `src/utils/` - Cross-route helpers: `filters.ts`, `http.ts`, `phases.ts`, `roster.ts`, `sql.ts` (`columnRef`), `stats.ts` (`metricExpression`, `ratingExpression`)
+- `src/utils/` - Cross-route helpers: `filters.ts`, `responses.ts` (`jsonCached`, `errorJson`), `phases.ts`, `roster.ts`, `sql.ts` (`columnRef`), `stats.ts` (`metricExpression`, `ratingExpression`)
 - `sql/` - SQL query templates organized by route
   - `players/`, `rosters/`, `compare/`, `stats/`, `meta/`, `events/`, `series/`, `standings/`, `search/`, `featured/`
 

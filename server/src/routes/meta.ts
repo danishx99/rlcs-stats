@@ -1,6 +1,6 @@
-import { type IncomingMessage, type ServerResponse } from "node:http";
+import type { Context } from "hono";
 import { pool } from "../db";
-import { json, withRouteError } from "../utils/http";
+import { errorJson, jsonCached } from "../utils/responses";
 import { buildFilterClauses } from "../utils/filters";
 import { categorizeStatOptions, FEATURED_INSIGHTS, getAllStatOptions, STAT_OPTIONS } from "../utils/stats";
 import { formatSql, loadSql } from "../utils/sql";
@@ -34,16 +34,15 @@ function toWhere(clauses: string[]) {
   return clauses.length ? `AND ${clauses.join(" AND ")}` : "";
 }
 
-export async function handleMeta(_req: IncomingMessage, res: ServerResponse, url: URL) {
-  await withRouteError(res, "Failed to load metadata", async () => {
-    const seasonFilters = buildFilterClauses(url.searchParams, "", ["gameMode", "scope", "tier"]);
-    const splitFilters = buildFilterClauses(url.searchParams, "", ["season", "gameMode", "scope", "tier"]);
-    // Event selectors should include all events for the selected season/split/mode,
-    // including LAN events, regardless of scope/tier filtering in data queries.
-    const eventFilters = buildFilterClauses(url.searchParams, "", ["season", "split", "gameMode"]);
-    const modeFilters = buildFilterClauses(url.searchParams, "", ["season", "split", "event", "scope", "tier"]);
-    const scopeFilters = buildFilterClauses(url.searchParams, "", ["season", "split", "event", "gameMode", "tier"]);
-    const tierFilters = buildFilterClauses(url.searchParams, "", ["season", "split", "event", "gameMode", "scope"]);
+export async function handleMeta(c: Context) {
+  const params = new URLSearchParams(c.req.query());
+  try {
+    const seasonFilters = buildFilterClauses(params, "", ["gameMode", "scope", "tier"]);
+    const splitFilters = buildFilterClauses(params, "", ["season", "gameMode", "scope", "tier"]);
+    const eventFilters = buildFilterClauses(params, "", ["season", "split", "gameMode"]);
+    const modeFilters = buildFilterClauses(params, "", ["season", "split", "event", "scope", "tier"]);
+    const scopeFilters = buildFilterClauses(params, "", ["season", "split", "event", "gameMode", "tier"]);
+    const tierFilters = buildFilterClauses(params, "", ["season", "split", "event", "gameMode", "scope"]);
 
     const [seasons, splits, events, internationalEvents, modes, scopes, tiers, arenas] = await Promise.all([
       pool.query(formatSql(seasonsSql, { where: toWhere(seasonFilters.clauses) }), seasonFilters.values),
@@ -56,7 +55,7 @@ export async function handleMeta(_req: IncomingMessage, res: ServerResponse, url
       getArenas()
     ]);
 
-    json(res, 200, {
+    return jsonCached(c, {
       generatedAt: new Date().toISOString(),
       seasons: seasons.rows.map((row) => row.value).filter(Boolean),
       splits: splits.rows.map((row) => row.value).filter(Boolean),
@@ -77,18 +76,24 @@ export async function handleMeta(_req: IncomingMessage, res: ServerResponse, url
         format
       }))
     });
-  });
+  } catch (error) {
+    console.error(error);
+    return errorJson(c, 500, "Failed to load metadata");
+  }
 }
 
-export async function handleMetaColumns(_req: IncomingMessage, res: ServerResponse) {
-  await withRouteError(res, "Failed to load column metadata", async () => {
+export async function handleMetaColumns(c: Context) {
+  try {
     const options = await getAllStatOptions();
     const categories = categorizeStatOptions(options);
-    json(res, 200, {
+    return jsonCached(c, {
       categories: categories.map((cat) => ({
         name: cat.name,
         stats: cat.stats.map(({ key, label, format }) => ({ key, label, format }))
       }))
     });
-  });
+  } catch (error) {
+    console.error(error);
+    return errorJson(c, 500, "Failed to load column metadata");
+  }
 }
