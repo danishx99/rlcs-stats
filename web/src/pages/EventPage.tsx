@@ -216,6 +216,31 @@ export default function EventPage() {
     );
   };
 
+  const selectedExtraStats = selectedStats.filter((k) => !CORE_LEADERBOARD_KEYS.has(k));
+  const {
+    dataByKey: leaderboardMap,
+    loadingByKey: loadingStats,
+    errorByKey: statLoadErrors,
+  } = useStatLeaderboards(
+    event ? selectedExtraStats : [],
+    {
+      type: "player",
+      mode: leaderboardMode,
+      sort: "desc",
+      limit: 10,
+      ssaOnly: true,
+      gameMode: event?.mode ?? undefined,
+      scope: event?.scope ?? undefined,
+      tier: event?.tier ?? undefined,
+      season: event?.season ?? undefined,
+      split: event?.split ?? undefined,
+      event: event?.name ?? undefined,
+      arena: arenaParam || undefined,
+      phase: selectedPhase,
+      day: selectedDay,
+    }
+  );
+
   const handleShare = async () => {
     const shareUrl = window.location.href;
     const shareTitle = event?.name ? `RLCS Stats · ${event.name}` : "RLCS Stats";
@@ -287,30 +312,6 @@ export default function EventPage() {
     }
     return acc;
   }, []);
-  const selectedExtraStats = selectedStats.filter((k) => !CORE_LEADERBOARD_KEYS.has(k));
-  const {
-    dataByKey: leaderboardMap,
-    loadingByKey: loadingStats,
-    errorByKey: statLoadErrors,
-  } = useStatLeaderboards(
-    event ? selectedExtraStats : [],
-    {
-      type: "player",
-      mode: leaderboardMode,
-      sort: "desc",
-      limit: 10,
-      ssaOnly: true,
-      gameMode: event?.mode ?? undefined,
-      scope: event?.scope ?? undefined,
-      tier: event?.tier ?? undefined,
-      season: event?.season ?? undefined,
-      split: event?.split ?? undefined,
-      event: event?.name ?? undefined,
-      arena: arenaParam || undefined,
-      phase: selectedPhase,
-      day: selectedDay,
-    }
-  );
 
   return (
     <div className="page page-no-nav">

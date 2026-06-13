@@ -11,6 +11,7 @@ function buildSeriesUpdateSql(scoped: boolean): string {
 WITH match_agg AS (
   SELECT
     s."Match ID" AS match_id,
+    s."Game" AS game_id,
     MIN(NULLIF(TRIM(s."Team"), '')) AS team_a,
     MAX(NULLIF(TRIM(s."Team"), '')) AS team_b,
     COUNT(DISTINCT UPPER(TRIM(s."Team"))) AS team_count,
@@ -31,11 +32,12 @@ WITH match_agg AS (
     AND s."Team" IS NOT NULL
     AND TRIM(s."Team") <> ''
     ${scopeFilter}
-  GROUP BY s."Match ID"
+  GROUP BY s."Match ID", s."Game"
 ),
 match_series AS (
   SELECT
     ma.match_id,
+    ma.game_id,
     CASE
       WHEN ma.team_count = 2 THEN md5(
         COALESCE(ma.mode, '') || '|' ||
@@ -73,6 +75,7 @@ UPDATE stats s
 SET series_id = ms.series_id
 FROM match_series ms
 WHERE s."Match ID" = ms.match_id
+  AND s."Game" IS NOT DISTINCT FROM ms.game_id
   AND s.series_id IS NULL
   AND ms.series_id IS NOT NULL;
 `;
@@ -103,11 +106,12 @@ SELECT
   ARRAY_AGG(DISTINCT NULLIF(TRIM(s."Unique ID"), '') ORDER BY NULLIF(TRIM(s."Unique ID"), '')) AS starters
 FROM stats s
 WHERE s.series_id IS NOT NULL
+  AND s."mode" IN ('2s', '3s')
   AND s."Team" IS NOT NULL
   AND TRIM(s."Team") <> ''
   AND NULLIF(TRIM(s."Unique ID"), '') IS NOT NULL
 GROUP BY s.series_id, TRIM(s."Team")
-HAVING COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) = 3;
+HAVING COUNT(DISTINCT NULLIF(TRIM(s."Unique ID"), '')) IN (2, 3);
 `;
 
 export async function refreshSeriesRoster(client: Client): Promise<number> {
